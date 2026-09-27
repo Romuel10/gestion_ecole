@@ -9,12 +9,22 @@ export class StorageService {
       throw new Error('Schéma de base de données invalide.');
     }
 
-    const schoolYears = Array.isArray(candidate.schoolYears) ? candidate.schoolYears : [];
+    const rawSchoolYears = Array.isArray(candidate.schoolYears) ? candidate.schoolYears : [];
     const currentSchoolYearId =
       candidate.currentSchoolYearId ||
-      schoolYears.find((year) => year.isCurrent)?.id ||
-      schoolYears[0]?.id ||
+      rawSchoolYears.find((year) => year.isCurrent)?.id ||
+      rawSchoolYears[0]?.id ||
       INITIAL_DATA.currentSchoolYearId;
+    const schoolYears = rawSchoolYears.map((year) => ({
+      ...year,
+      status:
+        year.status ||
+        (year.id === currentSchoolYearId
+          ? ('ACTIVE' as const)
+          : year.closedAt
+          ? ('CLOSED' as const)
+          : ('PLANNED' as const)),
+    }));
 
     return {
       ...INITIAL_DATA,
