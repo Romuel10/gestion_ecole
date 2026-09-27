@@ -29,19 +29,29 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
   if (!student) return null;
 
   const currentClass = db.classes.find((c) => c.id === student.classId);
-  const studentPayments = db.tuitionPayments.filter((p) => p.studentId === student.id);
+  const studentYear = db.schoolYears.find((year) => year.id === student.schoolYearId);
+  const studentPayments = db.tuitionPayments.filter(
+    (payment) =>
+      payment.studentId === student.id &&
+      payment.schoolYearId === student.schoolYearId
+  );
   const totalPaid = studentPayments.reduce((acc, p) => acc + p.amount, 0);
 
-  // Compute student report card summary for current active term
+  // Compute the report card in the student's own enrollment year.
   const classSummaries = CalculationService.generateClassReportCards(
     db,
     student.classId,
     db.currentTermCode,
-    db.currentSchoolYearId
+    student.schoolYearId
   );
   const studentSummary = classSummaries.find((s) => s.studentId === student.id);
 
-  const studentAttendance = db.attendanceRecords.filter((a) => a.studentId === student.id);
+  const studentAttendance = db.attendanceRecords.filter(
+    (attendance) =>
+      attendance.studentId === student.id &&
+      (!studentYear ||
+        (attendance.date >= studentYear.startDate && attendance.date <= studentYear.endDate))
+  );
 
   return (
     <Modal
