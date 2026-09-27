@@ -488,7 +488,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
   };
 
   const activateYear = (schoolYear: SchoolYear) => {
-    const nextTermCode = schoolYear.terms[0]?.code || db.currentTermCode;
+    const nextTermCode = schoolYear.terms[0]?.code || '';
     updateDatabase(
       {
         ...db,
