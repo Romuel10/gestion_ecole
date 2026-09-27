@@ -6,10 +6,12 @@ import {
   Printer,
   AlertTriangle,
   FileDown,
+  WandSparkles,
 } from 'lucide-react';
 import { DatabaseSchema, TimetableSlot } from '../../types/school';
 import { StorageService } from '../../services/storage';
 import { PdfGeneratorService } from '../../services/pdfGenerator';
+import { TimetableGeneratorService } from '../../services/timetableGenerator';
 import { Modal } from '../common/Modal';
 
 interface TimetableViewProps {
@@ -260,6 +262,44 @@ export const TimetableView: React.FC<TimetableViewProps> = ({
     onShowToast('Créneau supprimé du planning.', 'info');
   };
 
+  const handleGenerateAutomatically = () => {
+    const result = TimetableGeneratorService.generate(db);
+
+    if (result.slots.length === 0) {
+      onShowToast(
+        'Aucun cours n’a pu être généré. Vérifiez les enseignants et heures configurés dans Paramètres > Classes.',
+        'error'
+      );
+      return;
+    }
+
+    const message =
+      db.timetableSlots.length > 0
+        ? `Le planning actuel contient ${db.timetableSlots.length} créneau(x). Le générateur va le remplacer par ${result.slots.length} créneau(x). Continuer ?`
+        : `Générer automatiquement ${result.slots.length} créneau(x) ?`;
+
+    if (!window.confirm(message)) return;
+
+    const updatedDb: DatabaseSchema = {
+      ...db,
+      timetableSlots: result.slots,
+    };
+    StorageService.saveDatabase(updatedDb);
+    onUpdateDb(updatedDb);
+
+    if (result.unassigned.length > 0) {
+      onShowToast(
+        `Planning généré : ${result.slots.length} cours placés, ${result.unassigned.length} matière(s) restent à compléter manuellement.`,
+        'info'
+      );
+    } else {
+      onShowToast(
+        `Planning généré automatiquement : ${result.slots.length} cours sans conflit.`,
+        'success'
+      );
+    }
+  };
+
   // Filter slots based on active view
   const currentSlots = db.timetableSlots.filter((slot) => {
     if (viewType === 'CLASS') return slot.classId === selectedEntityId;
@@ -349,6 +389,15 @@ export const TimetableView: React.FC<TimetableViewProps> = ({
               {allRooms.map((room) => <option key={room} value={room}>{room}</option>)}
             </select>
           )}
+          <button
+            type="button"
+            onClick={handleGenerateAutomatically}
+            className="button button--secondary"
+            title="Reconstruit tout le planning selon les heures, enseignants, classes et salles configurés."
+          >
+            <WandSparkles className="w-3.5 h-3.5" />
+            Générer automatiquement
+          </button>
           <button
             type="button"
             onClick={() => PdfGeneratorService.generateTimetablePDF(db, viewType, selectedEntityId)}
