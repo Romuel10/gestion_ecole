@@ -268,6 +268,39 @@ export const TimetableView: React.FC<TimetableViewProps> = ({
 
   const allRooms = Array.from(new Set(db.timetableSlots.map((s) => s.room)));
 
+  const scheduleIssues = (() => {
+    const issues: string[] = [];
+    for (let i = 0; i < db.timetableSlots.length; i++) {
+      for (let j = i + 1; j < db.timetableSlots.length; j++) {
+        const a = db.timetableSlots[i];
+        const b = db.timetableSlots[j];
+        if (a.dayOfWeek !== b.dayOfWeek) continue;
+        const overlaps = a.startTime < b.endTime && b.startTime < a.endTime;
+        if (!overlaps) continue;
+
+        const dayName = days.find((day) => day.id === a.dayOfWeek)?.name || 'Jour';
+        if (a.teacherId === b.teacherId) {
+          const teacher = teacherMap.get(a.teacherId);
+          issues.push(
+            `${dayName} ${a.startTime}-${a.endTime} : ${teacher?.lastName || 'Enseignant'} est programmé sur deux cours.`
+          );
+        }
+        if (a.classId === b.classId) {
+          const schoolClass = classMap.get(a.classId);
+          issues.push(
+            `${dayName} ${a.startTime}-${a.endTime} : ${schoolClass?.name || 'Classe'} a deux cours simultanés.`
+          );
+        }
+        if (a.room.trim().toLowerCase() === b.room.trim().toLowerCase()) {
+          issues.push(
+            `${dayName} ${a.startTime}-${a.endTime} : la salle ${a.room} est utilisée deux fois.`
+          );
+        }
+      }
+    }
+    return Array.from(new Set(issues));
+  })();
+
   return (
     <div className="space-y-6">
       <div className="page-panel p-3 flex flex-col xl:flex-row xl:items-center justify-between gap-3">
@@ -328,6 +361,23 @@ export const TimetableView: React.FC<TimetableViewProps> = ({
           </button>
         </div>
       </div>
+
+      {scheduleIssues.length > 0 && (
+        <div className="schedule-audit">
+          <div className="schedule-audit__title">
+            <AlertTriangle className="w-4 h-4" />
+            {scheduleIssues.length} conflit(s) détecté(s) dans le planning existant
+          </div>
+          <div className="schedule-audit__list">
+            {scheduleIssues.slice(0, 6).map((issue) => (
+              <div key={issue}>{issue}</div>
+            ))}
+            {scheduleIssues.length > 6 && (
+              <div>+ {scheduleIssues.length - 6} autre(s) conflit(s)</div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Interactive Weekly Timetable Grid */}
       <div id="printable-area" className="page-panel overflow-x-auto timetable-print-area">
