@@ -262,6 +262,21 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
     REVIEW: annualDecisions.filter((item) => item.outcome === 'REVIEW').length,
   };
 
+  const allAnnualDecisions = CalculationService.computeAnnualDecisions(
+    db,
+    db.currentSchoolYearId
+  );
+  const projectedClassGroups = db.classes
+    .map((schoolClass) => ({
+      schoolClass,
+      students: allAnnualDecisions.filter(
+        (decision) =>
+          ['PROMOTE', 'REPEAT'].includes(decision.outcome) &&
+          decision.destinationClassId === schoolClass.id
+      ),
+    }))
+    .filter((group) => group.students.length > 0);
+
   const nextSchoolYear = db.schoolYears
     .filter((year) => year.startDate > (activeSchoolYear?.startDate || ''))
     .sort((a, b) => a.startDate.localeCompare(b.startDate))[0];
@@ -853,6 +868,68 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
                 </tbody>
               </table>
             </div>
+          </div>
+
+          <div className="page-panel overflow-hidden">
+            <div className="page-panel__header">
+              <div>
+                <h3 className="page-panel__title">Répartition prévisionnelle par classe</h3>
+                <p className="page-panel__subtitle">
+                  Élèves admis et redoublants regroupés dans leur classe prévue
+                  {nextSchoolYear ? ` pour ${nextSchoolYear.label}` : ''}.
+                </p>
+              </div>
+              <div className="text-[10.5px] text-slate-500">
+                {allAnnualDecisions.filter((item) => ['PROMOTE', 'REPEAT'].includes(item.outcome)).length} dossier(s)
+              </div>
+            </div>
+
+            {projectedClassGroups.length === 0 ? (
+              <div className="p-8 text-center text-[11px] text-slate-500">
+                Aucune répartition disponible. Vérifiez les règles de décision et les classes suivantes.
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-200 dark:divide-slate-800">
+                {projectedClassGroups.map((group) => (
+                  <div key={group.schoolClass.id}>
+                    <div className="flex items-center justify-between px-4 py-2.5 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
+                      <div className="text-[11px] font-semibold">{group.schoolClass.name}</div>
+                      <div className="text-[10px] text-slate-500">
+                        {group.students.length} / {group.schoolClass.capacity}
+                      </div>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="erp-table">
+                        <thead>
+                          <tr>
+                            <th>Matricule</th>
+                            <th>Élève</th>
+                            <th>Classe actuelle</th>
+                            <th className="text-right">Moyenne</th>
+                            <th>Décision</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {group.students.map((decision) => (
+                            <tr key={decision.student.id}>
+                              <td className="font-mono text-slate-500">{decision.student.matricule}</td>
+                              <td className="font-semibold">
+                                {decision.student.lastName} {decision.student.firstName}
+                              </td>
+                              <td>
+                                {db.classes.find((item) => item.id === decision.student.classId)?.name || '—'}
+                              </td>
+                              <td className="text-right font-mono">{decision.annualAverage.toFixed(2)}</td>
+                              <td>{decision.label}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
