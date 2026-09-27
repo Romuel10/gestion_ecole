@@ -252,6 +252,7 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
       paymentMethod: salaryForm.paymentMethod,
       beneficiaryOrPayer: `${teacher.lastName} ${teacher.firstName}`,
       description: `Règlement salaire ${teacher.lastName} (${salaryForm.month})`,
+      relatedReceiptId: newSalary.id,
       schoolYearId: db.currentSchoolYearId,
     };
 
