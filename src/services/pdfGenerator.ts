@@ -17,7 +17,9 @@ export class PdfGeneratorService {
     const cfg = db.schoolConfig;
     const yearObj = db.schoolYears.find(y => y.id === summary.schoolYearId);
     const yearLabel = yearObj?.label || 'Année scolaire';
-    const termLabel = summary.termCode === 'TRIMESTRE_1' ? '1er TRIMESTRE' : summary.termCode === 'TRIMESTRE_2' ? '2ème TRIMESTRE' : '3ème TRIMESTRE';
+    const termLabel =
+      yearObj?.terms.find((term) => term.code === summary.termCode)?.label.toUpperCase() ||
+      summary.termCode.replace(/_/g, ' ').toUpperCase();
 
     // Official Madagascar Top Header
     doc.setFont('helvetica', 'bold');
