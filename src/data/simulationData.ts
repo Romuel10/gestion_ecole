@@ -744,6 +744,7 @@ export const buildSimulationDatabase = (base: DatabaseSchema): DatabaseSchema =>
     grades: [...currentGrades, ...archiveGrades],
     tuitionPayments: [...currentFinance.payments, ...archiveFinance.payments],
     salaryPayments,
+    cashDayClosures: [],
     cashTransactions: [
       ...currentFinance.cash,
       ...archiveFinance.cash,
