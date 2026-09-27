@@ -304,29 +304,68 @@
 }
 
 .app-period-switcher {
-  height: 36px;
+  min-height: 42px;
   display: flex;
-  align-items: center;
+  align-items: stretch;
   border: 1px solid var(--border);
   border-radius: 3px;
-  background: var(--surface-muted);
+  background: var(--surface);
   overflow: hidden;
 }
 
+.app-period-switcher__control {
+  min-width: 132px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 4px 9px 3px;
+  background: var(--surface);
+}
+
+.app-period-switcher__control > span {
+  color: var(--text-muted);
+  font-size: 8.5px;
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: .055em;
+  font-weight: 700;
+}
+
 .app-period-switcher select {
-  height: 100%;
-  border: 0;
-  padding: 0 9px;
+  width: 100%;
+  height: 24px;
+  border: 0 !important;
+  padding: 0;
   outline: none;
-  background: transparent;
-  color: var(--text);
+  background: var(--surface) !important;
+  color: var(--text) !important;
   font-size: 11.5px;
-  font-weight: 600;
+  font-weight: 650;
+  color-scheme: light;
+}
+
+.dark .app-period-switcher select {
+  color-scheme: dark;
+}
+
+.app-period-switcher select option {
+  background: #ffffff;
+  color: #17202a;
+}
+
+.dark .app-period-switcher select option {
+  background: #171d24;
+  color: #edf1f5;
+}
+
+.app-period-switcher select:disabled {
+  color: var(--text-muted) !important;
+  opacity: 1;
 }
 
 .app-period-switcher__separator {
   width: 1px;
-  height: 18px;
+  margin: 8px 0;
   background: var(--border);
 }
 
@@ -417,6 +456,33 @@
   opacity: .55;
   cursor: not-allowed;
   background: var(--surface-muted);
+}
+
+.matricule-preset {
+  min-height: 64px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  text-align: left;
+}
+
+.matricule-preset:hover {
+  border-color: var(--primary);
+  background: var(--surface-muted);
+}
+
+.matricule-preset strong {
+  display: block;
+  color: var(--text);
+  font-size: 11.5px;
+}
+
+.matricule-preset span {
+  display: block;
+  margin-top: 5px;
+  color: var(--text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
 }
 
 .page-panel {
