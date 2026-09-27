@@ -32,6 +32,18 @@ export function App() {
   });
 
   useEffect(() => {
+    let mounted = true;
+
+    StorageService.hydrateDesktopDatabase().then((desktopDb) => {
+      if (mounted && desktopDb) setDb(desktopDb);
+    });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
     document.documentElement.classList.toggle('dark', isDark);
     localStorage.setItem('EDUGASY_THEME', isDark ? 'dark' : 'light');
   }, [isDark]);
