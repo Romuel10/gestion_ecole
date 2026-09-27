@@ -395,11 +395,17 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
 
             <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm">
               <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                Taux d'Admission (≥ 10/20)
+                Taux d'Admission (≥ {db.schoolConfig.passingGrade || 10}/20)
               </span>
               <div className="mt-2 text-2xl font-extrabold text-purple-600 dark:text-purple-400">
                 {gradedReportCards.length > 0
-                  ? Math.round((gradedReportCards.filter((r) => r.generalAverage >= 10).length / gradedReportCards.length) * 100)
+                  ? Math.round(
+                      (gradedReportCards.filter(
+                        (r) => r.generalAverage >= (db.schoolConfig.passingGrade || 10)
+                      ).length /
+                        gradedReportCards.length) *
+                        100
+                    )
                   : 0}
                 %
               </div>
