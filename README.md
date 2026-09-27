@@ -1,50 +1,129 @@
-# EduGasy Pro
+# SEKOLY
 
-Logiciel de gestion scolaire pour les établissements d'enseignement primaire, collège et lycée à Madagascar. Conçu pour couvrir les besoins administratifs, pédagogiques et financiers d'une école, en s'appuyant sur les usages du Ministère de l'Éducation Nationale (structures CISCO, DREN, ZAP, bulletins trimestriels sur 20, mentions officielles).
+**Sekoly** est un logiciel local de gestion d'établissement scolaire conçu pour Madagascar.
 
-L'application fonctionne entièrement en local, dans le navigateur. Aucun serveur n'est requis : les données sont enregistrées dans le navigateur et peuvent être sauvegardées ou restaurées sous forme de fichier JSON.
+L'application reste utilisable en mode web pour le développement, mais la version destinée aux établissements est une application de bureau **Tauri + SQLite**. Aucun serveur, compte cloud ou abonnement n'est nécessaire.
+
+## Principes
+
+- fonctionnement local et hors ligne ;
+- base SQLite stockée sur le poste ;
+- sauvegarde/restauration JSON ;
+- installation Windows en `.exe` ou `.msi` ;
+- logo du logiciel distinct du logo de l'établissement ;
+- données neuves à la première installation ;
+- classes, matières, enseignants et paramètres configurables par l'utilisateur.
 
 ## Modules
 
-### Inscriptions
-Saisie du dossier élève (état civil, parents ou tuteurs, établissement d'origine), attribution automatique du matricule selon une formule paramétrable, encaissement des droits d'inscription avec récépissé numéroté, et réinscription rapide des élèves des années précédentes.
+- admissions et réinscriptions ;
+- fichier élèves ;
+- import Excel des élèves ;
+- notes et bulletins ;
+- import Excel des notes ;
+- décisions annuelles et passage de classe ;
+- vie scolaire et assiduité ;
+- emploi du temps manuel ou automatique ;
+- finances et clôture de caisse ;
+- enseignants ;
+- documents scolaires PDF ;
+- clôture annuelle ;
+- sauvegarde et restauration.
 
-### Fichier élèves
-Répertoire avec recherche par nom, matricule, classe ou statut. Chaque élève dispose d'une fiche individuelle regroupant ses informations civiles, ses notes, l'historique de ses règlements d'écolage et son suivi d'assiduité. Export du registre en CSV.
+## Import Excel
 
-### Notes et bulletins
-Saisie des notes par classe et par matière (contrôles continus, devoirs, compositions). Calcul automatique des moyennes par matière, de la moyenne générale pondérée, du rang dans la classe et des mentions. Génération des bulletins trimestriels au format PDF, individuellement ou pour une classe entière.
+### Élèves
 
-### Finances
-Recouvrement des écolages mensuels (septembre à juin) avec suivi par élève et par mois. Encaissements par espèces, Mobile Money (MVola, Orange Money, Airtel Money), virement ou chèque. Paie du personnel enseignant titulaire (salaire fixe) et vacataire (taux horaire), avec retenues CNaPS et OSTIE. Journal de casse pour les recettes et dépenses courantes.
+Dans **Élèves** :
 
-### Emplois du temps
-Planning hebdomadaire consultable par classe, par enseignant ou par salle, avec détection des conflits de réservation.
+1. cliquer sur **Modèle Excel** ;
+2. remplir la feuille `Eleves` ;
+3. utiliser les codes/noms des classes configurées ;
+4. laisser le matricule vide si Sekoly doit le générer ;
+5. cliquer sur **Importer Excel** ;
+6. corriger les erreurs éventuelles puis confirmer l'import.
 
-### Paramétrage
-Identification de l'établissement, gestion des années scolaires et des trimestres, classes et coefficients par matière, formule de matricule, sauvegarde et restauration de la base de données.
+### Notes
 
-## Interface
+Dans **Notes et bulletins** :
 
-Bureau de travail avec barre de menus, barre latérale, barre d'état et palette de commandes (Ctrl + K). Mode clair et mode sombre, mémorisés entre les sessions. Une vue 3D du campus est disponible sur le tableau de bord.
+1. télécharger **Modèle notes Excel** ;
+2. renseigner matricule, matière, période et notes ;
+3. importer le fichier ;
+4. Sekoly vérifie les notes 0–20, les matières, les élèves et les périodes verrouillées ;
+5. les notes existantes sont mises à jour sans créer de doublons.
 
-## Développement
+## Développement web
 
-Prérequis : Node.js 18 ou plus récent.
+Prérequis : Node.js 22 recommandé.
 
 ```bash
-npm install
+npm ci
 npm run dev
 ```
 
-Autres scripts disponibles :
+Validation :
 
 ```bash
-npm run build    # compilation TypeScript + build de production
-npm run preview  # prévisualisation du build de production
-npm run lint     # vérification statique avec oxlint
+npm run build
+npm run lint
 ```
 
-## Données
+## Développement desktop
 
-La base est stockée dans le navigateur (localStorage). Pensez à exporter régulièrement une sauvegarde JSON depuis le menu Fichier ou la page Paramétrage — c'est le seul moyen de récupérer les données en cas de nettoyage du navigateur, ou de les transférer vers un autre poste.
+Prérequis supplémentaires :
+
+- Rust stable ;
+- Tauri CLI 2 ;
+- sous Windows : Microsoft C++ Build Tools / WebView2 selon l'environnement de développement.
+
+Installer Tauri CLI :
+
+```bash
+cargo install tauri-cli --version "^2.0.0" --locked
+```
+
+Générer les icônes du logiciel depuis l'identité Sekoly :
+
+```bash
+cargo tauri icon public/sekoly-app.svg
+```
+
+Lancer l'application desktop :
+
+```bash
+npm run desktop:dev
+```
+
+Créer les installateurs :
+
+```bash
+npm run desktop:build
+```
+
+Les bundles Windows sont produits sous `src-tauri/target/release/bundle/`.
+
+## GitHub Actions
+
+Le workflow **Windows Desktop** :
+
+- compile le frontend ;
+- installe Rust/Tauri ;
+- génère les icônes depuis `public/sekoly-app.svg` ;
+- construit un installateur NSIS `.exe` ;
+- construit un installateur MSI ;
+- publie les installateurs comme artefacts GitHub Actions.
+
+Le mode WebView2 `offlineInstaller` est utilisé afin que l'installation finale ne dépende pas d'une connexion Internet.
+
+## Données locales
+
+Sur desktop, Sekoly utilise SQLite. Le fichier de base est créé dans le dossier de données local de l'application sous le nom :
+
+```text
+sekoly.sqlite
+```
+
+Le navigateur conserve seulement un cache de développement. Dans l'application Windows, SQLite est la persistance principale.
+
+À la première installation, la base ne contient aucun élève, enseignant, classe, matière, note ou paiement. L'utilisateur configure son établissement puis peut importer ses listes depuis Excel.
