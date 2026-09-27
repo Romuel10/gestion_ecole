@@ -66,38 +66,49 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
 
   // Add School Year
   const handleAddSchoolYear = () => {
-    const nextYearLabel = '2026 - 2027';
+    const latestYear = [...db.schoolYears].sort((a, b) => b.startDate.localeCompare(a.startDate))[0];
+    const latestStartYear = Number(latestYear?.startDate.slice(0, 4)) || new Date().getFullYear();
+    const nextStartYear = latestStartYear + 1;
+    const nextEndYear = nextStartYear + 1;
+    const nextYearLabel = `${nextStartYear} - ${nextEndYear}`;
+
+    if (db.schoolYears.some((year) => year.startDate.startsWith(String(nextStartYear)))) {
+      onShowToast(`La session ${nextYearLabel} existe déjà.`, 'error');
+      return;
+    }
+
+    const now = Date.now();
     const newYear: SchoolYear = {
-      id: `sy-${Date.now()}`,
+      id: `sy-${now}`,
       label: nextYearLabel,
-      startDate: '2026-09-01',
-      endDate: '2027-06-30',
+      startDate: `${nextStartYear}-09-01`,
+      endDate: `${nextEndYear}-06-30`,
       isCurrent: false,
       terms: [
         {
-          id: `term-${Date.now()}-1`,
+          id: `term-${now}-1`,
           code: 'TRIMESTRE_1',
           label: '1er Trimestre',
-          startDate: '2026-09-01',
-          endDate: '2026-12-18',
+          startDate: `${nextStartYear}-09-01`,
+          endDate: `${nextStartYear}-12-18`,
           weight: 1,
           isLocked: false,
         },
         {
-          id: `term-${Date.now()}-2`,
+          id: `term-${now}-2`,
           code: 'TRIMESTRE_2',
           label: '2ème Trimestre',
-          startDate: '2027-01-04',
-          endDate: '2027-03-26',
+          startDate: `${nextEndYear}-01-04`,
+          endDate: `${nextEndYear}-03-26`,
           weight: 1,
           isLocked: false,
         },
         {
-          id: `term-${Date.now()}-3`,
+          id: `term-${now}-3`,
           code: 'TRIMESTRE_3',
           label: '3ème Trimestre',
-          startDate: '2027-04-12',
-          endDate: '2027-06-25',
+          startDate: `${nextEndYear}-04-12`,
+          endDate: `${nextEndYear}-06-25`,
           weight: 1,
           isLocked: false,
         },
@@ -493,7 +504,14 @@ Paramétrage général de l'application
                   {sy.id !== db.currentSchoolYearId && (
                     <button
                       onClick={() => {
-                        const updated: DatabaseSchema = { ...db, currentSchoolYearId: sy.id };
+                        const updated: DatabaseSchema = {
+                          ...db,
+                          currentSchoolYearId: sy.id,
+                          schoolYears: db.schoolYears.map((year) => ({
+                            ...year,
+                            isCurrent: year.id === sy.id,
+                          })),
+                        };
                         StorageService.saveDatabase(updated);
                         onUpdateDb(updated);
                         onShowToast(`Session active basculée sur ${sy.label}`, 'info');

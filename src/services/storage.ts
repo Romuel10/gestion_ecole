@@ -4,6 +4,49 @@ import { INITIAL_DATA } from '../data/initialData';
 const DB_KEY = 'EDUGASY_PRO_LOCAL_DB_V2';
 
 export class StorageService {
+  private static normalizeDatabase(candidate: Partial<DatabaseSchema>): DatabaseSchema {
+    if (!candidate || typeof candidate !== 'object' || !candidate.schoolConfig) {
+      throw new Error('Schéma de base de données invalide.');
+    }
+
+    const schoolYears = Array.isArray(candidate.schoolYears) ? candidate.schoolYears : [];
+    const currentSchoolYearId =
+      candidate.currentSchoolYearId ||
+      schoolYears.find((year) => year.isCurrent)?.id ||
+      schoolYears[0]?.id ||
+      INITIAL_DATA.currentSchoolYearId;
+
+    return {
+      ...INITIAL_DATA,
+      ...candidate,
+      version: candidate.version || INITIAL_DATA.version,
+      lastUpdated: candidate.lastUpdated || new Date().toISOString(),
+      schoolConfig: {
+        ...INITIAL_DATA.schoolConfig,
+        ...candidate.schoolConfig,
+        schoolMonths: Array.isArray(candidate.schoolConfig.schoolMonths)
+          ? candidate.schoolConfig.schoolMonths
+          : INITIAL_DATA.schoolConfig.schoolMonths,
+      },
+      matriculeConfig: {
+        ...INITIAL_DATA.matriculeConfig,
+        ...(candidate.matriculeConfig || {}),
+      },
+      schoolYears,
+      currentSchoolYearId,
+      subjects: Array.isArray(candidate.subjects) ? candidate.subjects : [],
+      classes: Array.isArray(candidate.classes) ? candidate.classes : [],
+      students: Array.isArray(candidate.students) ? candidate.students : [],
+      teachers: Array.isArray(candidate.teachers) ? candidate.teachers : [],
+      grades: Array.isArray(candidate.grades) ? candidate.grades : [],
+      tuitionPayments: Array.isArray(candidate.tuitionPayments) ? candidate.tuitionPayments : [],
+      salaryPayments: Array.isArray(candidate.salaryPayments) ? candidate.salaryPayments : [],
+      cashTransactions: Array.isArray(candidate.cashTransactions) ? candidate.cashTransactions : [],
+      timetableSlots: Array.isArray(candidate.timetableSlots) ? candidate.timetableSlots : [],
+      attendanceRecords: Array.isArray(candidate.attendanceRecords) ? candidate.attendanceRecords : [],
+    };
+  }
+
   /**
    * Loads the current database from LocalStorage or initializes it with Madagascar defaults
    */
@@ -14,14 +57,10 @@ export class StorageService {
         this.saveDatabase(INITIAL_DATA);
         return INITIAL_DATA;
       }
-      const parsed = JSON.parse(raw) as DatabaseSchema;
-      // Basic sanity checks
-      if (!parsed.version || !parsed.students || !parsed.teachers || !parsed.classes) {
-        console.warn('Invalid schema found in localStorage, restoring defaults...');
-        this.saveDatabase(INITIAL_DATA);
-        return INITIAL_DATA;
-      }
-      return parsed;
+      const parsed = JSON.parse(raw) as Partial<DatabaseSchema>;
+      const normalized = this.normalizeDatabase(parsed);
+      this.saveDatabase(normalized);
+      return normalized;
     } catch (e) {
       console.error('Failed to load database from localStorage, fallback to initial data', e);
       return INITIAL_DATA;
@@ -78,12 +117,10 @@ export class StorageService {
       reader.onload = (e) => {
         try {
           const content = e.target?.result as string;
-          const parsed = JSON.parse(content) as DatabaseSchema;
-          if (!parsed.schoolConfig || !parsed.students || !parsed.classes) {
-            throw new Error('Fichier de sauvegarde invalide ou incomplet.');
-          }
-          this.saveDatabase(parsed);
-          resolve(parsed);
+          const parsed = JSON.parse(content) as Partial<DatabaseSchema>;
+          const normalized = this.normalizeDatabase(parsed);
+          this.saveDatabase(normalized);
+          resolve(normalized);
         } catch (err) {
           reject(err);
         }
@@ -115,20 +152,21 @@ export class StorageService {
 
     const classMap = new Map(db.classes.map(c => [c.id, c.name]));
 
+    const csvCell = (value: unknown) => `"${String(value ?? '').replace(/"/g, '""')}"`;
     const rows = db.students.map(s => [
-      `"${s.matricule}"`,
-      `"${s.lastName}"`,
-      `"${s.firstName}"`,
-      `"${s.gender}"`,
-      `"${s.birthDate}"`,
-      `"${s.birthPlace}"`,
-      `"${classMap.get(s.classId) || s.classId}"`,
-      `"${s.status}"`,
-      `"${s.fatherName || ''}"`,
-      `"${s.motherName || ''}"`,
-      `"${s.emergencyPhone || ''}"`,
-      `"${s.address || ''}"`,
-      `"${s.city || ''}"`
+      csvCell(s.matricule),
+      csvCell(s.lastName),
+      csvCell(s.firstName),
+      csvCell(s.gender),
+      csvCell(s.birthDate),
+      csvCell(s.birthPlace),
+      csvCell(classMap.get(s.classId) || s.classId),
+      csvCell(s.status),
+      csvCell(s.fatherName || ''),
+      csvCell(s.motherName || ''),
+      csvCell(s.emergencyPhone || ''),
+      csvCell(s.address || ''),
+      csvCell(s.city || '')
     ]);
 
     const csvContent = '\uFEFF' + [headers.join(';'), ...rows.map(r => r.join(';'))].join('\n');

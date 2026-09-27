@@ -76,15 +76,22 @@ export const StudentListView: React.FC<StudentListViewProps> = ({
   const currentSelectedClassObj = db.classes.find((c) => c.id === selectedClassId) || null;
 
   const handleDeleteStudent = (student: Student) => {
-    const updatedStudents = db.students.filter((s) => s.id !== student.id);
-    const updatedGrades = db.grades.filter((g) => g.studentId !== student.id);
-    const updatedPayments = db.tuitionPayments.filter((p) => p.studentId !== student.id);
+    const hasAcademicHistory = db.grades.some((g) => g.studentId === student.id);
+    const hasAttendanceHistory = db.attendanceRecords.some((a) => a.studentId === student.id);
+    const hasFinancialHistory = db.tuitionPayments.some((p) => p.studentId === student.id);
+
+    if (hasAcademicHistory || hasAttendanceHistory || hasFinancialHistory) {
+      setStudentToDelete(null);
+      onShowToast(
+        `Impossible de supprimer ${student.lastName} : des notes, présences ou paiements sont déjà liés à cet élève. Conservez sa fiche pour préserver l'historique.`,
+        'error'
+      );
+      return;
+    }
 
     const updatedDb: DatabaseSchema = {
       ...db,
-      students: updatedStudents,
-      grades: updatedGrades,
-      tuitionPayments: updatedPayments,
+      students: db.students.filter((s) => s.id !== student.id),
     };
 
     StorageService.saveDatabase(updatedDb);

@@ -67,8 +67,13 @@ export const TimetableView: React.FC<TimetableViewProps> = ({
 
       // Check day overlap
       if (slot.dayOfWeek === newSlot.dayOfWeek) {
-        // Check time clash
-        const isTimeClash = slot.startTime === newSlot.startTime;
+        // Check real time overlap, not only identical start times.
+        const isTimeClash = Boolean(
+          newSlot.startTime &&
+          newSlot.endTime &&
+          slot.startTime < newSlot.endTime &&
+          newSlot.startTime < slot.endTime
+        );
 
         if (isTimeClash) {
           // 1. Teacher double-booking
