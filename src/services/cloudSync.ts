@@ -520,11 +520,6 @@ export class CloudSyncService {
       teacher: Record<string, unknown>;
       userId: string;
       temporaryPassword: string;
-      emailDelivery?: {
-        sent: boolean;
-        id?: string | null;
-        reason?: string;
-      };
     }>(response);
   }
 
