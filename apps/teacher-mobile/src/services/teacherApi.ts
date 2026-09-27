@@ -128,27 +128,30 @@ export const teacherApi = {
   },
 
   async loadContext(): Promise<TeacherContext> {
-    const { data: authData } = await supabase.auth.getUser();
-    const user = authData.user;
-    if (!user) throw new Error('Utilisateur non connecté.');
+    try {
+      const { data: authData } = await supabase.auth.getUser();
+      const user = authData.user;
+      if (!user) throw new Error('Utilisateur non connecté.');
 
-    const { data: memberships, error: memberError } = await supabase
-      .from('sekoly_memberships')
-      .select('school_id,role,status,sekoly_schools(id,name,acronym)')
-      .eq('user_id', user.id)
-      .eq('status', 'ACTIVE');
-    if (memberError) throw memberError;
+      const { data: memberships, error: memberError } = await supabase
+        .from('sekoly_memberships')
+        .select('school_id,role,status,sekoly_schools(id,name,acronym)')
+        .eq('user_id', user.id)
+        .eq('status', 'ACTIVE');
+      if (memberError) throw memberError;
 
-    const teacherMembership = (memberships ?? []).find(
-      (item: any) => item.role === 'TEACHER'
-    ) as Membership | undefined;
-    if (!teacherMembership) {
-      throw new Error("Ce compte n'est rattaché à aucun établissement comme enseignant.");
-    }
+      const teacherMembership = (memberships ?? []).find(
+        (item: any) => item.role === 'TEACHER'
+      ) as Membership | undefined;
+      if (!teacherMembership) {
+        throw new Error("Ce compte n'est rattaché à aucun établissement comme enseignant.");
+      }
 
-    const schoolId = teacherMembership.school_id;
-    const [{ data: teacher, error: teacherError }, { data: year, error: yearError }] =
-      await Promise.all([
+      const schoolId = teacherMembership.school_id;
+      const [
+        { data: teacher, error: teacherError },
+        { data: year, error: yearError },
+      ] = await Promise.all([
         supabase
           .from('sekoly_teachers')
           .select('id,first_name,last_name')
@@ -164,19 +167,25 @@ export const teacherApi = {
           .single(),
       ]);
 
-    if (teacherError) throw teacherError;
-    if (yearError) throw yearError;
+      if (teacherError) throw teacherError;
+      if (yearError) throw yearError;
 
-    const schoolRelation = teacherMembership.sekoly_schools as any;
-
-    return {
-      schoolId,
-      schoolName: schoolRelation?.name ?? 'Établissement',
-      teacherId: teacher.id,
-      teacherName: `${teacher.last_name} ${teacher.first_name}`,
-      schoolYearId: year.id,
-      schoolYearLabel: year.label,
-    };
+      const schoolRelation = teacherMembership.sekoly_schools as any;
+      const context: TeacherContext = {
+        schoolId,
+        schoolName: schoolRelation?.name ?? 'Établissement',
+        teacherId: teacher.id,
+        teacherName: `${teacher.last_name} ${teacher.first_name}`,
+        schoolYearId: year.id,
+        schoolYearLabel: year.label,
+      };
+      offlineStore.setCache('teacher-context', context);
+      return context;
+    } catch (error) {
+      const cached = offlineStore.getCache<TeacherContext>('teacher-context');
+      if (cached) return cached;
+      throw error;
+    }
   },
 
   async loadAssignments(context: TeacherContext): Promise<Assignment[]> {
@@ -339,15 +348,23 @@ export const teacherApi = {
   },
 
   async loadTerms(context: TeacherContext) {
-    const { data, error } = await supabase
-      .from('sekoly_terms')
-      .select('id,code,label,is_locked,start_date,end_date')
-      .eq('school_id', context.schoolId)
-      .eq('school_year_id', context.schoolYearId)
-      .order('start_date');
-    if (error) throw error;
-    offlineStore.setCache(`terms:${context.schoolYearId}`, data ?? []);
-    return data ?? [];
+    try {
+      const { data, error } = await supabase
+        .from('sekoly_terms')
+        .select('id,code,label,is_locked,start_date,end_date')
+        .eq('school_id', context.schoolId)
+        .eq('school_year_id', context.schoolYearId)
+        .order('start_date');
+      if (error) throw error;
+      offlineStore.setCache(`terms:${context.schoolYearId}`, data ?? []);
+      return data ?? [];
+    } catch (error) {
+      const cached = offlineStore.getCache<any[]>(
+        `terms:${context.schoolYearId}`
+      );
+      if (cached) return cached;
+      throw error;
+    }
   },
 
   async loadAssessments(
@@ -417,12 +434,19 @@ export const teacherApi = {
   },
 
   async loadScores(assessmentId: string) {
-    const { data, error } = await supabase
-      .from('sekoly_assessment_scores')
-      .select('student_id,score,status,comment')
-      .eq('assessment_id', assessmentId);
-    if (error) throw error;
-    return data ?? [];
+    try {
+      const { data, error } = await supabase
+        .from('sekoly_assessment_scores')
+        .select('student_id,score,status,comment')
+        .eq('assessment_id', assessmentId);
+      if (error) throw error;
+      offlineStore.setCache(`scores:${assessmentId}`, data ?? []);
+      return data ?? [];
+    } catch (error) {
+      const cached = offlineStore.getCache<any[]>(`scores:${assessmentId}`);
+      if (cached) return cached;
+      throw error;
+    }
   },
 
   async saveScores(
