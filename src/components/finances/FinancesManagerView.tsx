@@ -28,6 +28,7 @@ interface FinancesManagerViewProps {
   onUpdateDb: (updated: DatabaseSchema) => void;
   onShowToast: (msg: string, type?: 'success' | 'error' | 'info') => void;
   initialAction?: 'NEW_PAYMENT';
+  initialPaymentId?: string;
 }
 
 export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
@@ -35,6 +36,7 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
   onUpdateDb,
   onShowToast,
   initialAction,
+  initialPaymentId,
 }) => {
   const [activeTab, setActiveTab] = useState<'TUITION_GRID' | 'PAYMENTS_HISTORY' | 'PAYROLL' | 'TREASURY'>('TUITION_GRID');
   const [selectedClassId, setSelectedClassId] = useState<string>(db.classes[0]?.id || '');
@@ -117,6 +119,15 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
       setIsNewPaymentModalOpen(true);
     }
   }, [initialAction]);
+
+  useEffect(() => {
+    if (
+      initialPaymentId &&
+      activeYearPayments.some((payment) => payment.id === initialPaymentId)
+    ) {
+      setActiveTab('PAYMENTS_HISTORY');
+    }
+  }, [initialPaymentId, activeYearPayments]);
 
   const schoolMonths = db.schoolConfig.schoolMonths || [
     'Septembre',
