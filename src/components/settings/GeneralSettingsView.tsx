@@ -154,7 +154,9 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
   };
 
   // Live Matricule Preview
-  const livePreview = MatriculeService.previewPattern(matriculeConfig);
+  const activeSchoolYearStart =
+    db.schoolYears.find((year) => year.id === db.currentSchoolYearId)?.startDate.slice(0, 4);
+  const livePreview = MatriculeService.previewPattern(matriculeConfig, activeSchoolYearStart);
 
   return (
     <div className="space-y-6">
