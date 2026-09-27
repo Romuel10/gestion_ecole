@@ -11,11 +11,12 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "2.117.1",
-    "expo": "57.0.17",
+    "expo": "57.0.25",
     "expo-sqlite": "57.0.3",
-    "expo-status-bar": "~3.0.9",
+    "expo-status-bar": "57.0.1",
     "react": "19.2.3",
-    "react-native": "0.86.3"
+    "react-native": "0.86.3",
+    "react-native-url-polyfill": "4.0.0"
   },
   "devDependencies": {
     "@types/react": "^19.2.2",
