@@ -45,6 +45,12 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const activeYear = db.schoolYears.find((year) => year.id === db.currentSchoolYearId);
   const periods = activeYear?.terms || [];
+  const selectedTermValue = periods.some((term) => term.code === db.currentTermCode)
+    ? db.currentTermCode
+    : periods[0]?.code || '';
+  const sortedYears = [...db.schoolYears].sort((a, b) =>
+    b.startDate.localeCompare(a.startDate)
+  );
   const meta = pageMeta[currentTab];
 
   const handleTermChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -90,17 +96,32 @@ export const Header: React.FC<HeaderProps> = ({
 
       <div className="app-header__right">
         <div className="app-period-switcher">
-          <select value={db.currentSchoolYearId} onChange={handleYearChange} aria-label="Année scolaire">
-            {db.schoolYears.map((year) => (
-              <option key={year.id} value={year.id}>{year.label}</option>
-            ))}
-          </select>
+          <label className="app-period-switcher__control">
+            <span>Année</span>
+            <select value={db.currentSchoolYearId} onChange={handleYearChange} aria-label="Année scolaire">
+              {sortedYears.map((year) => (
+                <option key={year.id} value={year.id}>{year.label}</option>
+              ))}
+            </select>
+          </label>
           <span className="app-period-switcher__separator" />
-          <select value={db.currentTermCode} onChange={handleTermChange} aria-label="Période académique">
-            {periods.map((term) => (
-              <option key={term.id} value={term.code}>{term.label}</option>
-            ))}
-          </select>
+          <label className="app-period-switcher__control">
+            <span>Période</span>
+            <select
+              value={selectedTermValue}
+              onChange={handleTermChange}
+              aria-label="Période académique"
+              disabled={periods.length === 0}
+            >
+              {periods.length === 0 ? (
+                <option value="">Aucune période</option>
+              ) : (
+                periods.map((term) => (
+                  <option key={term.id} value={term.code}>{term.label}</option>
+                ))
+              )}
+            </select>
+          </label>
         </div>
 
         <button type="button" onClick={onOpenCommandPalette} className="header-search">
