@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   FileSpreadsheet,
   Calculator,
@@ -65,6 +65,7 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
     selectedTerm,
     db.currentSchoolYearId
   );
+  const gradedReportCards = reportCards.filter((report) => report.totalCoefficients > 0);
 
   // Local state for Matrix entry
   const [matrixGrades, setMatrixGrades] = useState<{
@@ -118,6 +119,15 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
     });
     setMatrixGrades(newMatrix);
   };
+
+  useEffect(() => {
+    const requestedClassId =
+      initialClassId && db.classes.some((cls) => cls.id === initialClassId)
+        ? initialClassId
+        : selectedClassId;
+    handleSelectSubjectOrClass(requestedClassId, selectedSubjectId, db.currentTermCode);
+    setInspectSummary(null);
+  }, [db.currentSchoolYearId, db.currentTermCode, initialClassId]);
 
   const handleSaveGradesMatrix = () => {
     const activeYear = db.schoolYears.find((y) => y.id === db.currentSchoolYearId);
@@ -194,14 +204,14 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
 
   // Batch Print All Report Cards for Class
   const handleBatchPrintReportCards = () => {
-    if (reportCards.length === 0) {
-      onShowToast('Aucun bulletin disponible à imprimer.', 'error');
+    if (gradedReportCards.length === 0) {
+      onShowToast('Aucun bulletin noté disponible à imprimer.', 'error');
       return;
     }
-    reportCards.forEach((rc) => {
+    gradedReportCards.forEach((rc) => {
       PdfGeneratorService.generateOfficialReportCardPDF(rc, db);
     });
-    onShowToast(`Génération de ${reportCards.length} bulletins de notes lancée !`, 'success');
+    onShowToast(`Génération de ${gradedReportCards.length} bulletins de notes lancée !`, 'success');
   };
 
   const subjectMap = new Map(db.subjects.map((s) => [s.id, s]));
@@ -226,18 +236,24 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
           g.termCode === termCode &&
           ((g.evaluations?.length || 0) > 0 || g.examGrade !== undefined)
       );
+    const hasT1 = hasGradesForTerm('TRIMESTRE_1');
+    const hasT2 = hasGradesForTerm('TRIMESTRE_2');
+    const hasT3 = hasGradesForTerm('TRIMESTRE_3');
     const validTerms = [
-      hasGradesForTerm('TRIMESTRE_1') ? avgT1 : null,
-      hasGradesForTerm('TRIMESTRE_2') ? avgT2 : null,
-      hasGradesForTerm('TRIMESTRE_3') ? avgT3 : null,
+      hasT1 ? avgT1 : null,
+      hasT2 ? avgT2 : null,
+      hasT3 ? avgT3 : null,
     ].filter((a): a is number => a !== null);
     const mag = validTerms.length > 0 ? validTerms.reduce((a, b) => a + b, 0) / validTerms.length : 0;
 
-    let decision = 'Admis(e) en classe supérieure';
-    if (mag < passingThreshold && mag >= passingThreshold - 1.5) {
-      decision = 'Autorisé(e) au rattrapage';
-    } else if (mag < passingThreshold - 1.5) {
-      decision = 'Redoublement conseillé';
+    let decision = 'En attente de saisie';
+    if (validTerms.length > 0) {
+      decision = 'Admis(e) en classe supérieure';
+      if (mag < passingThreshold && mag >= passingThreshold - 1.5) {
+        decision = 'Autorisé(e) au rattrapage';
+      } else if (mag < passingThreshold - 1.5) {
+        decision = 'Redoublement conseillé';
+      }
     }
 
     return {
@@ -245,6 +261,10 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
       avgT1,
       avgT2,
       avgT3,
+      hasT1,
+      hasT2,
+      hasT3,
+      hasAnyTerm: validTerms.length > 0,
       mag: Math.round(mag * 100) / 100,
       decision,
     };
@@ -351,7 +371,7 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
                 Moyenne de la Classe
               </span>
               <div className="mt-2 text-2xl font-extrabold text-blue-600 dark:text-blue-400">
-                {reportCards.length > 0 ? reportCards[0].classGeneralAverage.toFixed(2) : '0.00'} / 20
+                {gradedReportCards.length > 0 ? gradedReportCards[0].classGeneralAverage.toFixed(2) : '0.00'} / 20
               </div>
             </div>
 
@@ -360,7 +380,7 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
                 Meilleure Moyenne (Max)
               </span>
               <div className="mt-2 text-2xl font-extrabold text-emerald-600 dark:text-emerald-400">
-                {reportCards.length > 0 ? reportCards[0].classMaxAverage.toFixed(2) : '0.00'} / 20
+                {gradedReportCards.length > 0 ? gradedReportCards[0].classMaxAverage.toFixed(2) : '0.00'} / 20
               </div>
             </div>
 
@@ -369,17 +389,23 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
                 Moyenne la Plus Basse
               </span>
               <div className="mt-2 text-2xl font-extrabold text-slate-700 dark:text-slate-300">
-                {reportCards.length > 0 ? reportCards[0].classMinAverage.toFixed(2) : '0.00'} / 20
+                {gradedReportCards.length > 0 ? gradedReportCards[0].classMinAverage.toFixed(2) : '0.00'} / 20
               </div>
             </div>
 
             <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm">
               <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                Taux d'Admission (≥ 10/20)
+                Taux d'Admission (≥ {db.schoolConfig.passingGrade || 10}/20)
               </span>
               <div className="mt-2 text-2xl font-extrabold text-purple-600 dark:text-purple-400">
-                {reportCards.length > 0
-                  ? Math.round((reportCards.filter((r) => r.generalAverage >= 10).length / reportCards.length) * 100)
+                {gradedReportCards.length > 0
+                  ? Math.round(
+                      (gradedReportCards.filter(
+                        (r) => r.generalAverage >= (db.schoolConfig.passingGrade || 10)
+                      ).length /
+                        gradedReportCards.length) *
+                        100
+                    )
                   : 0}
                 %
               </div>
@@ -394,7 +420,7 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
                   Palmarès Trimestriel — {targetClass.name}
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Total de {reportCards.length} élève(s) classé(s)
+                  Total de {gradedReportCards.length} élève(s) classé(s)
                 </p>
               </div>
 
@@ -422,7 +448,7 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {reportCards.map((rc) => (
+                  {gradedReportCards.map((rc) => (
                     <tr key={rc.studentId} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">
                       <td className="py-3 px-3 font-bold">
                         <span
@@ -703,16 +729,18 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
                     <td className="p-2.5 font-bold text-slate-900 dark:text-white">
                       {row.student.lastName} {row.student.firstName}
                     </td>
-                    <td className="p-2.5 text-right font-mono">{row.avgT1 > 0 ? row.avgT1.toFixed(2) : '-'}</td>
-                    <td className="p-2.5 text-right font-mono">{row.avgT2 > 0 ? row.avgT2.toFixed(2) : '-'}</td>
-                    <td className="p-2.5 text-right font-mono">{row.avgT3 > 0 ? row.avgT3.toFixed(2) : '-'}</td>
+                    <td className="p-2.5 text-right font-mono">{row.hasT1 ? row.avgT1.toFixed(2) : '-'}</td>
+                    <td className="p-2.5 text-right font-mono">{row.hasT2 ? row.avgT2.toFixed(2) : '-'}</td>
+                    <td className="p-2.5 text-right font-mono">{row.hasT3 ? row.avgT3.toFixed(2) : '-'}</td>
                     <td className="p-2.5 text-right font-extrabold font-mono text-sm text-blue-600 dark:text-blue-400">
-                      {row.mag.toFixed(2)}
+                      {row.hasAnyTerm ? row.mag.toFixed(2) : '-'}
                     </td>
                     <td className="p-2.5">
                       <span
                         className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                          row.mag >= passingThreshold
+                          !row.hasAnyTerm
+                            ? 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
+                            : row.mag >= passingThreshold
                             ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
                             : row.mag >= passingThreshold - 1.5
                             ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'

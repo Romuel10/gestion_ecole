@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Printer,
   Sliders,
@@ -35,6 +35,15 @@ export const StudentCardGeneratorModal: React.FC<StudentCardGeneratorModalProps>
   const [printMode, setPrintMode] = useState<'SINGLE' | 'BATCH_CLASS'>('SINGLE');
   const [selectedStudentId, setSelectedStudentId] = useState<string>(student?.id || '');
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const activeYearFallback = db.students.find(
+      (candidate) => candidate.schoolYearId === db.currentSchoolYearId
+    );
+    setSelectedStudentId(student?.id || activeYearFallback?.id || '');
+    setPrintMode('SINGLE');
+  }, [isOpen, student?.id, db.currentSchoolYearId]);
+
   if (!isOpen) return null;
 
   const colorPresets = [
@@ -46,11 +55,11 @@ export const StudentCardGeneratorModal: React.FC<StudentCardGeneratorModalProps>
     { name: 'Ambre Doré', value: '#b45309' },
   ];
 
+  const selectedStudent = db.students.find((s) => s.id === selectedStudentId) || null;
   const currentYear =
-    db.schoolYears.find((y) => y.id === student?.schoolYearId)?.label ||
+    db.schoolYears.find((y) => y.id === selectedStudent?.schoolYearId)?.label ||
     db.schoolYears.find((y) => y.id === db.currentSchoolYearId)?.label ||
     'Année scolaire';
-  const selectedStudent = db.students.find((s) => s.id === selectedStudentId) || null;
   const effectiveClass = targetClass || (selectedStudent ? db.classes.find((c) => c.id === selectedStudent.classId) : db.classes[0]);
   const studentsToPrint = printMode === 'BATCH_CLASS' && effectiveClass
     ? db.students.filter((s) => s.classId === effectiveClass.id && s.schoolYearId === db.currentSchoolYearId)
@@ -198,7 +207,9 @@ export const StudentCardGeneratorModal: React.FC<StudentCardGeneratorModalProps>
               onChange={(e) => setSelectedStudentId(e.target.value)}
               className="w-full px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-900 border font-medium"
             >
-              {db.students.map((s) => (
+              {db.students
+                .filter((s) => s.schoolYearId === db.currentSchoolYearId)
+                .map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.lastName} {s.firstName} ({s.matricule})
                 </option>

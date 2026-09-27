@@ -15,7 +15,7 @@ import { NavTab } from '../layout/Sidebar';
 
 interface DashboardHomeProps {
   db: DatabaseSchema;
-  onNavigate: (tab: NavTab) => void;
+  onNavigate: (tab: NavTab, entityId?: string) => void;
   isDark: boolean;
   show3DVisualizer: boolean;
 }
@@ -312,9 +312,11 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
               {recentPayments.map((p) => {
                 const stu = studentMap.get(p.studentId);
                 return (
-                  <div
+                  <button
+                    type="button"
                     key={p.id}
-                    className="p-2 rounded bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs space-y-1"
+                    onClick={() => onNavigate('finances', p.id)}
+                    className="w-full text-left p-2 rounded bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 hover:border-emerald-400 text-xs space-y-1 transition"
                   >
                     <div className="flex justify-between">
                       <span className="font-bold text-slate-900 dark:text-white truncate">
@@ -328,7 +330,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
                       <span>{p.receiptNumber}</span>
                       <span>{p.paymentDate} • {p.paymentMethod}</span>
                     </div>
-                  </div>
+                  </button>
                 );
               })}
             </div>
