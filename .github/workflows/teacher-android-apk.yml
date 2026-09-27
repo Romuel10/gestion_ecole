@@ -1,0 +1,62 @@
+name: Teacher Android APK
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - "apps/teacher-mobile/**"
+      - ".github/workflows/teacher-android-apk.yml"
+      - "supabase/functions/sekoly-provision-teacher/**"
+      - "src/services/cloudSync.ts"
+      - "src/components/settings/GeneralSettingsView.tsx"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: teacher-android-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/teacher-mobile
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.13.1"
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Generate Android project
+        run: npx expo prebuild --platform android --non-interactive
+
+      - name: Build debug APK
+        run: |
+          chmod +x android/gradlew
+          cd android
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Rename APK
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk Sekoly-Enseignant-pilote.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: sekoly-enseignant-apk
+          path: apps/teacher-mobile/Sekoly-Enseignant-pilote.apk

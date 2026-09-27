@@ -118,6 +118,25 @@ export const teacherApi = {
     return data.session;
   },
 
+  async requiresPasswordChange() {
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser();
+    if (error) throw error;
+    return Boolean(user?.user_metadata?.password_change_required);
+  },
+
+  async changeInitialPassword(password: string) {
+    const { error } = await supabase.auth.updateUser({
+      password,
+      data: {
+        password_change_required: false,
+      },
+    });
+    if (error) throw error;
+  },
+
   async signOut() {
     await supabase.auth.signOut();
   },
