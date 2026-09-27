@@ -158,7 +158,9 @@ export class CalculationService {
     });
 
     // 2. Compute class statistics and rankings
-    const allGenAvgs = studentSummaries.map(s => s.generalAverage);
+    const allGenAvgs = studentSummaries
+      .filter((summary) => summary.totalCoefficients > 0)
+      .map((summary) => summary.generalAverage);
     const classMaxAvg = allGenAvgs.length > 0 ? Math.max(...allGenAvgs) : 0;
     const classMinAvg = allGenAvgs.length > 0 ? Math.min(...allGenAvgs) : 0;
     const classGenAvg = allGenAvgs.length > 0
