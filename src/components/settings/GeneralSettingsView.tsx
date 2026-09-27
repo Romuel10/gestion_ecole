@@ -114,6 +114,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
     teacherName: string;
     email: string;
     temporaryPassword: string;
+    emailSent: boolean;
   } | null>(null);
 
   useEffect(() => {
@@ -300,6 +301,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
         teacherName: `${teacher.lastName} ${teacher.firstName}`,
         email: teacher.email || '',
         temporaryPassword: result.temporaryPassword,
+        emailSent: Boolean(result.emailDelivery?.sent),
       });
       onShowToast(
         'Accès pilote créé. Communiquez le mot de passe temporaire à l’enseignant.',
@@ -2197,6 +2199,9 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
                       </div>
                       <p className="mt-2 text-[10px] text-slate-500">
                         L’application exigera un nouveau mot de passe lors de la première connexion.
+                        {pilotAccess.emailSent
+                          ? ' Un lien d’activation sécurisé a aussi été envoyé par email.'
+                          : ' Aucun email automatique n’a été envoyé : transmettez les identifiants manuellement pour ce pilote.'}
                       </p>
                     </div>
                   )}
