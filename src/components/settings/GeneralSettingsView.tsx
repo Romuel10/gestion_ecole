@@ -183,6 +183,37 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
     }
   };
 
+  const handleCloudSignup = async () => {
+    if (!cloudEmail.trim() || cloudPassword.length < 8) {
+      onShowToast(
+        'Utilisez une adresse email valide et un mot de passe d’au moins 8 caractères.',
+        'error'
+      );
+      return;
+    }
+
+    setCloudBusy(true);
+    try {
+      const result = await CloudSyncService.signup(cloudEmail, cloudPassword);
+      if (result.session) {
+        setCloudConnected(true);
+        onShowToast('Compte Sekoly Cloud créé et connecté.', 'success');
+      } else {
+        onShowToast(
+          'Compte créé. Confirmez l’adresse email puis utilisez Se connecter.',
+          'info'
+        );
+      }
+    } catch (error) {
+      onShowToast(
+        error instanceof Error ? error.message : 'Création du compte impossible.',
+        'error'
+      );
+    } finally {
+      setCloudBusy(false);
+    }
+  };
+
   const handleCloudLogin = async () => {
     if (!cloudEmail.trim() || !cloudPassword) {
       onShowToast('Saisissez votre email et votre mot de passe Cloud.', 'error');
@@ -1937,7 +1968,15 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
                       className="settings-input"
                     />
                   </Field>
-                  <div className="md:col-span-2 flex justify-end">
+                  <div className="md:col-span-2 flex flex-wrap justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={handleCloudSignup}
+                      disabled={cloudBusy}
+                      className="button button--secondary disabled:opacity-50"
+                    >
+                      Créer mon compte Cloud
+                    </button>
                     <button
                       type="button"
                       onClick={handleCloudLogin}
