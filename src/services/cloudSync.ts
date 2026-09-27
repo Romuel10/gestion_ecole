@@ -489,6 +489,40 @@ export class CloudSyncService {
     };
   }
 
+  static async provisionTeacherPilot(db: DatabaseSchema, teacherId: string) {
+    const schoolId = this.getSchoolId();
+    if (!schoolId) throw new Error('Établissement Cloud non lié.');
+
+    const teacher = db.teachers.find((item) => item.id === teacherId);
+    if (!teacher) throw new Error('Enseignant introuvable.');
+    if (!teacher.email) {
+      throw new Error(
+        'Ajoutez une adresse email à cet enseignant avant de créer son accès mobile.'
+      );
+    }
+
+    const response = await authRequest(
+      '/functions/v1/sekoly-provision-teacher',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          schoolId,
+          teacherId: cloudUuid('teacher', teacher.id),
+          firstName: teacher.firstName,
+          lastName: teacher.lastName,
+          email: teacher.email,
+          phone: teacher.phone,
+        }),
+      }
+    );
+
+    return parseResponse<{
+      teacher: Record<string, unknown>;
+      userId: string;
+      temporaryPassword: string;
+    }>(response);
+  }
+
   static async inviteTeacher(db: DatabaseSchema, teacherId: string) {
     const schoolId = this.getSchoolId();
     if (!schoolId) throw new Error('Établissement Cloud non lié.');
