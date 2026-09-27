@@ -127,3 +127,44 @@ sekoly.sqlite
 Le navigateur conserve seulement un cache de développement. Dans l'application Windows, SQLite est la persistance principale.
 
 À la première installation, la base ne contient aucun élève, enseignant, classe, matière, note ou paiement. L'utilisateur configure son établissement puis peut importer ses listes depuis Excel.
+
+
+## Sekoly SaaS / applications enseignants
+
+Le dépôt contient maintenant une première architecture SaaS multi-écoles en
+plus du mode Desktop/local.
+
+### Backend
+
+Supabase fournit :
+
+- Auth ;
+- PostgreSQL ;
+- RLS multi-tenant par `school_id` ;
+- Realtime Broadcast privé ;
+- Edge Functions d'onboarding ;
+- tables normalisées de présences et évaluations.
+
+Les migrations sont dans `supabase/migrations/` et les fonctions dans
+`supabase/functions/`.
+
+### Sekoly Enseignant
+
+L'application Expo se trouve dans :
+
+```text
+apps/teacher-mobile
+```
+
+Validation locale :
+
+```bash
+cd apps/teacher-mobile
+cp .env.example .env
+npm install
+npm run typecheck
+npx expo start
+```
+
+Voir `docs/SAAS_ARCHITECTURE.md` pour les règles RLS, la synchronisation et
+le plan de déploiement.

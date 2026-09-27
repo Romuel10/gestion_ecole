@@ -1,0 +1,25 @@
+{
+  "expo": {
+    "name": "Sekoly Enseignant",
+    "slug": "sekoly-enseignant",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "android": {
+      "package": "mg.sekoly.teacher"
+    },
+    "ios": {
+      "bundleIdentifier": "mg.sekoly.teacher",
+      "supportsTablet": true
+    },
+    "plugins": [
+      "expo-sqlite"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "REPLACE_WITH_EXPO_PROJECT_ID"
+      }
+    },
+    "scheme": "sekoly-teacher"
+  }
+}

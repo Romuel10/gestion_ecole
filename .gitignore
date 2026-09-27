@@ -25,3 +25,15 @@ dist-ssr
 
 # Freebuff workspace files
 .freebuff/
+
+# Environment / SaaS credentials
+.env
+.env.*
+!.env.example
+!apps/teacher-mobile/.env.example
+
+# Expo / mobile build output
+.expo/
+apps/teacher-mobile/.expo/
+apps/teacher-mobile/dist/
+apps/teacher-mobile/.eas/

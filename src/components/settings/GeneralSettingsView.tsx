@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Building2,
   CalendarRange,
@@ -17,6 +17,10 @@ import {
   ListChecks,
   Archive,
   FileCog,
+  Cloud,
+  LogIn,
+  RefreshCw,
+  UserPlus,
 } from 'lucide-react';
 import {
   AnnualDecisionRule,
@@ -33,6 +37,7 @@ import { StorageService } from '../../services/storage';
 import { MatriculeService } from '../../services/matricule';
 import { CalculationService } from '../../services/calculations';
 import { SchoolYearClosureService } from '../../services/schoolYearClosure';
+import { CloudSyncService } from '../../services/cloudSync';
 import { Modal } from '../common/Modal';
 
 interface GeneralSettingsViewProps {
@@ -50,6 +55,7 @@ type SettingsTab =
   | 'CLASSES'
   | 'SUBJECTS'
   | 'MATRICULE'
+  | 'CLOUD'
   | 'DATA';
 
 const makeId = (prefix: string) =>
@@ -95,6 +101,25 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
   const [newSchoolMonth, setNewSchoolMonth] = useState('');
   const [allowClosureWithReview, setAllowClosureWithReview] = useState(false);
   const [closureNote, setClosureNote] = useState('');
+  const [cloudEmail, setCloudEmail] = useState('');
+  const [cloudPassword, setCloudPassword] = useState('');
+  const [cloudConnected, setCloudConnected] = useState(CloudSyncService.isConnected());
+  const [cloudSchoolId, setCloudSchoolId] = useState<string | null>(
+    CloudSyncService.getSchoolId()
+  );
+  const [cloudBusy, setCloudBusy] = useState(false);
+  const [cloudStats, setCloudStats] = useState<Record<string, number> | null>(null);
+  const [invitingTeacherId, setInvitingTeacherId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!cloudConnected || cloudSchoolId) return;
+
+    CloudSyncService.attachExistingMembership()
+      .then((membership) => {
+        if (membership?.school_id) setCloudSchoolId(membership.school_id);
+      })
+      .catch(() => undefined);
+  }, [cloudConnected, cloudSchoolId]);
 
   const activeSchoolYear = db.schoolYears.find((year) => year.id === db.currentSchoolYearId);
   const activeSchoolYearStart = activeSchoolYear?.startDate.slice(0, 4);
@@ -156,6 +181,133 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
         'error'
       );
     }
+  };
+
+  const handleCloudSignup = async () => {
+    if (!cloudEmail.trim() || cloudPassword.length < 8) {
+      onShowToast(
+        'Utilisez une adresse email valide et un mot de passe d’au moins 8 caractères.',
+        'error'
+      );
+      return;
+    }
+
+    setCloudBusy(true);
+    try {
+      const result = await CloudSyncService.signup(cloudEmail, cloudPassword);
+      if (result.session) {
+        setCloudConnected(true);
+        onShowToast('Compte Sekoly Cloud créé et connecté.', 'success');
+      } else {
+        onShowToast(
+          'Compte créé. Confirmez l’adresse email puis utilisez Se connecter.',
+          'info'
+        );
+      }
+    } catch (error) {
+      onShowToast(
+        error instanceof Error ? error.message : 'Création du compte impossible.',
+        'error'
+      );
+    } finally {
+      setCloudBusy(false);
+    }
+  };
+
+  const handleCloudLogin = async () => {
+    if (!cloudEmail.trim() || !cloudPassword) {
+      onShowToast('Saisissez votre email et votre mot de passe Cloud.', 'error');
+      return;
+    }
+
+    setCloudBusy(true);
+    try {
+      await CloudSyncService.login(cloudEmail, cloudPassword);
+      setCloudConnected(true);
+      const membership = await CloudSyncService.attachExistingMembership();
+      if (membership?.school_id) setCloudSchoolId(membership.school_id);
+      onShowToast('Connexion Sekoly Cloud réussie.', 'success');
+    } catch (error) {
+      onShowToast(
+        error instanceof Error ? error.message : 'Connexion Cloud impossible.',
+        'error'
+      );
+    } finally {
+      setCloudBusy(false);
+    }
+  };
+
+  const handleCreateCloudSchool = async () => {
+    if (
+      !db.schoolConfig.name.trim() ||
+      db.schoolConfig.name === 'Nouvel établissement'
+    ) {
+      onShowToast(
+        'Configurez d’abord le nom réel de l’établissement dans Informations établissement.',
+        'error'
+      );
+      return;
+    }
+
+    setCloudBusy(true);
+    try {
+      const school = await CloudSyncService.createSchool(db);
+      setCloudSchoolId(school.id);
+      onShowToast(`${school.name} est maintenant créé dans Sekoly Cloud.`, 'success');
+    } catch (error) {
+      onShowToast(
+        error instanceof Error ? error.message : 'Création Cloud impossible.',
+        'error'
+      );
+    } finally {
+      setCloudBusy(false);
+    }
+  };
+
+  const handleCloudSync = async () => {
+    setCloudBusy(true);
+    try {
+      const stats = await CloudSyncService.syncLocalStructure(db);
+      setCloudStats(stats);
+      onShowToast(
+        `Cloud synchronisé : ${stats.students} élève(s), ${stats.teachers} enseignant(s), ${stats.assignments} affectation(s).`,
+        'success'
+      );
+    } catch (error) {
+      onShowToast(
+        error instanceof Error ? error.message : 'Synchronisation Cloud impossible.',
+        'error'
+      );
+    } finally {
+      setCloudBusy(false);
+    }
+  };
+
+  const handleInviteCloudTeacher = async (teacherId: string) => {
+    setInvitingTeacherId(teacherId);
+    try {
+      await CloudSyncService.syncLocalStructure(db);
+      await CloudSyncService.inviteTeacher(db, teacherId);
+      onShowToast(
+        'Invitation envoyée. L’enseignant pourra activer son compte mobile depuis son email.',
+        'success'
+      );
+    } catch (error) {
+      onShowToast(
+        error instanceof Error ? error.message : 'Invitation impossible.',
+        'error'
+      );
+    } finally {
+      setInvitingTeacherId(null);
+    }
+  };
+
+  const handleCloudLogout = () => {
+    CloudSyncService.logout();
+    setCloudConnected(false);
+    setCloudSchoolId(null);
+    setCloudStats(null);
+    onShowToast('Session Sekoly Cloud fermée.', 'info');
   };
 
   const handleSaveSchool = (event: React.FormEvent) => {
@@ -729,6 +881,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
     { id: 'CLASSES' as const, label: 'Classes', icon: School },
     { id: 'SUBJECTS' as const, label: 'Matières', icon: BookOpen },
     { id: 'MATRICULE' as const, label: 'Matricules', icon: Hash },
+    { id: 'CLOUD' as const, label: 'Cloud & mobile', icon: Cloud },
     { id: 'DATA' as const, label: 'Données', icon: Database },
   ];
 
@@ -1778,6 +1931,198 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
               </details>
             </div>
           </form>
+        )}
+
+        {activeTab === 'CLOUD' && (
+          <div className="space-y-4">
+            <div className="page-panel">
+              <div className="page-panel__header">
+                <div>
+                  <h2 className="page-panel__title">Sekoly Cloud</h2>
+                  <p className="page-panel__subtitle">
+                    Reliez cet établissement au SaaS multi-écoles et aux applications mobiles des enseignants.
+                  </p>
+                </div>
+                <div className="cloud-status">
+                  <span className={cloudConnected ? 'cloud-status__dot is-online' : 'cloud-status__dot'} />
+                  {cloudConnected ? 'Connecté' : 'Non connecté'}
+                </div>
+              </div>
+
+              {!cloudConnected ? (
+                <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Field label="Email administrateur">
+                    <input
+                      type="email"
+                      value={cloudEmail}
+                      onChange={(event) => setCloudEmail(event.target.value)}
+                      placeholder="direction@ecole.mg"
+                      className="settings-input"
+                    />
+                  </Field>
+                  <Field label="Mot de passe">
+                    <input
+                      type="password"
+                      value={cloudPassword}
+                      onChange={(event) => setCloudPassword(event.target.value)}
+                      className="settings-input"
+                    />
+                  </Field>
+                  <div className="md:col-span-2 flex flex-wrap justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={handleCloudSignup}
+                      disabled={cloudBusy}
+                      className="button button--secondary disabled:opacity-50"
+                    >
+                      Créer mon compte Cloud
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCloudLogin}
+                      disabled={cloudBusy}
+                      className="button button--primary disabled:opacity-50"
+                    >
+                      <LogIn className="w-4 h-4" />
+                      {cloudBusy ? 'Connexion…' : 'Se connecter à Sekoly Cloud'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-5 space-y-5">
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+                    <div className="cloud-info-cell">
+                      <span>Projet Supabase</span>
+                      <strong>gmlofgsgnbbcbefogpww</strong>
+                    </div>
+                    <div className="cloud-info-cell">
+                      <span>Établissement Cloud</span>
+                      <strong>{cloudSchoolId ? 'Lié' : 'À créer / lier'}</strong>
+                    </div>
+                    <div className="cloud-info-cell">
+                      <span>Synchronisation mobile</span>
+                      <strong>{cloudSchoolId ? 'Disponible' : 'En attente'}</strong>
+                    </div>
+                  </div>
+
+                  {!cloudSchoolId ? (
+                    <div className="border border-slate-200 dark:border-slate-700 p-4">
+                      <div className="text-[11px] font-semibold">
+                        Créer cet établissement dans Sekoly Cloud
+                      </div>
+                      <p className="mt-1 text-[10.5px] text-slate-500">
+                        Le compte connecté deviendra administrateur de l’établissement. Les autres écoles
+                        resteront totalement isolées par les règles RLS.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={handleCreateCloudSchool}
+                        disabled={cloudBusy}
+                        className="button button--primary mt-3"
+                      >
+                        <Cloud className="w-4 h-4" />
+                        Créer l’établissement Cloud
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="border border-slate-200 dark:border-slate-700 p-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                        <div>
+                          <div className="text-[11px] font-semibold">Synchroniser la structure</div>
+                          <p className="mt-1 text-[10.5px] text-slate-500">
+                            Envoie années, classes, matières, élèves, inscriptions, enseignants,
+                            affectations et emploi du temps vers Supabase.
+                          </p>
+                          {cloudStats && (
+                            <div className="mt-2 text-[10px] text-slate-500">
+                              Dernière synchronisation : {cloudStats.students} élèves · {cloudStats.teachers}{' '}
+                              enseignants · {cloudStats.assignments} affectations.
+                            </div>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleCloudSync}
+                          disabled={cloudBusy}
+                          className="button button--primary"
+                        >
+                          <RefreshCw className="w-4 h-4" />
+                          {cloudBusy ? 'Synchronisation…' : 'Synchroniser maintenant'}
+                        </button>
+                      </div>
+
+                      <div className="page-panel overflow-hidden">
+                        <div className="page-panel__header">
+                          <div>
+                            <h3 className="page-panel__title">Accès mobile enseignants</h3>
+                            <p className="page-panel__subtitle">
+                              L’adresse email de chaque enseignant devient son identifiant Sekoly Enseignant.
+                            </p>
+                          </div>
+                        </div>
+                        <div className="overflow-x-auto">
+                          <table className="erp-table">
+                            <thead>
+                              <tr>
+                                <th>Enseignant</th>
+                                <th>Email</th>
+                                <th>Téléphone</th>
+                                <th className="text-right">Accès mobile</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {db.teachers.map((teacher) => (
+                                <tr key={teacher.id}>
+                                  <td className="font-semibold">
+                                    {teacher.lastName} {teacher.firstName}
+                                  </td>
+                                  <td>{teacher.email || 'Email à renseigner'}</td>
+                                  <td>{teacher.phone || '—'}</td>
+                                  <td className="text-right">
+                                    <button
+                                      type="button"
+                                      disabled={
+                                        !teacher.email ||
+                                        invitingTeacherId === teacher.id
+                                      }
+                                      onClick={() => handleInviteCloudTeacher(teacher.id)}
+                                      className="button button--secondary disabled:opacity-40"
+                                    >
+                                      <UserPlus className="w-3.5 h-3.5" />
+                                      {invitingTeacherId === teacher.id
+                                        ? 'Invitation…'
+                                        : 'Inviter sur mobile'}
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                              {db.teachers.length === 0 && (
+                                <tr>
+                                  <td colSpan={4} className="py-8 text-center text-slate-500">
+                                    Aucun enseignant configuré.
+                                  </td>
+                                </tr>
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={handleCloudLogout}
+                      className="button button--secondary"
+                    >
+                      Fermer la session Cloud
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
         )}
 
         {activeTab === 'DATA' && (

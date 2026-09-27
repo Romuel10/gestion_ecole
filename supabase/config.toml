@@ -1,0 +1,7 @@
+project_id = "gmlofgsgnbbcbefogpww"
+
+[functions.sekoly-create-school]
+verify_jwt = true
+
+[functions.sekoly-invite-teacher]
+verify_jwt = true
