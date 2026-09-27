@@ -316,7 +316,7 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
     let skippedCapacity = 0;
     let skippedNoDestination = 0;
 
-    annualDecisions.forEach((decision, index) => {
+    allAnnualDecisions.forEach((decision, index) => {
       if (!['PROMOTE', 'REPEAT'].includes(decision.outcome)) return;
       if (!decision.destinationClassId) {
         skippedNoDestination++;
@@ -352,7 +352,7 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
     });
 
     const decisionByStudent = new Map(
-      annualDecisions.map((decision) => [decision.student.id, decision])
+      allAnnualDecisions.map((decision) => [decision.student.id, decision])
     );
     const updatedStudents = db.students.map((student) => {
       if (student.schoolYearId !== db.currentSchoolYearId) return student;
