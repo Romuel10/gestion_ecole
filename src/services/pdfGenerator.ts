@@ -597,21 +597,29 @@ export class PdfGeneratorService {
     );
 
     const splitText = doc.splitTextToSize(textBody, 170);
+    doc.setDrawColor(190, 198, 208);
+    doc.setLineWidth(0.3);
+    doc.rect(15, 78, 180, Math.min(118, Math.max(70, splitText.length * 7 + 20)));
     doc.text(splitText, 20, bodyY);
 
     // Bottom Date & Official Seal
-    const dateY = 175;
+    const calculatedDateY = bodyY + splitText.length * 7 + 22;
+    const dateY = Math.min(238, Math.max(175, calculatedDateY));
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
     doc.text(`Fait à ${cfg.city}, le ${new Date().toLocaleDateString('fr-FR')}`, 130, dateY);
 
     doc.setFont('helvetica', 'bold');
     doc.text(cfg.directorTitle, 130, dateY + 8);
-    doc.text(cfg.directorName, 130, dateY + 28);
+    doc.text(cfg.directorName, 130, dateY + 26);
 
     doc.setFont('helvetica', 'italic');
     doc.setFontSize(8);
-    doc.text("(Cachet officiel et signature)", 130, dateY + 34);
+    doc.text("(Cachet officiel et signature)", 130, dateY + 32);
+
+    doc.setDrawColor(30, 64, 175);
+    doc.setLineWidth(0.6);
+    doc.rect(8, 8, 194, 281);
 
     doc.save(`CERTIFICAT_SCOLARITE_${student.matricule}.pdf`);
   }
