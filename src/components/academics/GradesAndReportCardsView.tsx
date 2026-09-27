@@ -6,14 +6,19 @@ import {
   Save,
   BookOpen,
   Award,
-  Sliders,
   Calendar,
+  ArrowRight,
+  CheckCircle2,
+  RotateCcw,
+  UserX,
+  AlertCircle,
 } from 'lucide-react';
 import {
   DatabaseSchema,
   GradeEntry,
   TermType,
   ReportCardSummary,
+  Student,
 } from '../../types/school';
 import { CalculationService } from '../../services/calculations';
 import { StorageService } from '../../services/storage';
@@ -44,11 +49,6 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
     db.subjects[0]?.id || ''
   );
   const [selectedTerm, setSelectedTerm] = useState<TermType>(db.currentTermCode);
-
-  // Passing grade threshold for deliberations (customizable)
-  const [passingThreshold, setPassingThreshold] = useState<number>(
-    db.schoolConfig.passingGrade || 10.0
-  );
 
   // Selected Report Card for On-screen Interactive Inspection
   const [inspectSummary, setInspectSummary] = useState<ReportCardSummary | null>(null);
@@ -164,7 +164,12 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
       if (entry.dev2 !== '' && !isNaN(Number(entry.dev2))) evaluations.push(Number(entry.dev2));
 
       const examGrade = entry.exam !== '' && !isNaN(Number(entry.exam)) ? Number(entry.exam) : undefined;
-      const subjectAverage = CalculationService.computeSubjectAverage(evaluations, examGrade);
+      const subjectAverage = CalculationService.computeSubjectAverage(
+        evaluations,
+        examGrade,
+        db.schoolConfig.continuousAssessmentWeight ?? 1,
+        db.schoolConfig.examWeight ?? 2
+      );
 
       const existingIndex = updatedGrades.findIndex(
         (g) =>
@@ -220,19 +225,24 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
 
   const subjectMap = new Map(db.subjects.map((s) => [s.id, s]));
 
-  // Moyenne annuelle basée sur les périodes réellement configurées par l'établissement.
-  const deliberationData = studentsInClass.map((student) => {
+  const annualDecisions = CalculationService.computeAnnualDecisionsForClass(
+    db,
+    selectedClassId,
+    db.currentSchoolYearId
+  );
+
+  const deliberationData = annualDecisions.map((decision) => {
     const periods = configuredTerms.map((term) => {
       const report = CalculationService.generateClassReportCards(
         db,
         selectedClassId,
         term.code,
         db.currentSchoolYearId
-      ).find((item) => item.studentId === student.id);
+      ).find((item) => item.studentId === decision.student.id);
 
       const hasGrades = db.grades.some(
         (grade) =>
-          grade.studentId === student.id &&
+          grade.studentId === decision.student.id &&
           grade.classId === selectedClassId &&
           grade.schoolYearId === db.currentSchoolYearId &&
           grade.termCode === term.code &&
@@ -244,38 +254,134 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
         label: term.label,
         average: report?.generalAverage ?? 0,
         hasGrades,
-        weight: Math.max(0.1, term.weight || 1),
       };
     });
 
-    const completedPeriods = periods.filter((period) => period.hasGrades);
-    const totalWeight = completedPeriods.reduce((sum, period) => sum + period.weight, 0);
-    const mag =
-      totalWeight > 0
-        ? completedPeriods.reduce(
-            (sum, period) => sum + period.average * period.weight,
-            0
-          ) / totalWeight
-        : 0;
+    return { ...decision, periods };
+  });
 
-    let decision = 'En attente de saisie';
-    if (completedPeriods.length > 0) {
-      decision = 'Admis(e) en classe supérieure';
-      if (mag < passingThreshold && mag >= passingThreshold - 1.5) {
-        decision = 'Autorisé(e) au rattrapage';
-      } else if (mag < passingThreshold - 1.5) {
-        decision = 'Redoublement conseillé';
-      }
+  const decisionCounts = {
+    PROMOTE: annualDecisions.filter((item) => item.outcome === 'PROMOTE').length,
+    REPEAT: annualDecisions.filter((item) => item.outcome === 'REPEAT').length,
+    DISMISS: annualDecisions.filter((item) => item.outcome === 'DISMISS').length,
+    REVIEW: annualDecisions.filter((item) => item.outcome === 'REVIEW').length,
+  };
+
+  const allAnnualDecisions = CalculationService.computeAnnualDecisions(
+    db,
+    db.currentSchoolYearId
+  );
+  const projectedClassGroups = db.classes
+    .map((schoolClass) => ({
+      schoolClass,
+      students: allAnnualDecisions.filter(
+        (decision) =>
+          ['PROMOTE', 'REPEAT'].includes(decision.outcome) &&
+          decision.destinationClassId === schoolClass.id
+      ),
+    }))
+    .filter((group) => group.students.length > 0);
+
+  const nextSchoolYear = db.schoolYears
+    .filter((year) => year.startDate > (activeSchoolYear?.startDate || ''))
+    .sort((a, b) => a.startDate.localeCompare(b.startDate))[0];
+
+  const handlePrepareNextYear = () => {
+    if (!nextSchoolYear) {
+      onShowToast(
+        'Créez d’abord l’année scolaire suivante dans Paramètres.',
+        'error'
+      );
+      return;
     }
 
-    return {
-      student,
-      periods,
-      hasAnyTerm: completedPeriods.length > 0,
-      mag: Math.round(mag * 100) / 100,
-      decision,
+    const existingMatricules = new Set(
+      db.students
+        .filter((student) => student.schoolYearId === nextSchoolYear.id)
+        .map((student) => student.matricule)
+    );
+    const destinationCounts = new Map<string, number>();
+    db.classes.forEach((schoolClass) => {
+      destinationCounts.set(
+        schoolClass.id,
+        db.students.filter(
+          (student) =>
+            student.schoolYearId === nextSchoolYear.id &&
+            student.classId === schoolClass.id
+        ).length
+      );
+    });
+
+    const preparedStudents: Student[] = [];
+    let skippedCapacity = 0;
+    let skippedNoDestination = 0;
+
+    allAnnualDecisions.forEach((decision, index) => {
+      if (!['PROMOTE', 'REPEAT'].includes(decision.outcome)) return;
+      if (!decision.destinationClassId) {
+        skippedNoDestination++;
+        return;
+      }
+      if (existingMatricules.has(decision.student.matricule)) return;
+
+      const destinationClass = db.classes.find(
+        (schoolClass) => schoolClass.id === decision.destinationClassId
+      );
+      if (!destinationClass) {
+        skippedNoDestination++;
+        return;
+      }
+
+      const currentCount = destinationCounts.get(destinationClass.id) || 0;
+      if (currentCount >= destinationClass.capacity) {
+        skippedCapacity++;
+        return;
+      }
+
+      preparedStudents.push({
+        ...decision.student,
+        id: `stu-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 6)}`,
+        classId: destinationClass.id,
+        schoolYearId: nextSchoolYear.id,
+        status: 'EN_ATTENTE' as const,
+        enrollmentDate: new Date().toISOString().slice(0, 10),
+        councilDecision: undefined,
+      });
+      existingMatricules.add(decision.student.matricule);
+      destinationCounts.set(destinationClass.id, currentCount + 1);
+    });
+
+    const decisionByStudent = new Map(
+      allAnnualDecisions.map((decision) => [decision.student.id, decision])
+    );
+    const updatedStudents = db.students.map((student) => {
+      if (student.schoolYearId !== db.currentSchoolYearId) return student;
+      const decision = decisionByStudent.get(student.id);
+      if (!decision) return student;
+      return {
+        ...student,
+        councilDecision: decision.destinationClassName
+          ? `${decision.label} — ${decision.destinationClassName}`
+          : decision.label,
+      };
+    });
+
+    const updatedDb: DatabaseSchema = {
+      ...db,
+      students: [...preparedStudents, ...updatedStudents],
     };
-  }).sort((a, b) => b.mag - a.mag);
+    StorageService.saveDatabase(updatedDb);
+    onUpdateDb(updatedDb);
+
+    const details = [
+      `${preparedStudents.length} dossier(s) préparé(s) pour ${nextSchoolYear.label}`,
+      skippedCapacity > 0 ? `${skippedCapacity} bloqué(s) par capacité` : '',
+      skippedNoDestination > 0 ? `${skippedNoDestination} sans classe suivante` : '',
+    ]
+      .filter(Boolean)
+      .join(' · ');
+    onShowToast(details, skippedCapacity || skippedNoDestination ? 'info' : 'success');
+  };
 
   return (
     <div className="space-y-6">
@@ -310,7 +416,7 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
           {[
             ['REPORT_CARDS', 'Bulletins'],
             ['ENTRY_MATRIX', 'Saisie des notes'],
-            ['DELIBERATION_SHEET', 'Délibération'],
+            ['DELIBERATION_SHEET', 'Décisions annuelles'],
             ['ATTENDANCE_SHEET', 'Feuille d’appel'],
           ].map(([id, label]) => (
             <button
@@ -633,99 +739,202 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
         </div>
       )}
 
-      {/* TAB 3: FICHE SYNOPTIQUE DE DÉLIBÉRATION DU CONSEIL DE CLASSE */}
+      {/* TAB 3: DÉCISIONS ANNUELLES */}
       {activeTab === 'DELIBERATION_SHEET' && (
-        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
-            <div>
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white m-0">
-                Fiche de Délibération du Conseil des Professeurs — {targetClass.name}
-              </h3>
-              <p className="text-xs text-slate-500">
-                Synthèse annuelle des 3 trimestres, Moyenne Annuelle Générale (MAG) et décisions de passage
-              </p>
+        <div className="space-y-3">
+          <div className="decision-summary">
+            <div className="decision-summary__item">
+              <span className="decision-summary__label">Admis</span>
+              <strong>{decisionCounts.PROMOTE}</strong>
             </div>
-
-            <div className="flex items-center space-x-3">
-              <div className="flex items-center space-x-1.5 text-xs bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-xl border">
-                <Sliders className="w-3.5 h-3.5 text-blue-500" />
-                <span className="font-semibold">Seuil de passage :</span>
-                <input
-                  type="number"
-                  min="0"
-                  max="20"
-                  step="0.5"
-                  value={passingThreshold}
-                  onChange={(e) => setPassingThreshold(Number(e.target.value))}
-                  className="w-14 px-1.5 py-0.5 rounded bg-white dark:bg-slate-900 border text-center font-bold font-mono"
-                />
-                <span>/ 20</span>
-              </div>
-
-              <button
-                onClick={() => {
-                  window.print();
-                  onShowToast("Impression de la fiche de délibération lancée.", 'success');
-                }}
-                className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shadow"
-              >
-                <Printer className="w-4 h-4" />
-                <span>Imprimer la Fiche du Conseil</span>
-              </button>
+            <div className="decision-summary__item">
+              <span className="decision-summary__label">Redoublants</span>
+              <strong>{decisionCounts.REPEAT}</strong>
+            </div>
+            <div className="decision-summary__item">
+              <span className="decision-summary__label">Remis à la famille</span>
+              <strong>{decisionCounts.DISMISS}</strong>
+            </div>
+            <div className="decision-summary__item">
+              <span className="decision-summary__label">À examiner</span>
+              <strong>{decisionCounts.REVIEW}</strong>
             </div>
           </div>
 
-          <div id="printable-area" className="overflow-x-auto">
-            <table className="w-full text-left text-xs border border-slate-200 dark:border-slate-700">
-              <thead>
-                <tr className="bg-slate-100 dark:bg-slate-800 border-b text-[11px] font-bold text-slate-700 dark:text-slate-300">
-                  <th className="p-2.5">Rang</th>
-                  <th className="p-2.5">Matricule</th>
-                  <th className="p-2.5">Nom & Prénoms</th>
-                  {configuredTerms.map((term) => (
-                    <th key={term.id} className="p-2.5 text-right">
-                      {term.label}
-                    </th>
-                  ))}
-                  <th className="p-2.5 text-right font-extrabold text-blue-700 dark:text-blue-300">Moyenne annuelle</th>
-                  <th className="p-2.5">Décision du Conseil</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {deliberationData.map((row, idx) => (
-                  <tr key={row.student.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
-                    <td className="p-2.5 font-bold">{idx + 1}e</td>
-                    <td className="p-2.5 font-mono text-slate-500">{row.student.matricule}</td>
-                    <td className="p-2.5 font-bold text-slate-900 dark:text-white">
-                      {row.student.lastName} {row.student.firstName}
-                    </td>
-                    {row.periods.map((period) => (
-                      <td key={period.code} className="p-2.5 text-right font-mono">
-                        {period.hasGrades ? period.average.toFixed(2) : '-'}
-                      </td>
+          <div className="page-panel overflow-hidden">
+            <div className="page-panel__header">
+              <div>
+                <h3 className="page-panel__title">
+                  Décisions annuelles — {targetClass?.name || 'Classe'}
+                </h3>
+                <p className="page-panel__subtitle">
+                  Moyenne pondérée selon les périodes et règles définies dans Paramètres.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    window.print();
+                    onShowToast("Impression de la liste des décisions lancée.", 'success');
+                  }}
+                  className="button button--secondary"
+                >
+                  <Printer className="w-4 h-4" />
+                  Imprimer
+                </button>
+                <button
+                  type="button"
+                  onClick={handlePrepareNextYear}
+                  disabled={!nextSchoolYear}
+                  className="button button--primary disabled:opacity-50 disabled:cursor-not-allowed"
+                  title={
+                    nextSchoolYear
+                      ? `Préparer les dossiers pour ${nextSchoolYear.label}`
+                      : 'Créer d’abord l’année scolaire suivante dans Paramètres'
+                  }
+                >
+                  <ArrowRight className="w-4 h-4" />
+                  Préparer la rentrée suivante
+                </button>
+              </div>
+            </div>
+
+            {!nextSchoolYear && (
+              <div className="px-4 py-2.5 border-b border-slate-200 dark:border-slate-800 bg-amber-50 dark:bg-amber-950/20 text-[10.5px] text-amber-800 dark:text-amber-300">
+                Aucune année scolaire suivante n’est configurée. Les décisions sont calculées,
+                mais aucun dossier de passage ne sera créé tant que l’année suivante n’existe pas.
+              </div>
+            )}
+
+            <div id="printable-area" className="overflow-x-auto">
+              <table className="erp-table decision-table">
+                <thead>
+                  <tr>
+                    <th>Rang</th>
+                    <th>Matricule</th>
+                    <th>Élève</th>
+                    {configuredTerms.map((term) => (
+                      <th key={term.id} className="text-right">{term.label}</th>
                     ))}
-                    <td className="p-2.5 text-right font-extrabold font-mono text-sm text-blue-600 dark:text-blue-400">
-                      {row.hasAnyTerm ? row.mag.toFixed(2) : '-'}
-                    </td>
-                    <td className="p-2.5">
-                      <span
-                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                          !row.hasAnyTerm
-                            ? 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
-                            : row.mag >= passingThreshold
-                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-                            : row.mag >= passingThreshold - 1.5
-                            ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
-                            : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
-                        }`}
-                      >
-                        {row.decision}
-                      </span>
-                    </td>
+                    <th className="text-right">Moy. annuelle</th>
+                    <th>Décision</th>
+                    <th>Classe proposée</th>
+                    <th>Observation</th>
                   </tr>
+                </thead>
+                <tbody>
+                  {deliberationData.map((row, index) => (
+                    <tr key={row.student.id}>
+                      <td className="font-mono text-slate-500">{index + 1}</td>
+                      <td className="font-mono text-slate-500">{row.student.matricule}</td>
+                      <td className="font-semibold">
+                        {row.student.lastName} {row.student.firstName}
+                      </td>
+                      {row.periods.map((period) => (
+                        <td key={period.code} className="text-right font-mono">
+                          {period.hasGrades ? period.average.toFixed(2) : '—'}
+                        </td>
+                      ))}
+                      <td className="text-right font-mono font-semibold">
+                        {row.completedPeriods > 0 ? row.annualAverage.toFixed(2) : '—'}
+                      </td>
+                      <td>
+                        <span
+                          className={`decision-status decision-status--${row.outcome.toLowerCase()}`}
+                        >
+                          {row.outcome === 'PROMOTE' && <CheckCircle2 className="w-3.5 h-3.5" />}
+                          {row.outcome === 'REPEAT' && <RotateCcw className="w-3.5 h-3.5" />}
+                          {row.outcome === 'DISMISS' && <UserX className="w-3.5 h-3.5" />}
+                          {row.outcome === 'REVIEW' && <AlertCircle className="w-3.5 h-3.5" />}
+                          {row.label}
+                        </span>
+                      </td>
+                      <td>
+                        {row.destinationClassName || (
+                          <span className="text-slate-400">—</span>
+                        )}
+                      </td>
+                      <td className="text-[10.5px] text-slate-500 max-w-[240px]">
+                        {row.reasons.length > 0 ? row.reasons.join(' · ') : '—'}
+                      </td>
+                    </tr>
+                  ))}
+                  {deliberationData.length === 0 && (
+                    <tr>
+                      <td
+                        colSpan={7 + configuredTerms.length}
+                        className="py-8 text-center text-slate-500"
+                      >
+                        Aucun élève dans cette classe pour l’année active.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="page-panel overflow-hidden">
+            <div className="page-panel__header">
+              <div>
+                <h3 className="page-panel__title">Répartition prévisionnelle par classe</h3>
+                <p className="page-panel__subtitle">
+                  Élèves admis et redoublants regroupés dans leur classe prévue
+                  {nextSchoolYear ? ` pour ${nextSchoolYear.label}` : ''}.
+                </p>
+              </div>
+              <div className="text-[10.5px] text-slate-500">
+                {allAnnualDecisions.filter((item) => ['PROMOTE', 'REPEAT'].includes(item.outcome)).length} dossier(s)
+              </div>
+            </div>
+
+            {projectedClassGroups.length === 0 ? (
+              <div className="p-8 text-center text-[11px] text-slate-500">
+                Aucune répartition disponible. Vérifiez les règles de décision et les classes suivantes.
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-200 dark:divide-slate-800">
+                {projectedClassGroups.map((group) => (
+                  <div key={group.schoolClass.id}>
+                    <div className="flex items-center justify-between px-4 py-2.5 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
+                      <div className="text-[11px] font-semibold">{group.schoolClass.name}</div>
+                      <div className="text-[10px] text-slate-500">
+                        {group.students.length} / {group.schoolClass.capacity}
+                      </div>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="erp-table">
+                        <thead>
+                          <tr>
+                            <th>Matricule</th>
+                            <th>Élève</th>
+                            <th>Classe actuelle</th>
+                            <th className="text-right">Moyenne</th>
+                            <th>Décision</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {group.students.map((decision) => (
+                            <tr key={decision.student.id}>
+                              <td className="font-mono text-slate-500">{decision.student.matricule}</td>
+                              <td className="font-semibold">
+                                {decision.student.lastName} {decision.student.firstName}
+                              </td>
+                              <td>
+                                {db.classes.find((item) => item.id === decision.student.classId)?.name || '—'}
+                              </td>
+                              <td className="text-right font-mono">{decision.annualAverage.toFixed(2)}</td>
+                              <td>{decision.label}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
                 ))}
-              </tbody>
-            </table>
+              </div>
+            )}
           </div>
         </div>
       )}

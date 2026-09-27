@@ -1,4 +1,11 @@
-import { DatabaseSchema, Student, TermType, ReportCardSummary, GradeEntry } from '../types/school';
+import {
+  AnnualDecisionResult,
+  DatabaseSchema,
+  Student,
+  TermType,
+  ReportCardSummary,
+  GradeEntry,
+} from '../types/school';
 
 export class CalculationService {
   /**
@@ -6,7 +13,12 @@ export class CalculationService {
    * Formula: If exam exists, (Average(evaluations) + examGrade*2) / 3 or (Avg(evaluations) + examGrade) / 2
    * Standard Malagasy Secondary formula: Controles 40%, Compositions 60% or (Devoirs + Exam*2)/3
    */
-  static computeSubjectAverage(evaluations: number[], examGrade?: number): number {
+  static computeSubjectAverage(
+    evaluations: number[],
+    examGrade?: number,
+    continuousWeight = 1,
+    examWeight = 2
+  ): number {
     if ((!evaluations || evaluations.length === 0) && examGrade === undefined) {
       return 0;
     }
@@ -18,8 +30,11 @@ export class CalculationService {
     }
 
     if (examGrade !== undefined && evaluations && evaluations.length > 0) {
-      // 1 part continuous assessment, 2 parts term examination
-      const finalVal = (devAvg * 1 + examGrade * 2) / 3;
+      const safeContinuousWeight = Math.max(0, continuousWeight);
+      const safeExamWeight = Math.max(0, examWeight);
+      const totalWeight = safeContinuousWeight + safeExamWeight || 1;
+      const finalVal =
+        (devAvg * safeContinuousWeight + examGrade * safeExamWeight) / totalWeight;
       return Math.round(finalVal * 100) / 100;
     } else if (examGrade !== undefined) {
       return Math.round(examGrade * 100) / 100;
@@ -111,7 +126,15 @@ export class CalculationService {
         const hasRecordedGrade = Boolean(
           grade && ((grade.evaluations?.length || 0) > 0 || grade.examGrade !== undefined)
         );
-        const avg = hasRecordedGrade && grade ? grade.subjectAverage : 0;
+        const avg =
+          hasRecordedGrade && grade
+            ? this.computeSubjectAverage(
+                grade.evaluations || [],
+                grade.examGrade,
+                db.schoolConfig.continuousAssessmentWeight ?? 1,
+                db.schoolConfig.examWeight ?? 2
+              )
+            : 0;
         const pts = hasRecordedGrade ? avg * cs.coefficient : 0;
 
         // A subject that has not been graded yet must not lower the student's average.
@@ -265,9 +288,204 @@ export class CalculationService {
         absencesUnjustified: s.absencesUnjustified,
         latenessCount: s.latenessCount,
         conductGrade: s.conductGrade,
-        councilDecision: s.generalAverage >= 10 ? 'Admis en classe supérieure' : 'Résultats insuffisants / En attente',
+        councilDecision: s.student.councilDecision,
       };
     }).sort((a, b) => a.rank - b.rank);
+  }
+
+  static computeAnnualDecisionForStudent(
+    db: DatabaseSchema,
+    student: Student,
+    schoolYearId: string = db.currentSchoolYearId
+  ): AnnualDecisionResult {
+    const schoolYear = db.schoolYears.find((year) => year.id === schoolYearId);
+    const schoolClass = db.classes.find((item) => item.id === student.classId);
+    const configuredTerms = schoolYear?.terms || [];
+
+    const periods = configuredTerms.map((term) => {
+      const report = this.generateClassReportCards(
+        db,
+        student.classId,
+        term.code,
+        schoolYearId
+      ).find((item) => item.studentId === student.id);
+
+      const gradedSubjectIds = new Set(
+        db.grades
+          .filter(
+            (grade) =>
+              grade.studentId === student.id &&
+              grade.classId === student.classId &&
+              grade.schoolYearId === schoolYearId &&
+              grade.termCode === term.code &&
+              ((grade.evaluations?.length || 0) > 0 || grade.examGrade !== undefined)
+          )
+          .map((grade) => grade.subjectId)
+      );
+      const hasGrades = gradedSubjectIds.size > 0;
+      const isComplete = schoolClass
+        ? schoolClass.subjects.length > 0 &&
+          schoolClass.subjects.every((subject) => gradedSubjectIds.has(subject.subjectId))
+        : false;
+
+      return {
+        code: term.code,
+        label: term.label,
+        average: report?.generalAverage ?? 0,
+        weight: Math.max(0.1, term.weight || 1),
+        hasGrades,
+        isComplete,
+      };
+    });
+
+    const completedPeriods = periods.filter((period) => period.hasGrades);
+    const totalWeight = completedPeriods.reduce((sum, period) => sum + period.weight, 0);
+    const annualAverage =
+      totalWeight > 0
+        ? completedPeriods.reduce(
+            (sum, period) => sum + period.average * period.weight,
+            0
+          ) / totalWeight
+        : 0;
+
+    const annualAttendance = db.attendanceRecords.filter(
+      (record) =>
+        record.studentId === student.id &&
+        record.classId === student.classId &&
+        (!schoolYear ||
+          (record.date >= schoolYear.startDate && record.date <= schoolYear.endDate))
+    );
+    const unjustifiedAbsences = annualAttendance.filter(
+      (record) => record.type === 'ABSENT_NON_JUSTIFIE'
+    ).length;
+    const latenessCount = annualAttendance.filter((record) => record.type === 'RETARD').length;
+    const conductGrade = Math.max(0, 20 - unjustifiedAbsences * 2 - Math.floor(latenessCount * 0.5));
+
+    const requireAllPeriods = db.schoolConfig.requireAllPeriodsForAnnualDecision ?? true;
+    const requireAllSubjects = db.schoolConfig.requireAllSubjectsForAnnualDecision ?? true;
+    const reasons: string[] = [];
+
+    if (completedPeriods.length === 0) {
+      return {
+        student,
+        annualAverage: 0,
+        completedPeriods: 0,
+        totalPeriods: configuredTerms.length,
+        outcome: 'REVIEW',
+        label: 'À examiner',
+        reasons: ['Aucune période notée'],
+      };
+    }
+
+    const completePeriods = periods.filter((period) =>
+      requireAllSubjects ? period.isComplete : period.hasGrades
+    );
+
+    if (requireAllPeriods && completePeriods.length < configuredTerms.length) {
+      reasons.push(
+        `${completePeriods.length}/${configuredTerms.length} période(s) complète(s)`
+      );
+      return {
+        student,
+        annualAverage: Math.round(annualAverage * 100) / 100,
+        completedPeriods: completedPeriods.length,
+        totalPeriods: configuredTerms.length,
+        outcome: 'REVIEW',
+        label: 'À examiner',
+        reasons,
+      };
+    }
+
+    const rules = [...(db.schoolConfig.annualDecisionRules || [])].sort(
+      (a, b) => b.minAverage - a.minAverage
+    );
+    const matchedRule = rules.find((rule) => {
+      const averageMatches =
+        annualAverage >= rule.minAverage && annualAverage <= rule.maxAverage;
+      const absenceMatches =
+        rule.maxUnjustifiedAbsences === undefined ||
+        unjustifiedAbsences <= rule.maxUnjustifiedAbsences;
+      const conductMatches =
+        rule.minConductGrade === undefined || conductGrade >= rule.minConductGrade;
+      return averageMatches && absenceMatches && conductMatches;
+    });
+
+    if (!matchedRule) {
+      reasons.push('Aucune règle ne correspond aux résultats de l’élève');
+      return {
+        student,
+        annualAverage: Math.round(annualAverage * 100) / 100,
+        completedPeriods: completedPeriods.length,
+        totalPeriods: configuredTerms.length,
+        outcome: 'REVIEW',
+        label: 'À examiner',
+        reasons,
+      };
+    }
+
+    if (
+      matchedRule.maxUnjustifiedAbsences !== undefined &&
+      unjustifiedAbsences > matchedRule.maxUnjustifiedAbsences
+    ) {
+      reasons.push(`${unjustifiedAbsences} absence(s) non justifiée(s)`);
+    }
+    if (
+      matchedRule.minConductGrade !== undefined &&
+      conductGrade < matchedRule.minConductGrade
+    ) {
+      reasons.push(`Conduite : ${conductGrade.toFixed(1)}/20`);
+    }
+
+    let destinationClassId: string | undefined;
+    if (matchedRule.outcome === 'PROMOTE') {
+      destinationClassId = schoolClass?.nextClassId;
+      if (!destinationClassId) reasons.push('Classe suivante non configurée');
+    } else if (matchedRule.outcome === 'REPEAT') {
+      destinationClassId = schoolClass?.id;
+    }
+
+    const destinationClassName = destinationClassId
+      ? db.classes.find((item) => item.id === destinationClassId)?.name
+      : undefined;
+
+    return {
+      student,
+      annualAverage: Math.round(annualAverage * 100) / 100,
+      completedPeriods: completedPeriods.length,
+      totalPeriods: configuredTerms.length,
+      outcome: matchedRule.outcome,
+      label: matchedRule.label,
+      destinationClassId,
+      destinationClassName,
+      reasons,
+    };
+  }
+
+  static computeAnnualDecisionsForClass(
+    db: DatabaseSchema,
+    classId: string,
+    schoolYearId: string = db.currentSchoolYearId
+  ): AnnualDecisionResult[] {
+    return db.students
+      .filter(
+        (student) =>
+          student.classId === classId && student.schoolYearId === schoolYearId
+      )
+      .map((student) => this.computeAnnualDecisionForStudent(db, student, schoolYearId))
+      .sort((a, b) => b.annualAverage - a.annualAverage);
+  }
+
+  static computeAnnualDecisions(
+    db: DatabaseSchema,
+    schoolYearId: string = db.currentSchoolYearId
+  ): AnnualDecisionResult[] {
+    return db.students
+      .filter((student) => student.schoolYearId === schoolYearId)
+      .map((student) => this.computeAnnualDecisionForStudent(db, student, schoolYearId))
+      .sort((a, b) => {
+        const classCompare = a.student.classId.localeCompare(b.student.classId);
+        return classCompare !== 0 ? classCompare : b.annualAverage - a.annualAverage;
+      });
   }
 
   /**

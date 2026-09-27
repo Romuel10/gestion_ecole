@@ -6,6 +6,18 @@ export type StudentStatus = 'INSCRIT' | 'REINSCRIT' | 'EN_ATTENTE' | 'TRANSFERE'
 
 export type TeacherContract = 'TITULAIRE' | 'VACATAIRE' | 'FRAM' | 'STAGIAIRE';
 
+export type AnnualDecisionOutcome = 'PROMOTE' | 'REPEAT' | 'DISMISS' | 'REVIEW';
+
+export interface AnnualDecisionRule {
+  id: string;
+  label: string;
+  outcome: AnnualDecisionOutcome;
+  minAverage: number;
+  maxAverage: number;
+  maxUnjustifiedAbsences?: number;
+  minConductGrade?: number;
+}
+
 // Les périodes académiques sont administrables depuis les paramètres.
 export type TermType = string;
 
@@ -33,6 +45,13 @@ export interface SchoolConfig {
   schoolMonths: string[]; // ['Septembre', 'Octobre', 'Novembre', 'Décembre', 'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin']
   reminderTemplate: string; // Template for overdue tuition letter
   badgeThemeColor: string; // Color for student ID cards
+
+  // Annual decisions / promotion
+  annualDecisionRules?: AnnualDecisionRule[];
+  requireAllPeriodsForAnnualDecision?: boolean;
+  requireAllSubjectsForAnnualDecision?: boolean;
+  continuousAssessmentWeight?: number;
+  examWeight?: number;
 }
 
 export interface MatriculeConfig {
@@ -93,6 +112,7 @@ export interface SchoolClass {
   monthlyTuitionFee: number;
   registrationFee: number;
   reRegistrationFee: number;
+  nextClassId?: string;
 }
 
 export interface Student {
@@ -129,6 +149,18 @@ export interface Student {
   previousSchool?: string;
   photoUrl?: string;
   councilDecision?: string; // Admis, Redouble, etc.
+}
+
+export interface AnnualDecisionResult {
+  student: Student;
+  annualAverage: number;
+  completedPeriods: number;
+  totalPeriods: number;
+  outcome: AnnualDecisionOutcome;
+  label: string;
+  destinationClassId?: string;
+  destinationClassName?: string;
+  reasons: string[];
 }
 
 export interface GradeEntry {
