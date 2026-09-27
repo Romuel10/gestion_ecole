@@ -736,12 +736,9 @@ textarea {
   border-color: var(--border) !important;
 }
 
-.rounded-2xl {
-  border-radius: 9px !important;
-}
-
+.rounded-2xl,
 .rounded-xl {
-  border-radius: 7px !important;
+  border-radius: 3px !important;
 }
 
 .shadow-sm,
