@@ -56,8 +56,22 @@ export const StudentListView: React.FC<StudentListViewProps> = ({
     searchInputRef.current?.focus();
   }, []);
 
+  useEffect(() => {
+    if (!initialSelectedStudentId) return;
+    const target = db.students.find(
+      (student) =>
+        student.id === initialSelectedStudentId &&
+        student.schoolYearId === db.currentSchoolYearId
+    );
+    if (target) setViewingStudent(target);
+  }, [initialSelectedStudentId, db.students, db.currentSchoolYearId]);
+
+  const activeYearStudents = db.students.filter(
+    (student) => student.schoolYearId === db.currentSchoolYearId
+  );
+
   // Filters
-  const filteredStudents = db.students.filter((s) => {
+  const filteredStudents = activeYearStudents.filter((s) => {
     const q = searchQuery.toLowerCase().trim();
     const matchQuery =
       !q ||
@@ -212,7 +226,7 @@ export const StudentListView: React.FC<StudentListViewProps> = ({
         <div className="flex items-center justify-between mb-3 text-xs text-slate-500">
           <span>
             Affichage de <strong>{filteredStudents.length}</strong> élève(s) sur un effectif total de{' '}
-            <strong>{db.students.length}</strong>
+            <strong>{activeYearStudents.length}</strong>
           </span>
         </div>
 
@@ -327,12 +341,12 @@ export const StudentListView: React.FC<StudentListViewProps> = ({
               Aucun élève trouvé
             </p>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              {db.students.length === 0
-                ? "Aucun élève n'est encore inscrit. Commencez par une nouvelle inscription."
+              {activeYearStudents.length === 0
+                ? "Aucun élève n'est encore inscrit pour cette année scolaire. Commencez par une nouvelle inscription."
                 : 'Aucun élève ne correspond à votre recherche ou aux filtres appliqués.'}
             </p>
           </div>
-          {db.students.length === 0 ? (
+          {activeYearStudents.length === 0 ? (
             <button
               onClick={onOpenNewAdmission}
               className="flex items-center space-x-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-600/20 transition active:scale-95"
