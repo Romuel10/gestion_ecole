@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Sekoly</title>
+  <desc id="desc">Identité institutionnelle malgache pour un logiciel de gestion scolaire</desc>
+  <defs>
+    <linearGradient id="navy" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#102f3a"/>
+      <stop offset="1" stop-color="#1b5360"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="88" fill="#f8faf8"/>
+  <circle cx="256" cy="256" r="194" fill="#fff" stroke="#173f49" stroke-width="18"/>
+  <path d="M99 256a157 157 0 0 1 157-157" fill="none" stroke="#c43a3a" stroke-width="24" stroke-linecap="round"/>
+  <path d="M256 99a157 157 0 0 1 157 157" fill="none" stroke="#f2f2ec" stroke-width="24" stroke-linecap="round"/>
+  <path d="M413 256a157 157 0 0 1-157 157 157 157 0 0 1-157-157" fill="none" stroke="#2f7a54" stroke-width="24" stroke-linecap="round"/>
+  <path d="M256 150c-18 22-28 46-28 74 0 15 4 29 11 42-21-11-42-18-64-18-18 0-35 5-51 14 24 2 47 11 66 27-18 1-35 7-50 17 31 2 59 14 82 35 8 7 15 16 21 25 5 8 8 17 10 26h7c2-9 5-18 10-26 6-9 13-18 21-25 23-21 51-33 82-35-15-10-32-16-50-17 19-16 42-25 66-27-16-9-33-14-51-14-22 0-43 7-64 18 7-13 11-27 11-42 0-28-10-52-29-74z" fill="url(#navy)"/>
+  <path d="M156 327c38-18 73-19 100-3v56c-29-15-63-14-100 4v-57zm200 0c-38-18-73-19-100-3v56c29-15 63-14 100 4v-57z" fill="#fff" stroke="#173f49" stroke-width="9" stroke-linejoin="round"/>
+  <path d="M256 324v57" stroke="#173f49" stroke-width="9"/>
+  <circle cx="256" cy="199" r="16" fill="#c43a3a"/>
+</svg>
