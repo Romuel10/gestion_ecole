@@ -1,7 +1,8 @@
 import { DatabaseSchema } from '../types/school';
 import { INITIAL_DATA } from '../data/initialData';
+import { DesktopStorageService } from './desktopStorage';
 
-const DB_KEY = 'EDUGASY_PRO_LOCAL_DB_V3_SIMULATION';
+const DB_KEY = 'SEKOLY_BROWSER_CACHE_V1';
 
 export class StorageService {
   private static normalizeDatabase(candidate: Partial<DatabaseSchema>): DatabaseSchema {
@@ -65,16 +66,35 @@ export class StorageService {
     try {
       const raw = localStorage.getItem(DB_KEY);
       if (!raw) {
-        this.saveDatabase(INITIAL_DATA);
-        return INITIAL_DATA;
+        localStorage.setItem(DB_KEY, JSON.stringify(INITIAL_DATA));
+        return JSON.parse(JSON.stringify(INITIAL_DATA));
       }
       const parsed = JSON.parse(raw) as Partial<DatabaseSchema>;
-      const normalized = this.normalizeDatabase(parsed);
-      this.saveDatabase(normalized);
-      return normalized;
+      return this.normalizeDatabase(parsed);
     } catch (e) {
-      console.error('Failed to load database from localStorage, fallback to initial data', e);
-      return INITIAL_DATA;
+      console.error('Failed to load browser cache, fallback to initial data', e);
+      return JSON.parse(JSON.stringify(INITIAL_DATA));
+    }
+  }
+
+  static async hydrateDesktopDatabase(): Promise<DatabaseSchema | null> {
+    if (!DesktopStorageService.isDesktop()) return null;
+
+    try {
+      const desktopDb = await DesktopStorageService.loadDatabase();
+      if (!desktopDb) {
+        const fresh = JSON.parse(JSON.stringify(INITIAL_DATA)) as DatabaseSchema;
+        await DesktopStorageService.saveDatabase(fresh);
+        localStorage.setItem(DB_KEY, JSON.stringify(fresh));
+        return fresh;
+      }
+
+      const normalized = this.normalizeDatabase(desktopDb);
+      localStorage.setItem(DB_KEY, JSON.stringify(normalized));
+      return normalized;
+    } catch (error) {
+      console.error('Failed to hydrate SQLite database', error);
+      return null;
     }
   }
 
@@ -85,6 +105,9 @@ export class StorageService {
     try {
       db.lastUpdated = new Date().toISOString();
       localStorage.setItem(DB_KEY, JSON.stringify(db));
+      void DesktopStorageService.saveDatabase(db).catch((error) => {
+        console.error('Failed to persist SQLite database', error);
+      });
       return true;
     } catch (e) {
       console.error('Failed to save database to localStorage', e);
@@ -96,8 +119,13 @@ export class StorageService {
    * Resets database to default Madagascar sample dataset
    */
   static resetToDefault(): DatabaseSchema {
-    this.saveDatabase(INITIAL_DATA);
-    return JSON.parse(JSON.stringify(INITIAL_DATA));
+    const fresh = JSON.parse(JSON.stringify(INITIAL_DATA)) as DatabaseSchema;
+    this.saveDatabase(fresh);
+    return fresh;
+  }
+
+  static async getDesktopDatabasePath(): Promise<string | null> {
+    return DesktopStorageService.getDatabasePath();
   }
 
   /**
@@ -108,7 +136,7 @@ export class StorageService {
     const blob = new Blob([jsonStr], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const dateStr = new Date().toISOString().slice(0, 10);
-    const fileName = `EDUGASY_PRO_BACKUP_${db.schoolConfig.acronym || 'ECOLE'}_${dateStr}.json`;
+    const fileName = `SEKOLY_BACKUP_${db.schoolConfig.acronym || 'ECOLE'}_${dateStr}.json`;
     
     const a = document.createElement('a');
     a.href = url;
