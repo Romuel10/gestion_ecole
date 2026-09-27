@@ -6,8 +6,12 @@ import {
   Save,
   BookOpen,
   Award,
-  Sliders,
   Calendar,
+  ArrowRight,
+  CheckCircle2,
+  RotateCcw,
+  UserX,
+  AlertCircle,
 } from 'lucide-react';
 import {
   DatabaseSchema,
@@ -44,11 +48,6 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
     db.subjects[0]?.id || ''
   );
   const [selectedTerm, setSelectedTerm] = useState<TermType>(db.currentTermCode);
-
-  // Passing grade threshold for deliberations (customizable)
-  const [passingThreshold, setPassingThreshold] = useState<number>(
-    db.schoolConfig.passingGrade || 10.0
-  );
 
   // Selected Report Card for On-screen Interactive Inspection
   const [inspectSummary, setInspectSummary] = useState<ReportCardSummary | null>(null);
@@ -220,19 +219,24 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
 
   const subjectMap = new Map(db.subjects.map((s) => [s.id, s]));
 
-  // Moyenne annuelle basée sur les périodes réellement configurées par l'établissement.
-  const deliberationData = studentsInClass.map((student) => {
+  const annualDecisions = CalculationService.computeAnnualDecisionsForClass(
+    db,
+    selectedClassId,
+    db.currentSchoolYearId
+  );
+
+  const deliberationData = annualDecisions.map((decision) => {
     const periods = configuredTerms.map((term) => {
       const report = CalculationService.generateClassReportCards(
         db,
         selectedClassId,
         term.code,
         db.currentSchoolYearId
-      ).find((item) => item.studentId === student.id);
+      ).find((item) => item.studentId === decision.student.id);
 
       const hasGrades = db.grades.some(
         (grade) =>
-          grade.studentId === student.id &&
+          grade.studentId === decision.student.id &&
           grade.classId === selectedClassId &&
           grade.schoolYearId === db.currentSchoolYearId &&
           grade.termCode === term.code &&
@@ -244,38 +248,119 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
         label: term.label,
         average: report?.generalAverage ?? 0,
         hasGrades,
-        weight: Math.max(0.1, term.weight || 1),
       };
     });
 
-    const completedPeriods = periods.filter((period) => period.hasGrades);
-    const totalWeight = completedPeriods.reduce((sum, period) => sum + period.weight, 0);
-    const mag =
-      totalWeight > 0
-        ? completedPeriods.reduce(
-            (sum, period) => sum + period.average * period.weight,
-            0
-          ) / totalWeight
-        : 0;
+    return { ...decision, periods };
+  });
 
-    let decision = 'En attente de saisie';
-    if (completedPeriods.length > 0) {
-      decision = 'Admis(e) en classe supérieure';
-      if (mag < passingThreshold && mag >= passingThreshold - 1.5) {
-        decision = 'Autorisé(e) au rattrapage';
-      } else if (mag < passingThreshold - 1.5) {
-        decision = 'Redoublement conseillé';
-      }
+  const decisionCounts = {
+    PROMOTE: annualDecisions.filter((item) => item.outcome === 'PROMOTE').length,
+    REPEAT: annualDecisions.filter((item) => item.outcome === 'REPEAT').length,
+    DISMISS: annualDecisions.filter((item) => item.outcome === 'DISMISS').length,
+    REVIEW: annualDecisions.filter((item) => item.outcome === 'REVIEW').length,
+  };
+
+  const nextSchoolYear = db.schoolYears
+    .filter((year) => year.startDate > (activeSchoolYear?.startDate || ''))
+    .sort((a, b) => a.startDate.localeCompare(b.startDate))[0];
+
+  const handlePrepareNextYear = () => {
+    if (!nextSchoolYear) {
+      onShowToast(
+        'Créez d’abord l’année scolaire suivante dans Paramètres.',
+        'error'
+      );
+      return;
     }
 
-    return {
-      student,
-      periods,
-      hasAnyTerm: completedPeriods.length > 0,
-      mag: Math.round(mag * 100) / 100,
-      decision,
+    const existingMatricules = new Set(
+      db.students
+        .filter((student) => student.schoolYearId === nextSchoolYear.id)
+        .map((student) => student.matricule)
+    );
+    const destinationCounts = new Map<string, number>();
+    db.classes.forEach((schoolClass) => {
+      destinationCounts.set(
+        schoolClass.id,
+        db.students.filter(
+          (student) =>
+            student.schoolYearId === nextSchoolYear.id &&
+            student.classId === schoolClass.id
+        ).length
+      );
+    });
+
+    const preparedStudents = [];
+    let skippedCapacity = 0;
+    let skippedNoDestination = 0;
+
+    annualDecisions.forEach((decision, index) => {
+      if (!['PROMOTE', 'REPEAT'].includes(decision.outcome)) return;
+      if (!decision.destinationClassId) {
+        skippedNoDestination++;
+        return;
+      }
+      if (existingMatricules.has(decision.student.matricule)) return;
+
+      const destinationClass = db.classes.find(
+        (schoolClass) => schoolClass.id === decision.destinationClassId
+      );
+      if (!destinationClass) {
+        skippedNoDestination++;
+        return;
+      }
+
+      const currentCount = destinationCounts.get(destinationClass.id) || 0;
+      if (currentCount >= destinationClass.capacity) {
+        skippedCapacity++;
+        return;
+      }
+
+      preparedStudents.push({
+        ...decision.student,
+        id: `stu-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 6)}`,
+        classId: destinationClass.id,
+        schoolYearId: nextSchoolYear.id,
+        status: 'EN_ATTENTE' as const,
+        enrollmentDate: new Date().toISOString().slice(0, 10),
+        councilDecision: undefined,
+      });
+      existingMatricules.add(decision.student.matricule);
+      destinationCounts.set(destinationClass.id, currentCount + 1);
+    });
+
+    const decisionByStudent = new Map(
+      annualDecisions.map((decision) => [decision.student.id, decision])
+    );
+    const updatedStudents = db.students.map((student) => {
+      if (student.schoolYearId !== db.currentSchoolYearId) return student;
+      const decision = decisionByStudent.get(student.id);
+      if (!decision) return student;
+      return {
+        ...student,
+        councilDecision: decision.destinationClassName
+          ? `${decision.label} — ${decision.destinationClassName}`
+          : decision.label,
+      };
+    });
+
+    const updatedDb: DatabaseSchema = {
+      ...db,
+      students: [...preparedStudents, ...updatedStudents],
     };
-  }).sort((a, b) => b.mag - a.mag);
+    StorageService.saveDatabase(updatedDb);
+    onUpdateDb(updatedDb);
+
+    const details = [
+      `${preparedStudents.length} dossier(s) préparé(s) pour ${nextSchoolYear.label}`,
+      skippedCapacity > 0 ? `${skippedCapacity} bloqué(s) par capacité` : '',
+      skippedNoDestination > 0 ? `${skippedNoDestination} sans classe suivante` : '',
+    ]
+      .filter(Boolean)
+      .join(' · ');
+    onShowToast(details, skippedCapacity || skippedNoDestination ? 'info' : 'success');
+  };
 
   return (
     <div className="space-y-6">
