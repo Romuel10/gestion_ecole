@@ -120,6 +120,25 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
   };
 
   const handleSaveGradesMatrix = () => {
+    const activeYear = db.schoolYears.find((y) => y.id === db.currentSchoolYearId);
+    const activeTerm = activeYear?.terms.find((t) => t.code === selectedTerm);
+    if (activeTerm?.isLocked) {
+      onShowToast(`${activeTerm.label} est verrouillé : aucune note ne peut être modifiée.`, 'error');
+      return;
+    }
+
+    const invalidGrade = Object.values(matrixGrades).some((entry) =>
+      [entry.dev1, entry.dev2, entry.exam].some((raw) => {
+        if (raw === '') return false;
+        const value = Number(raw);
+        return !Number.isFinite(value) || value < 0 || value > 20;
+      })
+    );
+    if (invalidGrade) {
+      onShowToast('Toutes les notes doivent être comprises entre 0 et 20.', 'error');
+      return;
+    }
+
     const updatedGrades = [...db.grades];
 
     studentsInClass.forEach((s) => {
@@ -193,13 +212,26 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
     const rcT2 = CalculationService.generateClassReportCards(db, selectedClassId, 'TRIMESTRE_2', db.currentSchoolYearId).find((r) => r.studentId === student.id);
     const rcT3 = CalculationService.generateClassReportCards(db, selectedClassId, 'TRIMESTRE_3', db.currentSchoolYearId).find((r) => r.studentId === student.id);
 
-    const avgT1 = rcT1?.generalAverage || 0;
-    const avgT2 = rcT2?.generalAverage || 0;
-    const avgT3 = rcT3?.generalAverage || 0;
+    const avgT1 = rcT1?.generalAverage ?? 0;
+    const avgT2 = rcT2?.generalAverage ?? 0;
+    const avgT3 = rcT3?.generalAverage ?? 0;
 
-    // MAG: Moyenne Annuelle Générale
-    const validTerms = [avgT1, avgT2, avgT3].filter((a) => a > 0);
-    const mag = validTerms.length > 0 ? validTerms.reduce((a, b) => a + b, 0) / validTerms.length : avgT1;
+    // MAG: include a trimester only when at least one grade has actually been recorded.
+    const hasGradesForTerm = (termCode: 'TRIMESTRE_1' | 'TRIMESTRE_2' | 'TRIMESTRE_3') =>
+      db.grades.some(
+        (g) =>
+          g.studentId === student.id &&
+          g.classId === selectedClassId &&
+          g.schoolYearId === db.currentSchoolYearId &&
+          g.termCode === termCode &&
+          ((g.evaluations?.length || 0) > 0 || g.examGrade !== undefined)
+      );
+    const validTerms = [
+      hasGradesForTerm('TRIMESTRE_1') ? avgT1 : null,
+      hasGradesForTerm('TRIMESTRE_2') ? avgT2 : null,
+      hasGradesForTerm('TRIMESTRE_3') ? avgT3 : null,
+    ].filter((a): a is number => a !== null);
+    const mag = validTerms.length > 0 ? validTerms.reduce((a, b) => a + b, 0) / validTerms.length : 0;
 
     let decision = 'Admis(e) en classe supérieure';
     if (mag < passingThreshold && mag >= passingThreshold - 1.5) {
