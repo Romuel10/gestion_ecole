@@ -53,10 +53,15 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
   );
 
   // New Tuition Payment Form State
+  const activeSchoolYear = db.schoolYears.find((y) => y.id === db.currentSchoolYearId);
+  const activeSchoolYearStart = activeSchoolYear?.startDate.slice(0, 4) || String(new Date().getFullYear());
+  const defaultTuitionMonth = `Novembre ${activeSchoolYearStart}`;
+  const defaultSalaryMonth = `Octobre ${activeSchoolYearStart}`;
+
   const [tuitionForm, setTuitionForm] = useState({
-    studentId: db.students[0]?.id || '',
+    studentId: db.students.find((s) => s.schoolYearId === db.currentSchoolYearId)?.id || '',
     feeType: 'ECOLAGE_MENSUEL' as TuitionPayment['feeType'],
-    monthTarget: 'Novembre 2025',
+    monthTarget: defaultTuitionMonth,
     amount: 95000,
     discount: 0,
     paymentMethod: 'ESPECES' as PaymentMethod,
@@ -68,7 +73,7 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
   // New Salary Form State
   const [salaryForm, setSalaryForm] = useState({
     teacherId: db.teachers[0]?.id || '',
-    month: 'Octobre 2025',
+    month: defaultSalaryMonth,
     hoursWorked: 40,
     advances: 0,
     bonuses: 0,
@@ -129,7 +134,26 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
     const stu = studentMap.get(tuitionForm.studentId);
     if (!stu) return;
 
-    const receiptNum = `REC-${new Date().getFullYear()}-${String(db.tuitionPayments.length + 1).padStart(4, '0')}`;
+    const baseAmount = Math.max(0, Number(tuitionForm.amount || 0));
+    const discount = Math.max(0, Number(tuitionForm.discount || 0));
+    const netAmount = Math.max(0, baseAmount - discount);
+    if (baseAmount <= 0 || netAmount <= 0) {
+      onShowToast('Le montant encaissé doit être supérieur à 0.', 'error');
+      return;
+    }
+    if (discount > baseAmount) {
+      onShowToast('La remise ne peut pas dépasser le montant demandé.', 'error');
+      return;
+    }
+
+    const receiptYear = activeSchoolYearStart;
+    const usedReceiptNumbers = db.tuitionPayments
+      .map((p) => p.receiptNumber)
+      .filter((n) => n.startsWith(`REC-${receiptYear}-`))
+      .map((n) => Number(n.split('-').pop()))
+      .filter((n) => Number.isFinite(n));
+    const nextReceiptSequence = (usedReceiptNumbers.length > 0 ? Math.max(...usedReceiptNumbers) : 0) + 1;
+    const receiptNum = `REC-${receiptYear}-${String(nextReceiptSequence).padStart(4, '0')}`;
     const newPayment: TuitionPayment = {
       id: `pay-${Date.now()}`,
       receiptNumber: receiptNum,
@@ -138,9 +162,9 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
       schoolYearId: db.currentSchoolYearId,
       feeType: tuitionForm.feeType,
       monthTarget: tuitionForm.monthTarget,
-      amount: Number(tuitionForm.amount),
-      discount: Number(tuitionForm.discount || 0),
-      totalDue: Number(tuitionForm.amount),
+      amount: netAmount,
+      discount,
+      totalDue: baseAmount,
       paymentDate: new Date().toISOString().slice(0, 10),
       paymentMethod: tuitionForm.paymentMethod,
       referenceNumber: tuitionForm.referenceNumber,
@@ -154,7 +178,7 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
       voucherNumber: `TR-${receiptNum}`,
       type: 'RECETTE',
       category: 'Écolages & Scolarité',
-      amount: Number(tuitionForm.amount),
+      amount: netAmount,
       date: new Date().toISOString().slice(0, 10),
       paymentMethod: tuitionForm.paymentMethod,
       beneficiaryOrPayer: newPayment.payerName,
@@ -172,7 +196,7 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
     StorageService.saveDatabase(updatedDb);
     onUpdateDb(updatedDb);
     setIsNewPaymentModalOpen(false);
-    onShowToast(`Paiement de ${CalculationService.formatAriary(newPayment.amount)} enregistré ! Reçu N° ${receiptNum}`, 'success');
+    onShowToast(`Paiement de ${CalculationService.formatAriary(netAmount)} enregistré ! Reçu N° ${receiptNum}`, 'success');
 
     // Auto generate PDF receipt
     PdfGeneratorService.generateTuitionReceiptPDF(newPayment, updatedDb);
@@ -279,6 +303,7 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
     return db.tuitionPayments.find(
       (p) =>
         p.studentId === studentId &&
+        p.schoolYearId === db.currentSchoolYearId &&
         p.feeType === 'ECOLAGE_MENSUEL' &&
         p.monthTarget?.toLowerCase().includes(monthName.toLowerCase())
     );
