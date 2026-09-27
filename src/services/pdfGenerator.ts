@@ -299,6 +299,16 @@ export class PdfGeneratorService {
     doc.setFont('helvetica', 'normal');
     doc.text(payment.notes || 'Paiement régulier validé', 50, 86);
 
+    if (payment.discount > 0) {
+      doc.setFontSize(7.5);
+      doc.setFont('helvetica', 'normal');
+      doc.text(
+        `Montant brut : ${CalculationService.formatAriary(payment.totalDue)}  •  Remise : -${CalculationService.formatAriary(payment.discount)}`,
+        14,
+        93
+      );
+    }
+
     // Total Banner
     doc.setFillColor(236, 253, 245);
     doc.setDrawColor(16, 185, 129);
