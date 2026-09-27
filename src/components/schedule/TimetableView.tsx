@@ -225,117 +225,59 @@ export const TimetableView: React.FC<TimetableViewProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Top Banner */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm">
-        <div>
-          <h2 className="text-base font-bold text-slate-900 dark:text-white m-0">
-            Gestion des Emplois du Temps & Planification Pédagogique
-          </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Planning hebdomadaire interactif, détection automatique des conflits de salles et de professeurs
-          </p>
+      <div className="page-panel p-3 flex flex-col xl:flex-row xl:items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-1">
+          {[
+            ['CLASS', 'Par classe'],
+            ['TEACHER', 'Par enseignant'],
+            ['ROOM', 'Par salle'],
+          ].map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => {
+                const next = id as typeof viewType;
+                setViewType(next);
+                if (next === 'CLASS') setSelectedEntityId(db.classes[0]?.id || '');
+                if (next === 'TEACHER') setSelectedEntityId(db.teachers[0]?.id || '');
+                if (next === 'ROOM') setSelectedEntityId(allRooms[0] || '');
+              }}
+              className={`px-3 py-2 rounded-md text-[11px] font-semibold transition ${
+                viewType === id
+                  ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
+                  : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
         </div>
 
-        {/* View Switchers & Add Action */}
-        <div className="flex flex-wrap items-center gap-2.5">
-          {/* View Perspective Selector */}
-          <div className="flex items-center space-x-1 p-1 rounded-xl bg-slate-100 dark:bg-slate-800">
-            <button
-              onClick={() => {
-                setViewType('CLASS');
-                setSelectedEntityId(db.classes[0]?.id || '');
-              }}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${
-                viewType === 'CLASS'
-                  ? 'bg-blue-600 text-white shadow'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              Par Classe
-            </button>
-            <button
-              onClick={() => {
-                setViewType('TEACHER');
-                setSelectedEntityId(db.teachers[0]?.id || '');
-              }}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${
-                viewType === 'TEACHER'
-                  ? 'bg-blue-600 text-white shadow'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              Par Enseignant
-            </button>
-            <button
-              onClick={() => {
-                setViewType('ROOM');
-                setSelectedEntityId(allRooms[0] || 'Salle 201');
-              }}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${
-                viewType === 'ROOM'
-                  ? 'bg-blue-600 text-white shadow'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              Par Salle
-            </button>
-          </div>
-
-          {/* Entity Dropdown */}
+        <div className="flex flex-wrap items-center gap-2">
           {viewType === 'CLASS' && (
-            <select
-              value={selectedEntityId}
-              onChange={(e) => setSelectedEntityId(e.target.value)}
-              className="text-xs font-bold px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              {db.classes.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
+            <select value={selectedEntityId} onChange={(e) => setSelectedEntityId(e.target.value)} className="settings-input w-auto min-w-[180px]">
+              {db.classes.map((schoolClass) => <option key={schoolClass.id} value={schoolClass.id}>{schoolClass.name}</option>)}
             </select>
           )}
-
           {viewType === 'TEACHER' && (
-            <select
-              value={selectedEntityId}
-              onChange={(e) => setSelectedEntityId(e.target.value)}
-              className="text-xs font-bold px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              {db.teachers.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.lastName} {t.firstName}
-                </option>
-              ))}
+            <select value={selectedEntityId} onChange={(e) => setSelectedEntityId(e.target.value)} className="settings-input w-auto min-w-[190px]">
+              {db.teachers.map((teacher) => <option key={teacher.id} value={teacher.id}>{teacher.lastName} {teacher.firstName}</option>)}
             </select>
           )}
-
           {viewType === 'ROOM' && (
-            <select
-              value={selectedEntityId}
-              onChange={(e) => setSelectedEntityId(e.target.value)}
-              className="text-xs font-bold px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              {allRooms.map((r) => (
-                <option key={r} value={r}>
-                  {r}
-                </option>
-              ))}
+            <select value={selectedEntityId} onChange={(e) => setSelectedEntityId(e.target.value)} className="settings-input w-auto min-w-[150px]">
+              {allRooms.map((room) => <option key={room} value={room}>{room}</option>)}
             </select>
           )}
-
-          <button
-            onClick={handleOpenAddModal}
-            className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shadow-md shadow-blue-600/20 active:scale-95 transition"
-          >
+          <button type="button" onClick={handleOpenAddModal} className="button button--primary">
             <PlusCircle className="w-3.5 h-3.5" />
-            <span>Ajouter Cours</span>
+            Ajouter un cours
           </button>
         </div>
       </div>
 
       {/* Interactive Weekly Timetable Grid */}
-      <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm overflow-x-auto">
+      <div className="page-panel overflow-x-auto">
         <table className="w-full border-collapse min-w-[700px]">
           <thead>
             <tr>
