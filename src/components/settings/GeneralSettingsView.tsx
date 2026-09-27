@@ -14,8 +14,10 @@ import {
   Upload,
   RotateCcw,
   X,
+  ListChecks,
 } from 'lucide-react';
 import {
+  AnnualDecisionRule,
   DatabaseSchema,
   MatriculeConfig,
   SchoolClass,
@@ -36,7 +38,14 @@ interface GeneralSettingsViewProps {
   onShowToast: (msg: string, type?: 'success' | 'error' | 'info') => void;
 }
 
-type SettingsTab = 'SCHOOL' | 'ACADEMIC' | 'CLASSES' | 'SUBJECTS' | 'MATRICULE' | 'DATA';
+type SettingsTab =
+  | 'SCHOOL'
+  | 'ACADEMIC'
+  | 'DECISIONS'
+  | 'CLASSES'
+  | 'SUBJECTS'
+  | 'MATRICULE'
+  | 'DATA';
 
 const makeId = (prefix: string) =>
   `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -106,6 +115,67 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
       return;
     }
     updateDatabase({ ...db, matriculeConfig }, 'Règles de matricule enregistrées.');
+  };
+
+  const decisionRules =
+    schoolConfig.annualDecisionRules || db.schoolConfig.annualDecisionRules || [];
+
+  const updateDecisionRule = (
+    ruleId: string,
+    patch: Partial<AnnualDecisionRule>
+  ) => {
+    setSchoolConfig({
+      ...schoolConfig,
+      annualDecisionRules: decisionRules.map((rule) =>
+        rule.id === ruleId ? { ...rule, ...patch } : rule
+      ),
+    });
+  };
+
+  const addDecisionRule = () => {
+    const nextRule: AnnualDecisionRule = {
+      id: makeId('decision'),
+      label: 'Nouvelle décision',
+      outcome: 'REVIEW',
+      minAverage: 0,
+      maxAverage: 20,
+    };
+    setSchoolConfig({
+      ...schoolConfig,
+      annualDecisionRules: [...decisionRules, nextRule],
+    });
+  };
+
+  const removeDecisionRule = (ruleId: string) => {
+    setSchoolConfig({
+      ...schoolConfig,
+      annualDecisionRules: decisionRules.filter((rule) => rule.id !== ruleId),
+    });
+  };
+
+  const saveDecisionRules = () => {
+    const rules = schoolConfig.annualDecisionRules || [];
+    const invalid = rules.some(
+      (rule) =>
+        !rule.label.trim() ||
+        rule.minAverage < 0 ||
+        rule.maxAverage > 20 ||
+        rule.minAverage > rule.maxAverage
+    );
+    if (invalid) {
+      onShowToast('Vérifiez les libellés et les intervalles de moyenne.', 'error');
+      return;
+    }
+
+    const updatedConfig: SchoolConfig = {
+      ...schoolConfig,
+      annualDecisionRules: rules,
+    };
+    setSchoolConfig(updatedConfig);
+    updateDatabase(
+      { ...db, schoolConfig: updatedConfig },
+      'Règles de décision annuelle enregistrées.'
+    );
   };
 
   const saveMonths = (months: string[]) => {
@@ -527,6 +597,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
   const tabs = [
     { id: 'SCHOOL' as const, label: 'Établissement', icon: Building2 },
     { id: 'ACADEMIC' as const, label: 'Années et périodes', icon: CalendarRange },
+    { id: 'DECISIONS' as const, label: 'Décisions annuelles', icon: ListChecks },
     { id: 'CLASSES' as const, label: 'Classes', icon: School },
     { id: 'SUBJECTS' as const, label: 'Matières', icon: BookOpen },
     { id: 'MATRICULE' as const, label: 'Matricules', icon: Hash },
@@ -650,6 +721,179 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
               </div>
             </div>
           </form>
+        )}
+
+        {activeTab === 'DECISIONS' && (
+          <div className="page-panel overflow-hidden">
+            <div className="page-panel__header">
+              <div>
+                <h2 className="page-panel__title">Règles de décision annuelle</h2>
+                <p className="page-panel__subtitle">
+                  Le logiciel applique ces règles à la moyenne annuelle calculée.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button type="button" onClick={addDecisionRule} className="button button--secondary">
+                  <Plus className="w-4 h-4" />
+                  Ajouter une règle
+                </button>
+                <button type="button" onClick={saveDecisionRules} className="button button--primary">
+                  <Save className="w-4 h-4" />
+                  Enregistrer
+                </button>
+              </div>
+            </div>
+
+            <div className="p-5 space-y-5">
+              <label className="flex items-start gap-3 border-b border-slate-200 dark:border-slate-800 pb-4">
+                <input
+                  type="checkbox"
+                  checked={schoolConfig.requireAllPeriodsForAnnualDecision ?? true}
+                  onChange={(e) =>
+                    setSchoolConfig({
+                      ...schoolConfig,
+                      requireAllPeriodsForAnnualDecision: e.target.checked,
+                    })
+                  }
+                  className="mt-0.5"
+                />
+                <span>
+                  <span className="block text-[11.5px] font-semibold">
+                    Exiger toutes les périodes avant une décision définitive
+                  </span>
+                  <span className="block mt-1 text-[10.5px] text-slate-500">
+                    Si une période n’est pas renseignée, l’élève reste « À examiner ».
+                  </span>
+                </span>
+              </label>
+
+              <div className="overflow-x-auto border border-slate-200 dark:border-slate-700">
+                <table className="erp-table">
+                  <thead>
+                    <tr>
+                      <th>Libellé</th>
+                      <th>Décision</th>
+                      <th>Moyenne min.</th>
+                      <th>Moyenne max.</th>
+                      <th>Absences non justifiées max.</th>
+                      <th>Conduite min.</th>
+                      <th className="text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {decisionRules.map((rule) => (
+                      <tr key={rule.id}>
+                        <td>
+                          <input
+                            value={rule.label}
+                            onChange={(e) => updateDecisionRule(rule.id, { label: e.target.value })}
+                            className="settings-input min-w-[140px]"
+                          />
+                        </td>
+                        <td>
+                          <select
+                            value={rule.outcome}
+                            onChange={(e) =>
+                              updateDecisionRule(rule.id, {
+                                outcome: e.target.value as AnnualDecisionRule['outcome'],
+                              })
+                            }
+                            className="settings-input min-w-[150px]"
+                          >
+                            <option value="PROMOTE">Admis / passage</option>
+                            <option value="REPEAT">Redoublement</option>
+                            <option value="DISMISS">Remis à la famille</option>
+                            <option value="REVIEW">À examiner</option>
+                          </select>
+                        </td>
+                        <td>
+                          <input
+                            type="number"
+                            min="0"
+                            max="20"
+                            step="0.01"
+                            value={rule.minAverage}
+                            onChange={(e) =>
+                              updateDecisionRule(rule.id, { minAverage: Number(e.target.value) })
+                            }
+                            className="settings-input w-24"
+                          />
+                        </td>
+                        <td>
+                          <input
+                            type="number"
+                            min="0"
+                            max="20"
+                            step="0.01"
+                            value={rule.maxAverage}
+                            onChange={(e) =>
+                              updateDecisionRule(rule.id, { maxAverage: Number(e.target.value) })
+                            }
+                            className="settings-input w-24"
+                          />
+                        </td>
+                        <td>
+                          <input
+                            type="number"
+                            min="0"
+                            value={rule.maxUnjustifiedAbsences ?? ''}
+                            placeholder="—"
+                            onChange={(e) =>
+                              updateDecisionRule(rule.id, {
+                                maxUnjustifiedAbsences:
+                                  e.target.value === '' ? undefined : Number(e.target.value),
+                              })
+                            }
+                            className="settings-input w-28"
+                          />
+                        </td>
+                        <td>
+                          <input
+                            type="number"
+                            min="0"
+                            max="20"
+                            step="0.5"
+                            value={rule.minConductGrade ?? ''}
+                            placeholder="—"
+                            onChange={(e) =>
+                              updateDecisionRule(rule.id, {
+                                minConductGrade:
+                                  e.target.value === '' ? undefined : Number(e.target.value),
+                              })
+                            }
+                            className="settings-input w-24"
+                          />
+                        </td>
+                        <td className="text-right">
+                          <button
+                            type="button"
+                            onClick={() => removeDecisionRule(rule.id)}
+                            className="p-1.5 text-slate-400 hover:text-rose-600"
+                            title="Supprimer la règle"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                    {decisionRules.length === 0 && (
+                      <tr>
+                        <td colSpan={7} className="py-8 text-center text-slate-500">
+                          Aucune règle configurée.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="text-[10.5px] text-slate-500">
+                Les règles sont évaluées automatiquement sur la moyenne annuelle pondérée.
+                Une règle peut aussi imposer un maximum d’absences non justifiées ou une note
+                minimale de conduite.
+              </div>
+            </div>
+          </div>
         )}
 
         {activeTab === 'ACADEMIC' && (
@@ -1002,6 +1246,25 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
                 <select value={classDraft.mainTeacherId || ''} onChange={(e) => setClassDraft({ ...classDraft, mainTeacherId: e.target.value || undefined })} className="settings-input">
                   <option value="">Non défini</option>
                   {db.teachers.map((teacher) => <option key={teacher.id} value={teacher.id}>{teacher.lastName} {teacher.firstName}</option>)}
+                </select>
+              </Field>
+              <Field label="Classe suivante">
+                <select
+                  value={classDraft.nextClassId || ''}
+                  onChange={(e) =>
+                    setClassDraft({
+                      ...classDraft,
+                      nextClassId: e.target.value || undefined,
+                    })
+                  }
+                  className="settings-input"
+                >
+                  <option value="">Fin de cycle / non définie</option>
+                  {db.classes
+                    .filter((item) => item.id !== classDraft.id)
+                    .map((item) => (
+                      <option key={item.id} value={item.id}>{item.name}</option>
+                    ))}
                 </select>
               </Field>
               <Field label="Écolage mensuel">
