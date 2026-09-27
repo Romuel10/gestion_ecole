@@ -7,8 +7,8 @@ const DEFAULT_KEY =
   import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
   'sb_publishable_ox4EuxE10F3DLNxr1wP74A_fI_dhJgQ';
 
-const SESSION_KEY = 'SEKOLY_CLOUD_SESSION_V1';
-const SCHOOL_KEY = 'SEKOLY_CLOUD_SCHOOL_ID_V1';
+const SESSION_KEY = 'SEKOLY_CLOUD_SESSION_V2';
+const SCHOOL_KEY = 'SEKOLY_CLOUD_SCHOOL_ID_V2';
 
 type CloudSession = {
   access_token: string;
