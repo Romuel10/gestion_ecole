@@ -11,6 +11,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: windows-desktop-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-windows:
     runs-on: windows-latest
@@ -31,8 +35,15 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
+
       - name: Install Tauri CLI
-        run: cargo install tauri-cli --version "^2.0.0" --locked
+        uses: taiki-e/install-action@v2
+        with:
+          tool: tauri-cli@2
 
       - name: Generate Windows icons from Sekoly identity
         run: cargo tauri icon public/sekoly-app.svg
