@@ -1,23 +1,34 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
-  Building,
+  Building2,
+  CalendarRange,
+  School,
+  BookOpen,
   Hash,
   Database,
+  Plus,
+  Pencil,
+  Trash2,
   Save,
+  Download,
+  Upload,
   RotateCcw,
-  FileDown,
-  FileUp,
-  PlusCircle,
+  X,
 } from 'lucide-react';
 import {
   DatabaseSchema,
-  SchoolConfig,
   MatriculeConfig,
+  SchoolClass,
+  SchoolConfig,
+  SchoolLevel,
   SchoolYear,
+  Subject,
+  TermType,
 } from '../../types/school';
 import { StorageService } from '../../services/storage';
 import { MatriculeService } from '../../services/matricule';
 import { CalculationService } from '../../services/calculations';
+import { Modal } from '../common/Modal';
 
 interface GeneralSettingsViewProps {
   db: DatabaseSchema;
@@ -25,698 +36,1060 @@ interface GeneralSettingsViewProps {
   onShowToast: (msg: string, type?: 'success' | 'error' | 'info') => void;
 }
 
+type SettingsTab = 'SCHOOL' | 'ACADEMIC' | 'CLASSES' | 'SUBJECTS' | 'MATRICULE' | 'DATA';
+
+const makeId = (prefix: string) =>
+  `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
+const slugCode = (value: string) =>
+  value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, '_')
+    .replace(/^_|_$/g, '');
+
 export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
   db,
   onUpdateDb,
   onShowToast,
 }) => {
-  const [activeTab, setActiveTab] = useState<
-    'SCHOOL' | 'MATRICULE' | 'YEARS' | 'CLASSES' | 'SUBJECTS' | 'DATABASE'
-  >('SCHOOL');
-
-  // School Identity form state
+  const [activeTab, setActiveTab] = useState<SettingsTab>('SCHOOL');
   const [schoolConfig, setSchoolConfig] = useState<SchoolConfig>(db.schoolConfig);
-
-  // Matricule Config form state
   const [matriculeConfig, setMatriculeConfig] = useState<MatriculeConfig>(db.matriculeConfig);
 
-  // Save School Identity
-  const handleSaveSchoolIdentity = (e: React.FormEvent) => {
-    e.preventDefault();
-    const updatedDb: DatabaseSchema = {
-      ...db,
-      schoolConfig,
-    };
-    StorageService.saveDatabase(updatedDb);
-    onUpdateDb(updatedDb);
-    onShowToast("Paramètres de l'établissement enregistrés.", 'success');
+  const [classDraft, setClassDraft] = useState<SchoolClass | null>(null);
+  const [editingClassId, setEditingClassId] = useState<string | null>(null);
+
+  const [subjectDraft, setSubjectDraft] = useState<Subject | null>(null);
+  const [editingSubjectId, setEditingSubjectId] = useState<string | null>(null);
+
+  const [yearDraft, setYearDraft] = useState<SchoolYear | null>(null);
+  const [termDraft, setTermDraft] = useState<{
+    schoolYearId: string;
+    id: string;
+    code: TermType;
+    label: string;
+    startDate: string;
+    endDate: string;
+    weight: number;
+    isLocked: boolean;
+  } | null>(null);
+
+  const [newSchoolMonth, setNewSchoolMonth] = useState('');
+
+  const activeSchoolYear = db.schoolYears.find((year) => year.id === db.currentSchoolYearId);
+  const activeSchoolYearStart = activeSchoolYear?.startDate.slice(0, 4);
+  const matriculePreview = MatriculeService.previewPattern(matriculeConfig, activeSchoolYearStart);
+
+  const updateDatabase = (updated: DatabaseSchema, message: string) => {
+    StorageService.saveDatabase(updated);
+    onUpdateDb(updated);
+    onShowToast(message, 'success');
   };
 
-  // Save Matricule Pattern
-  const handleSaveMatriculeConfig = (e: React.FormEvent) => {
-    e.preventDefault();
-    const updatedDb: DatabaseSchema = {
-      ...db,
-      matriculeConfig,
-    };
-    StorageService.saveDatabase(updatedDb);
-    onUpdateDb(updatedDb);
-    onShowToast('Format des matricules mis à jour.', 'success');
+  const handleSaveSchool = (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!schoolConfig.name.trim()) {
+      onShowToast("Le nom de l'établissement est obligatoire.", 'error');
+      return;
+    }
+    updateDatabase({ ...db, schoolConfig }, 'Paramètres de l’établissement enregistrés.');
   };
 
-  // Add School Year
-  const handleAddSchoolYear = () => {
-    const latestYear = [...db.schoolYears].sort((a, b) => b.startDate.localeCompare(a.startDate))[0];
-    const latestStartYear = Number(latestYear?.startDate.slice(0, 4)) || new Date().getFullYear();
-    const nextStartYear = latestStartYear + 1;
-    const nextEndYear = nextStartYear + 1;
-    const nextYearLabel = `${nextStartYear} - ${nextEndYear}`;
+  const handleSaveMatricule = (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!matriculeConfig.pattern.trim() || !matriculeConfig.prefix.trim()) {
+      onShowToast('Le modèle et le préfixe du matricule sont obligatoires.', 'error');
+      return;
+    }
+    updateDatabase({ ...db, matriculeConfig }, 'Règles de matricule enregistrées.');
+  };
 
-    if (db.schoolYears.some((year) => year.startDate.startsWith(String(nextStartYear)))) {
-      onShowToast(`La session ${nextYearLabel} existe déjà.`, 'error');
+  const saveMonths = (months: string[]) => {
+    const cleaned = months.map((month) => month.trim()).filter(Boolean);
+    const updatedConfig = { ...db.schoolConfig, schoolMonths: Array.from(new Set(cleaned)) };
+    setSchoolConfig(updatedConfig);
+    updateDatabase({ ...db, schoolConfig: updatedConfig }, 'Calendrier d’écolage mis à jour.');
+  };
+
+  const addSchoolMonth = () => {
+    const month = newSchoolMonth.trim();
+    if (!month) return;
+    if (db.schoolConfig.schoolMonths.some((item) => item.toLowerCase() === month.toLowerCase())) {
+      onShowToast('Cette période d’écolage existe déjà.', 'error');
+      return;
+    }
+    saveMonths([...db.schoolConfig.schoolMonths, month]);
+    setNewSchoolMonth('');
+  };
+
+  const openNewClass = () => {
+    setEditingClassId(null);
+    setClassDraft({
+      id: makeId('cls'),
+      code: '',
+      name: '',
+      level: 'college',
+      serie: 'GENERALE',
+      room: '',
+      capacity: 35,
+      mainTeacherId: undefined,
+      subjects: [],
+      monthlyTuitionFee: 0,
+      registrationFee: 0,
+      reRegistrationFee: 0,
+    });
+  };
+
+  const saveClass = () => {
+    if (!classDraft) return;
+    if (!classDraft.name.trim() || !classDraft.code.trim()) {
+      onShowToast('Le nom et le code de la classe sont obligatoires.', 'error');
       return;
     }
 
-    const now = Date.now();
-    const newYear: SchoolYear = {
-      id: `sy-${now}`,
-      label: nextYearLabel,
-      startDate: `${nextStartYear}-09-01`,
-      endDate: `${nextEndYear}-06-30`,
-      isCurrent: false,
-      terms: [
-        {
-          id: `term-${now}-1`,
-          code: 'TRIMESTRE_1',
-          label: '1er Trimestre',
-          startDate: `${nextStartYear}-09-01`,
-          endDate: `${nextStartYear}-12-18`,
-          weight: 1,
-          isLocked: false,
-        },
-        {
-          id: `term-${now}-2`,
-          code: 'TRIMESTRE_2',
-          label: '2ème Trimestre',
-          startDate: `${nextEndYear}-01-04`,
-          endDate: `${nextEndYear}-03-26`,
-          weight: 1,
-          isLocked: false,
-        },
-        {
-          id: `term-${now}-3`,
-          code: 'TRIMESTRE_3',
-          label: '3ème Trimestre',
-          startDate: `${nextEndYear}-04-12`,
-          endDate: `${nextEndYear}-06-25`,
-          weight: 1,
-          isLocked: false,
-        },
-      ],
+    const duplicateCode = db.classes.some(
+      (schoolClass) =>
+        schoolClass.id !== editingClassId &&
+        schoolClass.code.trim().toUpperCase() === classDraft.code.trim().toUpperCase()
+    );
+    if (duplicateCode) {
+      onShowToast('Ce code de classe est déjà utilisé.', 'error');
+      return;
+    }
+
+    const normalized: SchoolClass = {
+      ...classDraft,
+      name: classDraft.name.trim(),
+      code: classDraft.code.trim().toUpperCase(),
+      serie: classDraft.serie?.trim() || 'GENERALE',
+      room: classDraft.room.trim(),
+      capacity: Math.max(1, Number(classDraft.capacity) || 1),
+      monthlyTuitionFee: Math.max(0, Number(classDraft.monthlyTuitionFee) || 0),
+      registrationFee: Math.max(0, Number(classDraft.registrationFee) || 0),
+      reRegistrationFee: Math.max(0, Number(classDraft.reRegistrationFee) || 0),
     };
 
-    const updatedDb: DatabaseSchema = {
-      ...db,
-      schoolYears: [...db.schoolYears, newYear],
-    };
-    StorageService.saveDatabase(updatedDb);
-    onUpdateDb(updatedDb);
-    onShowToast(`Nouvelle session scolaire (${nextYearLabel}) ajoutée.`, 'success');
+    const classes = editingClassId
+      ? db.classes.map((item) => (item.id === editingClassId ? normalized : item))
+      : [...db.classes, normalized];
+
+    updateDatabase({ ...db, classes }, editingClassId ? 'Classe modifiée.' : 'Classe ajoutée.');
+    setClassDraft(null);
+    setEditingClassId(null);
   };
 
-  const handleToggleTermLock = (schoolYearId: string, termId: string) => {
-    const updatedYears = db.schoolYears.map((year) => {
-      if (year.id !== schoolYearId) return year;
-      return {
-        ...year,
-        terms: year.terms.map((term) =>
-          term.id === termId ? { ...term, isLocked: !term.isLocked } : term
-        ),
-      };
-    });
+  const deleteClass = (schoolClass: SchoolClass) => {
+    const isUsed =
+      db.students.some((student) => student.classId === schoolClass.id) ||
+      db.grades.some((grade) => grade.classId === schoolClass.id) ||
+      db.timetableSlots.some((slot) => slot.classId === schoolClass.id) ||
+      db.tuitionPayments.some((payment) => payment.classId === schoolClass.id);
 
-    const updatedDb: DatabaseSchema = {
-      ...db,
-      schoolYears: updatedYears,
-    };
-    StorageService.saveDatabase(updatedDb);
-    onUpdateDb(updatedDb);
+    if (isUsed) {
+      onShowToast('Cette classe possède un historique. Elle ne peut pas être supprimée.', 'error');
+      return;
+    }
+    if (!window.confirm(`Supprimer la classe « ${schoolClass.name} » ?`)) return;
 
-    const updatedTerm = updatedYears
-      .find((year) => year.id === schoolYearId)
-      ?.terms.find((term) => term.id === termId);
-    onShowToast(
-      `${updatedTerm?.label || 'Période'} ${updatedTerm?.isLocked ? 'verrouillé' : 'rouvert'}.`,
-      updatedTerm?.isLocked ? 'info' : 'success'
+    updateDatabase(
+      { ...db, classes: db.classes.filter((item) => item.id !== schoolClass.id) },
+      'Classe supprimée.'
     );
   };
 
-  // Backup file upload handler
-  const handleBackupUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const toggleClassSubject = (subject: Subject) => {
+    if (!classDraft) return;
+    const existing = classDraft.subjects.find((item) => item.subjectId === subject.id);
+    setClassDraft({
+      ...classDraft,
+      subjects: existing
+        ? classDraft.subjects.filter((item) => item.subjectId !== subject.id)
+        : [
+            ...classDraft.subjects,
+            {
+              subjectId: subject.id,
+              coefficient: subject.defaultCoeff,
+              weeklyHours: 1,
+            },
+          ],
+    });
+  };
 
+  const updateClassSubject = (
+    subjectId: string,
+    patch: Partial<SchoolClass['subjects'][number]>
+  ) => {
+    if (!classDraft) return;
+    setClassDraft({
+      ...classDraft,
+      subjects: classDraft.subjects.map((item) =>
+        item.subjectId === subjectId ? { ...item, ...patch } : item
+      ),
+    });
+  };
+
+  const openNewSubject = () => {
+    setEditingSubjectId(null);
+    setSubjectDraft({
+      id: makeId('sub'),
+      code: '',
+      name: '',
+      category: 'LITTERAIRE',
+      color: '#64748b',
+      defaultCoeff: 1,
+    });
+  };
+
+  const saveSubject = () => {
+    if (!subjectDraft) return;
+    if (!subjectDraft.name.trim() || !subjectDraft.code.trim()) {
+      onShowToast('Le nom et le code de la matière sont obligatoires.', 'error');
+      return;
+    }
+    const duplicate = db.subjects.some(
+      (subject) =>
+        subject.id !== editingSubjectId &&
+        subject.code.trim().toUpperCase() === subjectDraft.code.trim().toUpperCase()
+    );
+    if (duplicate) {
+      onShowToast('Ce code matière est déjà utilisé.', 'error');
+      return;
+    }
+
+    const normalized = {
+      ...subjectDraft,
+      code: subjectDraft.code.trim().toUpperCase(),
+      name: subjectDraft.name.trim(),
+      defaultCoeff: Math.max(0.5, Number(subjectDraft.defaultCoeff) || 1),
+    };
+
+    const subjects = editingSubjectId
+      ? db.subjects.map((subject) => (subject.id === editingSubjectId ? normalized : subject))
+      : [...db.subjects, normalized];
+
+    updateDatabase({ ...db, subjects }, editingSubjectId ? 'Matière modifiée.' : 'Matière ajoutée.');
+    setSubjectDraft(null);
+    setEditingSubjectId(null);
+  };
+
+  const deleteSubject = (subject: Subject) => {
+    const isUsed =
+      db.classes.some((schoolClass) =>
+        schoolClass.subjects.some((item) => item.subjectId === subject.id)
+      ) ||
+      db.grades.some((grade) => grade.subjectId === subject.id) ||
+      db.timetableSlots.some((slot) => slot.subjectId === subject.id);
+
+    if (isUsed) {
+      onShowToast('Cette matière est utilisée dans une classe ou possède des notes.', 'error');
+      return;
+    }
+    if (!window.confirm(`Supprimer la matière « ${subject.name} » ?`)) return;
+
+    updateDatabase(
+      { ...db, subjects: db.subjects.filter((item) => item.id !== subject.id) },
+      'Matière supprimée.'
+    );
+  };
+
+  const openNewYear = () => {
+    const latest = [...db.schoolYears].sort((a, b) => b.startDate.localeCompare(a.startDate))[0];
+    const startYear = latest ? Number(latest.startDate.slice(0, 4)) + 1 : new Date().getFullYear();
+    setYearDraft({
+      id: makeId('sy'),
+      label: `${startYear} - ${startYear + 1}`,
+      startDate: `${startYear}-09-01`,
+      endDate: `${startYear + 1}-06-30`,
+      isCurrent: false,
+      terms: [],
+    });
+  };
+
+  const saveYear = () => {
+    if (!yearDraft) return;
+    if (!yearDraft.label.trim() || !yearDraft.startDate || !yearDraft.endDate) {
+      onShowToast('Le libellé et les dates de l’année scolaire sont obligatoires.', 'error');
+      return;
+    }
+    if (yearDraft.startDate >= yearDraft.endDate) {
+      onShowToast('La date de fin doit être postérieure à la date de début.', 'error');
+      return;
+    }
+
+    updateDatabase(
+      { ...db, schoolYears: [...db.schoolYears, yearDraft] },
+      'Année scolaire ajoutée.'
+    );
+    setYearDraft(null);
+  };
+
+  const activateYear = (schoolYear: SchoolYear) => {
+    const nextTermCode = schoolYear.terms[0]?.code || db.currentTermCode;
+    updateDatabase(
+      {
+        ...db,
+        currentSchoolYearId: schoolYear.id,
+        currentTermCode: nextTermCode,
+        schoolYears: db.schoolYears.map((year) => ({
+          ...year,
+          isCurrent: year.id === schoolYear.id,
+        })),
+      },
+      `Année scolaire ${schoolYear.label} activée.`
+    );
+  };
+
+  const openNewTerm = (schoolYear: SchoolYear) => {
+    const sequence = schoolYear.terms.length + 1;
+    setTermDraft({
+      schoolYearId: schoolYear.id,
+      id: makeId('term'),
+      code: `PERIODE_${sequence}`,
+      label: `Période ${sequence}`,
+      startDate: schoolYear.startDate,
+      endDate: schoolYear.endDate,
+      weight: 1,
+      isLocked: false,
+    });
+  };
+
+  const saveTerm = () => {
+    if (!termDraft) return;
+    const year = db.schoolYears.find((item) => item.id === termDraft.schoolYearId);
+    if (!year) return;
+
+    const code = slugCode(termDraft.code || termDraft.label) || `PERIODE_${year.terms.length + 1}`;
+    if (!termDraft.label.trim() || !termDraft.startDate || !termDraft.endDate) {
+      onShowToast('Le nom et les dates de la période sont obligatoires.', 'error');
+      return;
+    }
+    if (termDraft.startDate >= termDraft.endDate) {
+      onShowToast('La date de fin doit être postérieure à la date de début.', 'error');
+      return;
+    }
+    if (year.terms.some((term) => term.code === code)) {
+      onShowToast('Ce code de période existe déjà pour cette année.', 'error');
+      return;
+    }
+
+    const schoolYears = db.schoolYears.map((item) =>
+      item.id === year.id
+        ? {
+            ...item,
+            terms: [
+              ...item.terms,
+              {
+                id: termDraft.id,
+                code,
+                label: termDraft.label.trim(),
+                startDate: termDraft.startDate,
+                endDate: termDraft.endDate,
+                weight: Math.max(0.1, Number(termDraft.weight) || 1),
+                isLocked: termDraft.isLocked,
+              },
+            ],
+          }
+        : item
+    );
+
+    const currentTermCode =
+      db.currentSchoolYearId === year.id && year.terms.length === 0 ? code : db.currentTermCode;
+
+    updateDatabase({ ...db, schoolYears, currentTermCode }, 'Période académique ajoutée.');
+    setTermDraft(null);
+  };
+
+  const toggleTermLock = (schoolYearId: string, termId: string) => {
+    const schoolYears = db.schoolYears.map((year) =>
+      year.id === schoolYearId
+        ? {
+            ...year,
+            terms: year.terms.map((term) =>
+              term.id === termId ? { ...term, isLocked: !term.isLocked } : term
+            ),
+          }
+        : year
+    );
+    updateDatabase({ ...db, schoolYears }, 'État de la période mis à jour.');
+  };
+
+  const deleteTerm = (schoolYear: SchoolYear, termId: string) => {
+    const term = schoolYear.terms.find((item) => item.id === termId);
+    if (!term) return;
+    const isUsed = db.grades.some(
+      (grade) =>
+        grade.schoolYearId === schoolYear.id &&
+        grade.termCode === term.code
+    );
+    if (isUsed) {
+      onShowToast('Cette période contient déjà des notes et ne peut pas être supprimée.', 'error');
+      return;
+    }
+    if (!window.confirm(`Supprimer la période « ${term.label} » ?`)) return;
+
+    const schoolYears = db.schoolYears.map((year) =>
+      year.id === schoolYear.id
+        ? { ...year, terms: year.terms.filter((item) => item.id !== termId) }
+        : year
+    );
+    const fallbackTerm =
+      schoolYears.find((year) => year.id === db.currentSchoolYearId)?.terms[0]?.code ||
+      db.currentTermCode;
+    updateDatabase(
+      {
+        ...db,
+        schoolYears,
+        currentTermCode:
+          db.currentSchoolYearId === schoolYear.id && db.currentTermCode === term.code
+            ? fallbackTerm
+            : db.currentTermCode,
+      },
+      'Période supprimée.'
+    );
+  };
+
+  const handleBackupUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
     try {
       const imported = await StorageService.importBackupJSON(file);
+      StorageService.saveDatabase(imported);
       onUpdateDb(imported);
-      onShowToast('Base de données restaurée avec succès !', 'success');
-    } catch (err: any) {
-      onShowToast(`Échec de la restauration : ${err.message}`, 'error');
+      setSchoolConfig(imported.schoolConfig);
+      setMatriculeConfig(imported.matriculeConfig);
+      onShowToast('Sauvegarde restaurée.', 'success');
+    } catch (error) {
+      onShowToast(error instanceof Error ? error.message : 'Sauvegarde invalide.', 'error');
+    } finally {
+      event.target.value = '';
     }
   };
 
-  // Reset to default Madagascar data
-  const handleResetDefaults = () => {
-    if (
-      window.confirm(
-        'Attention ! Cette action va réinitialiser toutes les données aux valeurs par défaut du Ministère de Madagascar. Continuer ?'
-      )
-    ) {
-      const resetData = StorageService.resetToDefault();
-      onUpdateDb(resetData);
-      setSchoolConfig(resetData.schoolConfig);
-      setMatriculeConfig(resetData.matriculeConfig);
-      onShowToast('Données réinitialisées avec succès.', 'info');
-    }
+  const resetDefaults = () => {
+    if (!window.confirm('Réinitialiser toutes les données avec le jeu de démonstration ?')) return;
+    const reset = StorageService.resetToDefault();
+    onUpdateDb(reset);
+    setSchoolConfig(reset.schoolConfig);
+    setMatriculeConfig(reset.matriculeConfig);
+    onShowToast('Données réinitialisées.', 'info');
   };
 
-  // Live Matricule Preview
-  const activeSchoolYearStart =
-    db.schoolYears.find((year) => year.id === db.currentSchoolYearId)?.startDate.slice(0, 4);
-  const livePreview = MatriculeService.previewPattern(matriculeConfig, activeSchoolYearStart);
+  const tabs = [
+    { id: 'SCHOOL' as const, label: 'Établissement', icon: Building2 },
+    { id: 'ACADEMIC' as const, label: 'Années et périodes', icon: CalendarRange },
+    { id: 'CLASSES' as const, label: 'Classes', icon: School },
+    { id: 'SUBJECTS' as const, label: 'Matières', icon: BookOpen },
+    { id: 'MATRICULE' as const, label: 'Matricules', icon: Hash },
+    { id: 'DATA' as const, label: 'Données', icon: Database },
+  ];
+
+  const teacherName = useMemo(
+    () =>
+      new Map(
+        db.teachers.map((teacher) => [
+          teacher.id,
+          `${teacher.lastName} ${teacher.firstName}`,
+        ])
+      ),
+    [db.teachers]
+  );
 
   return (
-    <div className="space-y-6">
-      {/* Top Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm">
-        <div>
-          <h2 className="text-base font-bold text-slate-900 dark:text-white m-0">
-Paramétrage général de l'application
-          </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Personnalisation complète de l'établissement, du format des matricules, des séries et de la base locale
-          </p>
-        </div>
-
-        {/* Tab Switcher */}
-        <div className="flex flex-wrap items-center gap-1.5 p-1 rounded-xl bg-slate-100 dark:bg-slate-800">
-          <button
-            onClick={() => setActiveTab('SCHOOL')}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${
-              activeTab === 'SCHOOL'
-                ? 'bg-blue-600 text-white shadow'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            Établissement
-          </button>
-          <button
-            onClick={() => setActiveTab('MATRICULE')}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${
-              activeTab === 'MATRICULE'
-                ? 'bg-blue-600 text-white shadow'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            Matricules
-          </button>
-          <button
-            onClick={() => setActiveTab('YEARS')}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${
-              activeTab === 'YEARS'
-                ? 'bg-blue-600 text-white shadow'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            Années Scolaires
-          </button>
-          <button
-            onClick={() => setActiveTab('CLASSES')}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${
-              activeTab === 'CLASSES'
-                ? 'bg-blue-600 text-white shadow'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            Classes & Séries
-          </button>
-          <button
-            onClick={() => setActiveTab('DATABASE')}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${
-              activeTab === 'DATABASE'
-                ? 'bg-blue-600 text-white shadow'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            Base de Données
-          </button>
-        </div>
-      </div>
-
-      {/* TAB 1: IDENTITÉ ÉTABLISSEMENT */}
-      {activeTab === 'SCHOOL' && (
-        <form onSubmit={handleSaveSchoolIdentity} className="space-y-6">
-          <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4">
-            <div className="flex items-center space-x-2 text-xs font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 border-b border-slate-100 dark:border-slate-800 pb-2">
-              <Building className="w-4 h-4" />
-              <span>Informations Officielles du Ministère de l'Éducation Nationale</span>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
-              <div className="sm:col-span-2">
-                <label className="block font-semibold mb-1">Nom Complet de l'Établissement *</label>
-                <input
-                  type="text"
-                  required
-                  value={schoolConfig.name}
-                  onChange={(e) => setSchoolConfig({ ...schoolConfig, name: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-bold"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold mb-1">Sigle / Acronyme *</label>
-                <input
-                  type="text"
-                  required
-                  value={schoolConfig.acronym}
-                  onChange={(e) => setSchoolConfig({ ...schoolConfig, acronym: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-bold font-mono"
-                />
-              </div>
-
-              <div className="sm:col-span-2">
-                <label className="block font-semibold mb-1">Devise de l'École</label>
-                <input
-                  type="text"
-                  value={schoolConfig.motto}
-                  onChange={(e) => setSchoolConfig({ ...schoolConfig, motto: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold mb-1">Seuil de Moyenne de Passage (/20)</label>
-                <input
-                  type="number"
-                  min="0"
-                  max="20"
-                  step="0.5"
-                  value={schoolConfig.passingGrade || 10.0}
-                  onChange={(e) => setSchoolConfig({ ...schoolConfig, passingGrade: Number(e.target.value) })}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-bold font-mono text-blue-600"
-                />
-              </div>
-
-              <div className="sm:col-span-2">
-                <label className="block font-semibold mb-1">Modèle de Texte du Mot de Rappel d'Écolage</label>
-                <textarea
-                  rows={2}
-                  value={schoolConfig.reminderTemplate || ''}
-                  onChange={(e) => setSchoolConfig({ ...schoolConfig, reminderTemplate: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-sans"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold mb-1">Couleur par défaut des Cartes d'Élèves</label>
-                <input
-                  type="color"
-                  value={schoolConfig.badgeThemeColor || '#1e40af'}
-                  onChange={(e) => setSchoolConfig({ ...schoolConfig, badgeThemeColor: e.target.value })}
-                  className="w-full h-10 p-1 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 cursor-pointer"
-                />
-              </div>
-
-              <div className="sm:col-span-2">
-                <label className="block font-semibold mb-1">Adresse & Lot</label>
-                <input
-                  type="text"
-                  value={schoolConfig.address}
-                  onChange={(e) => setSchoolConfig({ ...schoolConfig, address: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold mb-1">Ville / Localité</label>
-                <input
-                  type="text"
-                  value={schoolConfig.city}
-                  onChange={(e) => setSchoolConfig({ ...schoolConfig, city: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold mb-1">Téléphone de l'Établissement</label>
-                <input
-                  type="text"
-                  value={schoolConfig.phone}
-                  onChange={(e) => setSchoolConfig({ ...schoolConfig, phone: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-mono"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold mb-1">Nom du Directeur / Chef d'Établissement</label>
-                <input
-                  type="text"
-                  value={schoolConfig.directorName}
-                  onChange={(e) => setSchoolConfig({ ...schoolConfig, directorName: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-bold"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold mb-1">Titre de la Direction</label>
-                <input
-                  type="text"
-                  value={schoolConfig.directorTitle}
-                  onChange={(e) => setSchoolConfig({ ...schoolConfig, directorTitle: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
-                />
-              </div>
-            </div>
-
-            <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end">
-              <button
-                type="submit"
-                className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md shadow-blue-600/30 transition flex items-center space-x-2"
-              >
-                <Save className="w-4 h-4" />
-                <span>Enregistrer les Paramètres de l'Établissement</span>
-              </button>
-            </div>
-          </div>
-        </form>
-      )}
-
-      {/* TAB 2: GÉNÉRATEUR DE MATRICULES */}
-      {activeTab === 'MATRICULE' && (
-        <form onSubmit={handleSaveMatriculeConfig} className="space-y-6">
-          <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-5">
-            <div className="flex items-center space-x-2 text-xs font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400 border-b border-slate-100 dark:border-slate-800 pb-2">
-              <Hash className="w-4 h-4" />
-              <span>Générateur Automatique de Numéros Matricules</span>
-            </div>
-
-            {/* Live Interactive Preview */}
-            <div className="p-5 rounded-2xl bg-gradient-to-r from-purple-950 via-slate-900 to-purple-950 text-white border border-purple-800/60 shadow-lg space-y-2">
-              <div className="text-xs uppercase font-bold text-purple-300">
-                Aperçu en Direct du Prochain Matricule Généré :
-              </div>
-              <div className="text-2xl sm:text-3xl font-extrabold font-mono text-amber-300 tracking-wider">
-                {livePreview}
-              </div>
-              <div className="text-[11px] text-purple-200 font-light">
-                Variables disponibles : <code className="bg-purple-900/60 px-1 py-0.5 rounded">{'{PREFIX}'}</code>,{' '}
-                <code className="bg-purple-900/60 px-1 py-0.5 rounded">{'{YYYY}'}</code>,{' '}
-                <code className="bg-purple-900/60 px-1 py-0.5 rounded">{'{YY}'}</code>,{' '}
-                <code className="bg-purple-900/60 px-1 py-0.5 rounded">{'{LEVEL}'}</code>,{' '}
-                <code className="bg-purple-900/60 px-1 py-0.5 rounded">{'{NUM4}'}</code>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
-              <div className="sm:col-span-2">
-                <label className="block font-semibold mb-1">Modèle / Formule du Pattern *</label>
-                <input
-                  type="text"
-                  required
-                  value={matriculeConfig.pattern}
-                  onChange={(e) => setMatriculeConfig({ ...matriculeConfig, pattern: e.target.value })}
-                  placeholder="Ex: LPSM-{YYYY}-{NUM4}"
-                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-mono font-bold text-sm"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold mb-1">Préfixe Personnalisé</label>
-                <input
-                  type="text"
-                  value={matriculeConfig.prefix}
-                  onChange={(e) => setMatriculeConfig({ ...matriculeConfig, prefix: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-mono font-bold"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold mb-1">Nombre de chiffres incrémentaux</label>
-                <select
-                  value={matriculeConfig.numDigits}
-                  onChange={(e) =>
-                    setMatriculeConfig({ ...matriculeConfig, numDigits: Number(e.target.value) })
-                  }
-                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-bold"
-                >
-                  <option value={3}>3 chiffres (001 - 999)</option>
-                  <option value={4}>4 chiffres (0001 - 9999)</option>
-                  <option value={5}>5 chiffres (00001 - 99999)</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block font-semibold mb-1">Séparateur par défaut</label>
-                <input
-                  type="text"
-                  value={matriculeConfig.separator}
-                  onChange={(e) => setMatriculeConfig({ ...matriculeConfig, separator: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-mono font-bold text-center"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold mb-1">Compteur Actuel (Index de départ)</label>
-                <input
-                  type="number"
-                  min="1"
-                  value={matriculeConfig.currentCounter}
-                  onChange={(e) =>
-                    setMatriculeConfig({ ...matriculeConfig, currentCounter: Number(e.target.value) })
-                  }
-                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-mono font-bold"
-                />
-              </div>
-            </div>
-
-            <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end">
-              <button
-                type="submit"
-                className="px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-md transition flex items-center space-x-2"
-              >
-                <Save className="w-4 h-4" />
-                <span>Enregistrer le Modèle de Matricule</span>
-              </button>
-            </div>
-          </div>
-        </form>
-      )}
-
-      {/* TAB 3: GESTION DES ANNÉES SCOLAIRES */}
-      {activeTab === 'YEARS' && (
-        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-              Sessions & Années Scolaires Enregistrées
-            </h3>
+    <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-4">
+      <aside className="page-panel p-2 h-fit">
+        {tabs.map((tab) => {
+          const Icon = tab.icon;
+          return (
             <button
-              onClick={handleAddSchoolYear}
-              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold"
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id)}
+              className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-md text-left text-[11.5px] transition ${
+                activeTab === tab.id
+                  ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 font-semibold'
+                  : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+              }`}
             >
-              <PlusCircle className="w-3.5 h-3.5" />
-              <span>Créer Session Suivante</span>
+              <Icon className="w-4 h-4" />
+              <span>{tab.label}</span>
             </button>
-          </div>
+          );
+        })}
+      </aside>
 
-          <div className="space-y-3">
-            {db.schoolYears.map((sy) => (
-              <div
-                key={sy.id}
-                className={`p-4 rounded-xl border transition ${
-                  sy.id === db.currentSchoolYearId
-                    ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-950/30'
-                    : 'border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center space-x-2">
-                    <span className="font-extrabold text-sm text-slate-900 dark:text-white">
-                      Année Scolaire {sy.label}
-                    </span>
-                    {sy.id === db.currentSchoolYearId && (
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-600 text-white">
-                        SESSION ACTIVE
-                      </span>
-                    )}
-                  </div>
-                  {sy.id !== db.currentSchoolYearId && (
-                    <button
-                      onClick={() => {
-                        const validTermCodes = sy.terms.map((term) => term.code);
-                        const nextTermCode = validTermCodes.includes(db.currentTermCode)
-                          ? db.currentTermCode
-                          : sy.terms[0]?.code || db.currentTermCode;
-                        const updated: DatabaseSchema = {
-                          ...db,
-                          currentSchoolYearId: sy.id,
-                          currentTermCode: nextTermCode,
-                          schoolYears: db.schoolYears.map((year) => ({
-                            ...year,
-                            isCurrent: year.id === sy.id,
-                          })),
-                        };
-                        StorageService.saveDatabase(updated);
-                        onUpdateDb(updated);
-                        onShowToast(`Session active basculée sur ${sy.label}`, 'info');
-                      }}
-                      className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-200 dark:bg-slate-700 hover:bg-blue-600 hover:text-white transition"
-                    >
-                      Activer cette année
-                    </button>
-                  )}
-                </div>
+      <div className="min-w-0">
+        {activeTab === 'SCHOOL' && (
+          <form onSubmit={handleSaveSchool} className="page-panel">
+            <div className="page-panel__header">
+              <div>
+                <h2 className="page-panel__title">Informations de l’établissement</h2>
+                <p className="page-panel__subtitle">Ces informations apparaissent sur les documents officiels.</p>
+              </div>
+              <button type="submit" className="button button--primary">
+                <Save className="w-4 h-4" />
+                Enregistrer
+              </button>
+            </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  {sy.terms.map((t) => (
-                    <div
-                      key={t.id}
-                      className="p-2.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs flex items-center justify-between"
-                    >
-                      <div>
-                        <div className="font-bold text-slate-800 dark:text-slate-200">{t.label}</div>
-                        <div className="text-[10px] text-slate-400">
-                          {t.startDate} au {t.endDate}
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleToggleTermLock(sy.id, t.id)}
-                        className={`text-[10px] font-bold px-2 py-1 rounded transition hover:ring-2 hover:ring-offset-1 ${
-                          t.isLocked
-                            ? 'bg-rose-100 text-rose-800 hover:bg-rose-200'
-                            : 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
-                        }`}
-                        title={t.isLocked ? 'Cliquer pour rouvrir la saisie' : 'Cliquer pour verrouiller la saisie'}
-                      >
-                        {t.isLocked ? 'Verrouillé' : 'Ouvert'}
+            <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+              <Field label="Nom de l’établissement">
+                <input value={schoolConfig.name} onChange={(e) => setSchoolConfig({ ...schoolConfig, name: e.target.value })} className="settings-input" />
+              </Field>
+              <Field label="Sigle">
+                <input value={schoolConfig.acronym} onChange={(e) => setSchoolConfig({ ...schoolConfig, acronym: e.target.value })} className="settings-input" />
+              </Field>
+              <Field label="Devise / slogan">
+                <input value={schoolConfig.motto} onChange={(e) => setSchoolConfig({ ...schoolConfig, motto: e.target.value })} className="settings-input" />
+              </Field>
+              <Field label="Code MEN / autorisation">
+                <input value={schoolConfig.menCode || ''} onChange={(e) => setSchoolConfig({ ...schoolConfig, menCode: e.target.value })} className="settings-input" />
+              </Field>
+              <Field label="DREN">
+                <input value={schoolConfig.dren || ''} onChange={(e) => setSchoolConfig({ ...schoolConfig, dren: e.target.value })} className="settings-input" />
+              </Field>
+              <Field label="CISCO">
+                <input value={schoolConfig.cisco || ''} onChange={(e) => setSchoolConfig({ ...schoolConfig, cisco: e.target.value })} className="settings-input" />
+              </Field>
+              <Field label="Adresse">
+                <input value={schoolConfig.address} onChange={(e) => setSchoolConfig({ ...schoolConfig, address: e.target.value })} className="settings-input" />
+              </Field>
+              <Field label="Ville">
+                <input value={schoolConfig.city} onChange={(e) => setSchoolConfig({ ...schoolConfig, city: e.target.value })} className="settings-input" />
+              </Field>
+              <Field label="Téléphone">
+                <input value={schoolConfig.phone} onChange={(e) => setSchoolConfig({ ...schoolConfig, phone: e.target.value })} className="settings-input" />
+              </Field>
+              <Field label="E-mail">
+                <input value={schoolConfig.email} onChange={(e) => setSchoolConfig({ ...schoolConfig, email: e.target.value })} className="settings-input" />
+              </Field>
+              <Field label="Responsable de l’établissement">
+                <input value={schoolConfig.directorName} onChange={(e) => setSchoolConfig({ ...schoolConfig, directorName: e.target.value })} className="settings-input" />
+              </Field>
+              <Field label="Fonction du responsable">
+                <input value={schoolConfig.directorTitle} onChange={(e) => setSchoolConfig({ ...schoolConfig, directorTitle: e.target.value })} className="settings-input" />
+              </Field>
+              <Field label="Seuil de passage">
+                <input type="number" min="0" max="20" step="0.25" value={schoolConfig.passingGrade} onChange={(e) => setSchoolConfig({ ...schoolConfig, passingGrade: Number(e.target.value) })} className="settings-input" />
+              </Field>
+              <Field label="Couleur des cartes scolaires">
+                <input type="color" value={schoolConfig.badgeThemeColor} onChange={(e) => setSchoolConfig({ ...schoolConfig, badgeThemeColor: e.target.value })} className="settings-input h-9" />
+              </Field>
+
+              <div className="md:col-span-2 border-t border-slate-200 dark:border-slate-800 pt-4">
+                <div className="text-[11px] font-semibold text-slate-800 dark:text-slate-200">Périodes d’écolage</div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {db.schoolConfig.schoolMonths.map((month) => (
+                    <span key={month} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[11px]">
+                      {month}
+                      <button type="button" onClick={() => saveMonths(db.schoolConfig.schoolMonths.filter((item) => item !== month))} className="text-slate-400 hover:text-rose-600">
+                        <X className="w-3 h-3" />
                       </button>
-                    </div>
+                    </span>
                   ))}
                 </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* TAB 4: CLASSES & SÉRIES */}
-      {activeTab === 'CLASSES' && (
-        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-              Grille des Classes, Niveaux & Droits de Scolarité
-            </h3>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {db.classes.map((cls) => {
-              const totalCoeff = cls.subjects.reduce((a, b) => a + b.coefficient, 0);
-              return (
-                <div
-                  key={cls.id}
-                  className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-3"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-extrabold text-sm text-slate-900 dark:text-white">
-                      {cls.name}
-                    </span>
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-300">
-                      Série {cls.serie || 'GEN'}
-                    </span>
-                  </div>
-
-                  <div className="space-y-1 text-xs text-slate-600 dark:text-slate-300">
-                    <div>
-                      Niveau : <strong>{cls.level.toUpperCase()}</strong> • Salle :{' '}
-                      <strong>{cls.room}</strong>
-                    </div>
-                    <div>
-                      Capacité : <strong>{cls.capacity} élèves</strong> • Matières :{' '}
-                      <strong>{cls.subjects.length}</strong> (Total Coeff : {totalCoeff})
-                    </div>
-                  </div>
-
-                  <div className="p-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[11px] space-y-0.5">
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">Écolage mensuel :</span>
-                      <strong className="text-blue-600 dark:text-blue-400">
-                        {CalculationService.formatAriary(cls.monthlyTuitionFee)}
-                      </strong>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">Droit Inscription :</span>
-                      <strong>{CalculationService.formatAriary(cls.registrationFee)}</strong>
-                    </div>
-                  </div>
+                <div className="mt-3 flex gap-2 max-w-md">
+                  <input value={newSchoolMonth} onChange={(e) => setNewSchoolMonth(e.target.value)} placeholder="Ex. Juillet" className="settings-input" />
+                  <button type="button" onClick={addSchoolMonth} className="button button--secondary">Ajouter</button>
                 </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* TAB 5: BASE DE DONNÉES & SAUVEGARDE */}
-      {activeTab === 'DATABASE' && (
-        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-6">
-          <div className="flex items-center space-x-2 text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 border-b border-slate-100 dark:border-slate-800 pb-2">
-            <Database className="w-4 h-4" />
-            <span>Gestion de la Base de Données Locale Autonome</span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {/* Download Backup */}
-            <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-3">
-              <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/60 text-blue-600 dark:text-blue-400 flex items-center justify-center">
-                <FileDown className="w-5 h-5" />
               </div>
-              <h4 className="font-bold text-xs text-slate-900 dark:text-white m-0">
-                Sauvegarder la Base (JSON)
-              </h4>
-              <p className="text-[11px] text-slate-500">
-                Téléchargez un instantané complet de tous les élèves, notes, fiches de paie et quittances.
-              </p>
-              <button
-                onClick={() => StorageService.exportBackupJSON(db)}
-                className="w-full py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shadow-md transition"
-              >
-                Exporter Fichier Backup
+
+              <div className="md:col-span-2">
+                <Field label="Modèle du rappel d’écolage">
+                  <textarea rows={4} value={schoolConfig.reminderTemplate} onChange={(e) => setSchoolConfig({ ...schoolConfig, reminderTemplate: e.target.value })} className="settings-input resize-y" />
+                </Field>
+              </div>
+            </div>
+          </form>
+        )}
+
+        {activeTab === 'ACADEMIC' && (
+          <div className="page-panel overflow-hidden">
+            <div className="page-panel__header">
+              <div>
+                <h2 className="page-panel__title">Années scolaires et périodes</h2>
+                <p className="page-panel__subtitle">Les périodes peuvent être des trimestres, semestres ou toute autre organisation.</p>
+              </div>
+              <button type="button" onClick={openNewYear} className="button button--primary">
+                <Plus className="w-4 h-4" />
+                Nouvelle année
               </button>
             </div>
 
-            {/* Restore Backup */}
-            <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-3">
-              <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/60 text-purple-600 dark:text-purple-400 flex items-center justify-center">
-                <FileUp className="w-5 h-5" />
-              </div>
-              <h4 className="font-bold text-xs text-slate-900 dark:text-white m-0">
-                Restaurer une Sauvegarde
-              </h4>
-              <p className="text-[11px] text-slate-500">
-                Chargez un fichier de sauvegarde .json précédemment exporté pour remplacer la base locale.
-              </p>
-              <label className="block w-full text-center py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs shadow-md cursor-pointer transition">
-                <span>Importer Fichier Backup</span>
-                <input
-                  type="file"
-                  accept=".json"
-                  onChange={handleBackupUpload}
-                  className="hidden"
-                />
-              </label>
-            </div>
+            <div className="divide-y divide-slate-200 dark:divide-slate-800">
+              {db.schoolYears
+                .slice()
+                .sort((a, b) => b.startDate.localeCompare(a.startDate))
+                .map((year) => (
+                  <div key={year.id} className="p-5">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className="m-0 text-sm font-semibold">{year.label}</h3>
+                          {year.id === db.currentSchoolYearId && (
+                            <span className="px-2 py-0.5 rounded-full bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 text-[9px] font-bold uppercase tracking-wide">
+                              Active
+                            </span>
+                          )}
+                        </div>
+                        <div className="mt-1 text-[10.5px] text-slate-500">
+                          {year.startDate} au {year.endDate}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {year.id !== db.currentSchoolYearId && (
+                          <button type="button" onClick={() => activateYear(year)} className="button button--secondary">
+                            Activer
+                          </button>
+                        )}
+                        <button type="button" onClick={() => openNewTerm(year)} className="button button--secondary">
+                          <Plus className="w-3.5 h-3.5" />
+                          Ajouter une période
+                        </button>
+                      </div>
+                    </div>
 
-            {/* Reset to Madagascar Defaults */}
-            <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-3">
-              <div className="w-10 h-10 rounded-xl bg-rose-100 dark:bg-rose-900/60 text-rose-600 dark:text-rose-400 flex items-center justify-center">
-                <RotateCcw className="w-5 h-5" />
-              </div>
-              <h4 className="font-bold text-xs text-slate-900 dark:text-white m-0">
-                Réinitialisation MEN Madagascar
-              </h4>
-              <p className="text-[11px] text-slate-500">
-                Rétablit le jeu de données d'exemple officiel avec séries L/S/OSE, examens et coefficients.
-              </p>
-              <button
-                onClick={handleResetDefaults}
-                className="w-full py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs shadow-md transition"
-              >
-                Réinitialiser par Défaut
-              </button>
+                    <div className="mt-4 overflow-x-auto">
+                      <table className="erp-table">
+                        <thead>
+                          <tr>
+                            <th>Période</th>
+                            <th>Code</th>
+                            <th>Début</th>
+                            <th>Fin</th>
+                            <th>Poids</th>
+                            <th>État</th>
+                            <th className="text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {year.terms.length === 0 ? (
+                            <tr>
+                              <td colSpan={7} className="text-center text-slate-500 py-6">Aucune période configurée.</td>
+                            </tr>
+                          ) : (
+                            year.terms.map((term) => (
+                              <tr key={term.id}>
+                                <td className="font-semibold">{term.label}</td>
+                                <td className="font-mono text-slate-500">{term.code}</td>
+                                <td>{term.startDate}</td>
+                                <td>{term.endDate}</td>
+                                <td>{term.weight}</td>
+                                <td>
+                                  <button type="button" onClick={() => toggleTermLock(year.id, term.id)} className={`px-2 py-1 rounded text-[10px] font-semibold ${term.isLocked ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300' : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'}`}>
+                                    {term.isLocked ? 'Verrouillée' : 'Ouverte'}
+                                  </button>
+                                </td>
+                                <td className="text-right">
+                                  <button type="button" onClick={() => deleteTerm(year, term.id)} className="p-1.5 text-slate-400 hover:text-rose-600" title="Supprimer">
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ))}
             </div>
           </div>
-        </div>
-      )}
+        )}
+
+        {activeTab === 'CLASSES' && (
+          <div className="page-panel overflow-hidden">
+            <div className="page-panel__header">
+              <div>
+                <h2 className="page-panel__title">Classes et divisions</h2>
+                <p className="page-panel__subtitle">Structure, tarifs, capacité et matières enseignées.</p>
+              </div>
+              <button type="button" onClick={openNewClass} className="button button--primary">
+                <Plus className="w-4 h-4" />
+                Ajouter une classe
+              </button>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="erp-table">
+                <thead>
+                  <tr>
+                    <th>Classe</th>
+                    <th>Code</th>
+                    <th>Niveau</th>
+                    <th>Salle</th>
+                    <th>Capacité</th>
+                    <th>Matières</th>
+                    <th className="text-right">Écolage</th>
+                    <th className="text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {db.classes.map((schoolClass) => (
+                    <tr key={schoolClass.id}>
+                      <td className="font-semibold">{schoolClass.name}</td>
+                      <td className="font-mono text-slate-500">{schoolClass.code}</td>
+                      <td className="capitalize">{schoolClass.level}</td>
+                      <td>{schoolClass.room || '—'}</td>
+                      <td>{schoolClass.capacity}</td>
+                      <td>{schoolClass.subjects.length}</td>
+                      <td className="text-right font-mono">{CalculationService.formatAriary(schoolClass.monthlyTuitionFee)}</td>
+                      <td className="text-right whitespace-nowrap">
+                        <button type="button" onClick={() => { setEditingClassId(schoolClass.id); setClassDraft(JSON.parse(JSON.stringify(schoolClass))); }} className="p-1.5 text-slate-400 hover:text-slate-900 dark:hover:text-white" title="Modifier">
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button type="button" onClick={() => deleteClass(schoolClass)} className="p-1.5 text-slate-400 hover:text-rose-600" title="Supprimer">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'SUBJECTS' && (
+          <div className="page-panel overflow-hidden">
+            <div className="page-panel__header">
+              <div>
+                <h2 className="page-panel__title">Matières</h2>
+                <p className="page-panel__subtitle">Catalogue des matières disponibles pour les classes.</p>
+              </div>
+              <button type="button" onClick={openNewSubject} className="button button--primary">
+                <Plus className="w-4 h-4" />
+                Ajouter une matière
+              </button>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="erp-table">
+                <thead>
+                  <tr>
+                    <th>Code</th>
+                    <th>Matière</th>
+                    <th>Catégorie</th>
+                    <th>Coefficient par défaut</th>
+                    <th>Classes</th>
+                    <th className="text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {db.subjects.map((subject) => (
+                    <tr key={subject.id}>
+                      <td className="font-mono text-slate-500">{subject.code}</td>
+                      <td className="font-semibold">{subject.name}</td>
+                      <td>{subject.category.replace('_', ' ')}</td>
+                      <td>{subject.defaultCoeff}</td>
+                      <td>{db.classes.filter((schoolClass) => schoolClass.subjects.some((item) => item.subjectId === subject.id)).length}</td>
+                      <td className="text-right whitespace-nowrap">
+                        <button type="button" onClick={() => { setEditingSubjectId(subject.id); setSubjectDraft({ ...subject }); }} className="p-1.5 text-slate-400 hover:text-slate-900 dark:hover:text-white" title="Modifier">
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button type="button" onClick={() => deleteSubject(subject)} className="p-1.5 text-slate-400 hover:text-rose-600" title="Supprimer">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'MATRICULE' && (
+          <form onSubmit={handleSaveMatricule} className="page-panel">
+            <div className="page-panel__header">
+              <div>
+                <h2 className="page-panel__title">Règles de matricule</h2>
+                <p className="page-panel__subtitle">Définissez le format utilisé lors des nouvelles inscriptions.</p>
+              </div>
+              <button type="submit" className="button button--primary">
+                <Save className="w-4 h-4" />
+                Enregistrer
+              </button>
+            </div>
+            <div className="p-5">
+              <div className="mb-5 p-4 rounded-md bg-slate-100 dark:bg-slate-800">
+                <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold">Prochain matricule</div>
+                <div className="mt-1 font-mono text-xl font-semibold">{matriculePreview}</div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                <Field label="Modèle">
+                  <input value={matriculeConfig.pattern} onChange={(e) => setMatriculeConfig({ ...matriculeConfig, pattern: e.target.value })} className="settings-input font-mono" />
+                </Field>
+                <Field label="Préfixe">
+                  <input value={matriculeConfig.prefix} onChange={(e) => setMatriculeConfig({ ...matriculeConfig, prefix: e.target.value })} className="settings-input font-mono" />
+                </Field>
+                <Field label="Nombre de chiffres">
+                  <input type="number" min="2" max="8" value={matriculeConfig.numDigits} onChange={(e) => setMatriculeConfig({ ...matriculeConfig, numDigits: Number(e.target.value) })} className="settings-input" />
+                </Field>
+                <Field label="Compteur actuel">
+                  <input type="number" min="0" value={matriculeConfig.currentCounter} onChange={(e) => setMatriculeConfig({ ...matriculeConfig, currentCounter: Number(e.target.value) })} className="settings-input" />
+                </Field>
+                <label className="flex items-center gap-2 text-[11px]">
+                  <input type="checkbox" checked={matriculeConfig.resetEveryYear} onChange={(e) => setMatriculeConfig({ ...matriculeConfig, resetEveryYear: e.target.checked })} />
+                  Remettre le compteur à zéro chaque année scolaire
+                </label>
+              </div>
+              <p className="mt-4 text-[10.5px] text-slate-500">
+                Variables disponibles : {'{PREFIX}'}, {'{YYYY}'}, {'{YY}'}, {'{LEVEL}'}, {'{NUM3}'}, {'{NUM4}'}, {'{NUM5}'}.
+              </p>
+            </div>
+          </form>
+        )}
+
+        {activeTab === 'DATA' && (
+          <div className="page-panel">
+            <div className="page-panel__header">
+              <div>
+                <h2 className="page-panel__title">Sauvegarde et restauration</h2>
+                <p className="page-panel__subtitle">Les données sont actuellement stockées localement dans ce navigateur.</p>
+              </div>
+            </div>
+            <div className="p-5 grid grid-cols-1 md:grid-cols-3 gap-3">
+              <ActionCard
+                icon={<Download className="w-5 h-5" />}
+                title="Exporter une sauvegarde"
+                description="Télécharge toutes les données dans un fichier JSON."
+                action={<button type="button" onClick={() => StorageService.exportBackupJSON(db)} className="button button--secondary">Exporter</button>}
+              />
+              <ActionCard
+                icon={<Upload className="w-5 h-5" />}
+                title="Restaurer une sauvegarde"
+                description="Remplace les données actuelles par un fichier précédemment exporté."
+                action={<label className="button button--secondary cursor-pointer">Importer<input type="file" accept=".json" onChange={handleBackupUpload} className="hidden" /></label>}
+              />
+              <ActionCard
+                icon={<RotateCcw className="w-5 h-5" />}
+                title="Réinitialiser"
+                description="Restaure le jeu de données de démonstration fourni avec l’application."
+                action={<button type="button" onClick={resetDefaults} className="button button--secondary text-rose-700 dark:text-rose-300">Réinitialiser</button>}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
+      <Modal
+        isOpen={!!classDraft}
+        onClose={() => { setClassDraft(null); setEditingClassId(null); }}
+        title={editingClassId ? 'Modifier la classe' : 'Ajouter une classe'}
+        subtitle="Définissez la structure, les frais et les matières."
+        maxWidth="4xl"
+        actions={
+          <>
+            <button type="button" onClick={() => { setClassDraft(null); setEditingClassId(null); }} className="button button--secondary">Annuler</button>
+            <button type="button" onClick={saveClass} className="button button--primary">Enregistrer</button>
+          </>
+        }
+      >
+        {classDraft && (
+          <div className="space-y-5 text-xs">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <Field label="Nom">
+                <input value={classDraft.name} onChange={(e) => setClassDraft({ ...classDraft, name: e.target.value, code: classDraft.code || slugCode(e.target.value) })} className="settings-input" />
+              </Field>
+              <Field label="Code">
+                <input value={classDraft.code} onChange={(e) => setClassDraft({ ...classDraft, code: e.target.value })} className="settings-input font-mono" />
+              </Field>
+              <Field label="Niveau">
+                <select value={classDraft.level} onChange={(e) => setClassDraft({ ...classDraft, level: e.target.value as SchoolLevel })} className="settings-input">
+                  <option value="primaire">Primaire</option>
+                  <option value="college">Collège</option>
+                  <option value="lycee">Lycée</option>
+                </select>
+              </Field>
+              <Field label="Série / section">
+                <input value={classDraft.serie || ''} onChange={(e) => setClassDraft({ ...classDraft, serie: e.target.value })} className="settings-input" />
+              </Field>
+              <Field label="Salle">
+                <input value={classDraft.room} onChange={(e) => setClassDraft({ ...classDraft, room: e.target.value })} className="settings-input" />
+              </Field>
+              <Field label="Capacité">
+                <input type="number" min="1" value={classDraft.capacity} onChange={(e) => setClassDraft({ ...classDraft, capacity: Number(e.target.value) })} className="settings-input" />
+              </Field>
+              <Field label="Professeur principal">
+                <select value={classDraft.mainTeacherId || ''} onChange={(e) => setClassDraft({ ...classDraft, mainTeacherId: e.target.value || undefined })} className="settings-input">
+                  <option value="">Non défini</option>
+                  {db.teachers.map((teacher) => <option key={teacher.id} value={teacher.id}>{teacher.lastName} {teacher.firstName}</option>)}
+                </select>
+              </Field>
+              <Field label="Écolage mensuel">
+                <input type="number" min="0" value={classDraft.monthlyTuitionFee} onChange={(e) => setClassDraft({ ...classDraft, monthlyTuitionFee: Number(e.target.value) })} className="settings-input" />
+              </Field>
+              <Field label="Droit d’inscription">
+                <input type="number" min="0" value={classDraft.registrationFee} onChange={(e) => setClassDraft({ ...classDraft, registrationFee: Number(e.target.value) })} className="settings-input" />
+              </Field>
+              <Field label="Droit de réinscription">
+                <input type="number" min="0" value={classDraft.reRegistrationFee} onChange={(e) => setClassDraft({ ...classDraft, reRegistrationFee: Number(e.target.value) })} className="settings-input" />
+              </Field>
+            </div>
+
+            <div>
+              <div className="mb-2 text-[11px] font-semibold">Matières de la classe</div>
+              <div className="border border-slate-200 dark:border-slate-700 rounded-md overflow-hidden">
+                <table className="erp-table">
+                  <thead>
+                    <tr>
+                      <th className="w-10"></th>
+                      <th>Matière</th>
+                      <th>Coefficient</th>
+                      <th>Heures / semaine</th>
+                      <th>Enseignant</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {db.subjects.map((subject) => {
+                      const config = classDraft.subjects.find((item) => item.subjectId === subject.id);
+                      return (
+                        <tr key={subject.id}>
+                          <td>
+                            <input type="checkbox" checked={!!config} onChange={() => toggleClassSubject(subject)} />
+                          </td>
+                          <td className="font-semibold">{subject.name}</td>
+                          <td>
+                            <input disabled={!config} type="number" min="0.5" step="0.5" value={config?.coefficient ?? subject.defaultCoeff} onChange={(e) => updateClassSubject(subject.id, { coefficient: Number(e.target.value) })} className="w-20 settings-input" />
+                          </td>
+                          <td>
+                            <input disabled={!config} type="number" min="0" step="0.5" value={config?.weeklyHours ?? 0} onChange={(e) => updateClassSubject(subject.id, { weeklyHours: Number(e.target.value) })} className="w-24 settings-input" />
+                          </td>
+                          <td>
+                            <select disabled={!config} value={config?.teacherId || ''} onChange={(e) => updateClassSubject(subject.id, { teacherId: e.target.value || undefined })} className="settings-input min-w-[180px]">
+                              <option value="">Non affecté</option>
+                              {db.teachers.map((teacher) => <option key={teacher.id} value={teacher.id}>{teacherName.get(teacher.id)}</option>)}
+                            </select>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      <Modal
+        isOpen={!!subjectDraft}
+        onClose={() => { setSubjectDraft(null); setEditingSubjectId(null); }}
+        title={editingSubjectId ? 'Modifier la matière' : 'Ajouter une matière'}
+        maxWidth="lg"
+        actions={
+          <>
+            <button type="button" onClick={() => { setSubjectDraft(null); setEditingSubjectId(null); }} className="button button--secondary">Annuler</button>
+            <button type="button" onClick={saveSubject} className="button button--primary">Enregistrer</button>
+          </>
+        }
+      >
+        {subjectDraft && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+            <Field label="Nom">
+              <input value={subjectDraft.name} onChange={(e) => setSubjectDraft({ ...subjectDraft, name: e.target.value, code: subjectDraft.code || slugCode(e.target.value).slice(0, 8) })} className="settings-input" />
+            </Field>
+            <Field label="Code">
+              <input value={subjectDraft.code} onChange={(e) => setSubjectDraft({ ...subjectDraft, code: e.target.value })} className="settings-input font-mono" />
+            </Field>
+            <Field label="Catégorie">
+              <select value={subjectDraft.category} onChange={(e) => setSubjectDraft({ ...subjectDraft, category: e.target.value as Subject['category'] })} className="settings-input">
+                <option value="LITTERAIRE">Littéraire</option>
+                <option value="SCIENTIFIQUE">Scientifique</option>
+                <option value="HUMAINE">Sciences humaines</option>
+                <option value="SPORT_DIVERS">Sport / divers</option>
+              </select>
+            </Field>
+            <Field label="Coefficient par défaut">
+              <input type="number" min="0.5" step="0.5" value={subjectDraft.defaultCoeff} onChange={(e) => setSubjectDraft({ ...subjectDraft, defaultCoeff: Number(e.target.value) })} className="settings-input" />
+            </Field>
+          </div>
+        )}
+      </Modal>
+
+      <Modal
+        isOpen={!!yearDraft}
+        onClose={() => setYearDraft(null)}
+        title="Ajouter une année scolaire"
+        maxWidth="lg"
+        actions={
+          <>
+            <button type="button" onClick={() => setYearDraft(null)} className="button button--secondary">Annuler</button>
+            <button type="button" onClick={saveYear} className="button button--primary">Créer</button>
+          </>
+        }
+      >
+        {yearDraft && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+            <Field label="Libellé">
+              <input value={yearDraft.label} onChange={(e) => setYearDraft({ ...yearDraft, label: e.target.value })} className="settings-input" />
+            </Field>
+            <div />
+            <Field label="Date de début">
+              <input type="date" value={yearDraft.startDate} onChange={(e) => setYearDraft({ ...yearDraft, startDate: e.target.value })} className="settings-input" />
+            </Field>
+            <Field label="Date de fin">
+              <input type="date" value={yearDraft.endDate} onChange={(e) => setYearDraft({ ...yearDraft, endDate: e.target.value })} className="settings-input" />
+            </Field>
+          </div>
+        )}
+      </Modal>
+
+      <Modal
+        isOpen={!!termDraft}
+        onClose={() => setTermDraft(null)}
+        title="Ajouter une période académique"
+        subtitle="Vous pouvez créer un trimestre, semestre, séquence ou toute autre période."
+        maxWidth="lg"
+        actions={
+          <>
+            <button type="button" onClick={() => setTermDraft(null)} className="button button--secondary">Annuler</button>
+            <button type="button" onClick={saveTerm} className="button button--primary">Ajouter</button>
+          </>
+        }
+      >
+        {termDraft && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+            <Field label="Nom de la période">
+              <input value={termDraft.label} onChange={(e) => setTermDraft({ ...termDraft, label: e.target.value, code: slugCode(e.target.value) })} placeholder="Ex. 1er Trimestre" className="settings-input" />
+            </Field>
+            <Field label="Code interne">
+              <input value={termDraft.code} onChange={(e) => setTermDraft({ ...termDraft, code: e.target.value })} className="settings-input font-mono" />
+            </Field>
+            <Field label="Date de début">
+              <input type="date" value={termDraft.startDate} onChange={(e) => setTermDraft({ ...termDraft, startDate: e.target.value })} className="settings-input" />
+            </Field>
+            <Field label="Date de fin">
+              <input type="date" value={termDraft.endDate} onChange={(e) => setTermDraft({ ...termDraft, endDate: e.target.value })} className="settings-input" />
+            </Field>
+            <Field label="Poids dans la moyenne annuelle">
+              <input type="number" min="0.1" step="0.1" value={termDraft.weight} onChange={(e) => setTermDraft({ ...termDraft, weight: Number(e.target.value) })} className="settings-input" />
+            </Field>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 };
+
+const Field: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
+  <label className="block">
+    <span className="block mb-1.5 text-[10.5px] font-semibold text-slate-600 dark:text-slate-300">{label}</span>
+    {children}
+  </label>
+);
+
+const ActionCard: React.FC<{
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  action: React.ReactNode;
+}> = ({ icon, title, description, action }) => (
+  <div className="border border-slate-200 dark:border-slate-700 rounded-md p-4">
+    <div className="text-slate-500">{icon}</div>
+    <div className="mt-3 text-[11.5px] font-semibold">{title}</div>
+    <p className="mt-1 min-h-10 text-[10.5px] text-slate-500">{description}</p>
+    <div className="mt-3">{action}</div>
+  </div>
+);
