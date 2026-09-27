@@ -1,4 +1,3 @@
-// EduGasy Pro - Admissions & Registration Engine
 import React, { useState } from 'react';
 import {
   UserPlus,
@@ -7,8 +6,6 @@ import {
   CheckCircle2,
   Printer,
   Search,
-  ArrowRight,
-  ShieldAlert,
   User,
   CreditCard,
   Building,
@@ -74,9 +71,7 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
   const [targetClassId, setTargetClassId] = useState(db.classes[0]?.id || '');
   const [reRegPayMethod, setReRegPayMethod] = useState<PaymentMethod>('ESPECES');
   const [reRegReference, setReRegReference] = useState('');
-  const [reRegPayer, setReRegPayer] = useState('');
 
-  // Auto generated preview matricule
   const generatedMatriculePreview = MatriculeService.previewPattern(db.matriculeConfig);
   const selectedClass = db.classes.find((c) => c.id === formData.classId) || db.classes[0];
 
@@ -247,7 +242,7 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
       paymentDate: new Date().toISOString().slice(0, 10),
       paymentMethod: reRegPayMethod,
       referenceNumber: reRegReference,
-      payerName: reRegPayer || `${selectedStudentForReReg.fatherName || selectedStudentForReReg.motherName || 'Parent'}`,
+      payerName: selectedStudentForReReg.fatherName || selectedStudentForReReg.motherName || 'Parent',
       cashierName: 'Service Caisse & Admission',
       notes: `Réinscription en classe de ${targetClass.name}`,
     };
@@ -313,7 +308,7 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Module Title & Tab Switcher */}
+      {/* En-tête du module */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm">
         <div>
           <h2 className="text-base font-bold text-slate-900 dark:text-white m-0">
@@ -361,7 +356,7 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
         </div>
       </div>
 
-      {/* TAB 1: NOUVELLE INSCRIPTION */}
+      {/* Onglet : nouvelle inscription */}
       {activeTab === 'NEW_ADMISSION' && (
         <form onSubmit={handleNewAdmissionSubmit} className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -837,7 +832,7 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
         </div>
       )}
 
-      {/* TAB 3: REGISTRE DES ADMISSIONS */}
+      {/* Onglet : registre des admissions */}
       {activeTab === 'LOG' && (
         <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4">
           <div className="flex items-center justify-between">

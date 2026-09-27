@@ -1,17 +1,7 @@
-// EduGasy Pro - Interactive Weekly Timetable & Conflict Engine
 import React, { useState } from 'react';
 import {
-  Calendar,
-  Clock,
-  Building,
-  Users,
   PlusCircle,
-  AlertTriangle,
-  Printer,
   Trash2,
-  Edit2,
-  CheckCircle2,
-  Layers,
 } from 'lucide-react';
 import { DatabaseSchema, TimetableSlot } from '../../types/school';
 import { StorageService } from '../../services/storage';
@@ -68,7 +58,7 @@ export const TimetableView: React.FC<TimetableViewProps> = ({
   const teacherMap = new Map(db.teachers.map((t) => [t.id, t]));
   const subjectMap = new Map(db.subjects.map((s) => [s.id, s]));
 
-  // Conflict Detection Engine
+  // Détection des conflits d'horaires
   const detectConflicts = (newSlot: Partial<TimetableSlot>, excludeId?: string) => {
     const conflicts: string[] = [];
 
@@ -319,7 +309,7 @@ export const TimetableView: React.FC<TimetableViewProps> = ({
             </tr>
           </thead>
           <tbody>
-            {timeSlots.map((ts, idx) => (
+            {timeSlots.map((ts) => (
               <tr key={ts.start}>
                 <td className="p-2.5 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 font-mono text-[11px] font-bold text-slate-600 dark:text-slate-400 text-center">
                   {ts.label}

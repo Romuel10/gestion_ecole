@@ -1,5 +1,4 @@
-// EduGasy Pro - Academic & Financial Calculation Engine
-import { DatabaseSchema, Student, SchoolClass, TermType, ReportCardSummary, GradeEntry } from '../types/school';
+import { DatabaseSchema, Student, TermType, ReportCardSummary, GradeEntry } from '../types/school';
 
 export class CalculationService {
   /**

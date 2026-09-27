@@ -1,5 +1,3 @@
-// EduGasy Pro - Type Definitions for School Management System
-
 export type SchoolLevel = 'primaire' | 'college' | 'lycee';
 
 export type PaymentMethod = 'ESPECES' | 'MVOLA' | 'ORANGE_MONEY' | 'AIRTEL_MONEY' | 'VIREMENT' | 'CHEQUE';

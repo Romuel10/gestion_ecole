@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Search,
   Eye,
@@ -8,6 +8,8 @@ import {
   FileDown,
   UserPlus,
   CreditCard,
+  Users,
+  X,
 } from 'lucide-react';
 import { DatabaseSchema, Student } from '../../types/school';
 import { StorageService } from '../../services/storage';
@@ -15,6 +17,7 @@ import { PdfGeneratorService } from '../../services/pdfGenerator';
 import { StudentDetailModal } from './StudentDetailModal';
 import { StudentFormModal } from './StudentFormModal';
 import { StudentCardGeneratorModal } from './StudentCardGeneratorModal';
+import { ConfirmDialog } from '../common/ConfirmDialog';
 
 interface StudentListViewProps {
   db: DatabaseSchema;
@@ -45,6 +48,13 @@ export const StudentListView: React.FC<StudentListViewProps> = ({
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [cardModalStudent, setCardModalStudent] = useState<Student | null>(null);
   const [isCardModalOpen, setIsCardModalOpen] = useState(false);
+  const [studentToDelete, setStudentToDelete] = useState<Student | null>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Focus automatique sur la recherche à l'ouverture de la vue
+  useEffect(() => {
+    searchInputRef.current?.focus();
+  }, []);
 
   // Filters
   const filteredStudents = db.students.filter((s) => {
@@ -66,26 +76,21 @@ export const StudentListView: React.FC<StudentListViewProps> = ({
   const currentSelectedClassObj = db.classes.find((c) => c.id === selectedClassId) || null;
 
   const handleDeleteStudent = (student: Student) => {
-    if (
-      window.confirm(
-        `Êtes-vous sûr de vouloir supprimer définitivement l'élève ${student.lastName} ${student.firstName} (${student.matricule}) ?`
-      )
-    ) {
-      const updatedStudents = db.students.filter((s) => s.id !== student.id);
-      const updatedGrades = db.grades.filter((g) => g.studentId !== student.id);
-      const updatedPayments = db.tuitionPayments.filter((p) => p.studentId !== student.id);
+    const updatedStudents = db.students.filter((s) => s.id !== student.id);
+    const updatedGrades = db.grades.filter((g) => g.studentId !== student.id);
+    const updatedPayments = db.tuitionPayments.filter((p) => p.studentId !== student.id);
 
-      const updatedDb: DatabaseSchema = {
-        ...db,
-        students: updatedStudents,
-        grades: updatedGrades,
-        tuitionPayments: updatedPayments,
-      };
+    const updatedDb: DatabaseSchema = {
+      ...db,
+      students: updatedStudents,
+      grades: updatedGrades,
+      tuitionPayments: updatedPayments,
+    };
 
-      StorageService.saveDatabase(updatedDb);
-      onUpdateDb(updatedDb);
-      onShowToast(`L'élève ${student.lastName} a été retiré.`, 'info');
-    }
+    StorageService.saveDatabase(updatedDb);
+    onUpdateDb(updatedDb);
+    setStudentToDelete(null);
+    onShowToast(`L'élève ${student.lastName} a été retiré.`, 'info');
   };
 
   return (
@@ -135,12 +140,22 @@ export const StudentListView: React.FC<StudentListViewProps> = ({
         <div className="lg:col-span-2 relative">
           <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
           <input
+            ref={searchInputRef}
             type="text"
             placeholder="Rechercher par nom, prénom ou matricule..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full text-xs pl-9 pr-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full text-xs pl-9 pr-8 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-2 top-2 p-0.5 rounded text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition"
+              title="Effacer la recherche"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
 
         <div>
@@ -278,7 +293,7 @@ export const StudentListView: React.FC<StudentListViewProps> = ({
                           <Printer className="w-3.5 h-3.5" />
                         </button>
                         <button
-                          onClick={() => handleDeleteStudent(s)}
+                          onClick={() => setStudentToDelete(s)}
                           className="p-1.5 rounded-lg bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 hover:bg-rose-100 transition"
                           title="Supprimer"
                         >
@@ -293,6 +308,61 @@ export const StudentListView: React.FC<StudentListViewProps> = ({
           </table>
         </div>
       </div>
+
+      {/* État vide : aucun élève ne correspond aux filtres */}
+      {filteredStudents.length === 0 && (
+        <div className="p-10 rounded-2xl bg-white dark:bg-slate-900 border border-dashed border-slate-300 dark:border-slate-700 flex flex-col items-center justify-center text-center space-y-3">
+          <div className="p-3 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400">
+            <Users className="w-7 h-7" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-slate-700 dark:text-slate-300 m-0">
+              Aucun élève trouvé
+            </p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+              {db.students.length === 0
+                ? "Aucun élève n'est encore inscrit. Commencez par une nouvelle inscription."
+                : 'Aucun élève ne correspond à votre recherche ou aux filtres appliqués.'}
+            </p>
+          </div>
+          {db.students.length === 0 ? (
+            <button
+              onClick={onOpenNewAdmission}
+              className="flex items-center space-x-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-600/20 transition active:scale-95"
+            >
+              <UserPlus className="w-3.5 h-3.5" />
+              <span>Nouvelle Inscription</span>
+            </button>
+          ) : (
+            <button
+              onClick={() => {
+                setSearchQuery('');
+                setSelectedClassId('ALL');
+                setSelectedGender('ALL');
+                setSelectedStatus('ALL');
+              }}
+              className="px-3.5 py-2 text-xs font-semibold rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 transition"
+            >
+              Réinitialiser les filtres
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Confirmation de suppression */}
+      <ConfirmDialog
+        isOpen={!!studentToDelete}
+        title="Supprimer l'élève"
+        message={
+          studentToDelete
+            ? `Voulez-vous vraiment supprimer définitivement ${studentToDelete.lastName} ${studentToDelete.firstName} (${studentToDelete.matricule}) ? Ses notes et ses règlements seront également supprimés. Cette action est irréversible.`
+            : ''
+        }
+        confirmLabel="Supprimer"
+        destructive
+        onConfirm={() => studentToDelete && handleDeleteStudent(studentToDelete)}
+        onCancel={() => setStudentToDelete(null)}
+      />
 
       {/* Modals */}
       <StudentDetailModal

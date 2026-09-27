@@ -1,17 +1,9 @@
-// EduGasy Pro - Student File & Dossier Modal
 import React, { useState } from 'react';
 import {
-  User,
   Phone,
   MapPin,
-  Calendar,
-  CreditCard,
   FileSpreadsheet,
-  Award,
-  Clock,
   Printer,
-  ShieldCheck,
-  Building,
   HeartPulse,
 } from 'lucide-react';
 import { DatabaseSchema, Student } from '../../types/school';

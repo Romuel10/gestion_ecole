@@ -1,15 +1,9 @@
-// EduGasy Pro - 100% Customizable Student ID Card Generator
 import React, { useState } from 'react';
 import {
   Printer,
   Sliders,
-  Palette,
-  Check,
   QrCode,
-  ShieldCheck,
-  Sparkles,
-  Users,
-  Eye,
+  Check,
 } from 'lucide-react';
 import { DatabaseSchema, Student, SchoolClass } from '../../types/school';
 import { Modal } from '../common/Modal';
@@ -39,6 +33,7 @@ export const StudentCardGeneratorModal: React.FC<StudentCardGeneratorModalProps>
   const [showBloodType, setShowBloodType] = useState(false);
   const [showStamp, setShowStamp] = useState(true);
   const [printMode, setPrintMode] = useState<'SINGLE' | 'BATCH_CLASS'>('SINGLE');
+  const [selectedStudentId, setSelectedStudentId] = useState<string>(student?.id || '');
 
   if (!isOpen) return null;
 
@@ -52,11 +47,12 @@ export const StudentCardGeneratorModal: React.FC<StudentCardGeneratorModalProps>
   ];
 
   const currentYear = db.schoolYears.find((y) => y.id === db.currentSchoolYearId)?.label || '2025-2026';
-  const effectiveClass = targetClass || (student ? db.classes.find((c) => c.id === student.classId) : db.classes[0]);
+  const selectedStudent = db.students.find((s) => s.id === selectedStudentId) || null;
+  const effectiveClass = targetClass || (selectedStudent ? db.classes.find((c) => c.id === selectedStudent.classId) : db.classes[0]);
   const studentsToPrint = printMode === 'BATCH_CLASS' && effectiveClass
     ? db.students.filter((s) => s.classId === effectiveClass.id && s.schoolYearId === db.currentSchoolYearId)
-    : student
-    ? [student]
+    : selectedStudent
+    ? [selectedStudent]
     : [];
 
   const handlePrint = () => {
@@ -64,7 +60,7 @@ export const StudentCardGeneratorModal: React.FC<StudentCardGeneratorModalProps>
     onShowToast(
       printMode === 'BATCH_CLASS'
         ? `Impression de la planche de ${studentsToPrint.length} cartes pour ${effectiveClass?.name} lancée.`
-        : `Impression de la carte de ${student?.lastName} lancée.`,
+        : `Impression de la carte de ${selectedStudent?.lastName || 'l\'élève'} lancée.`,
       'success'
     );
   };
@@ -190,6 +186,21 @@ export const StudentCardGeneratorModal: React.FC<StudentCardGeneratorModalProps>
               />
               <span>Cachet & Visa de la Direction</span>
             </label>
+          </div>
+
+          <div className="pt-2 border-t space-y-2">
+            <label className="block font-semibold">Élève concerné</label>
+            <select
+              value={selectedStudentId}
+              onChange={(e) => setSelectedStudentId(e.target.value)}
+              className="w-full px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-900 border font-medium"
+            >
+              {db.students.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.lastName} {s.firstName} ({s.matricule})
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="pt-2 border-t space-y-2">

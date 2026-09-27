@@ -1,19 +1,12 @@
-// EduGasy Pro - High-Density Professional School Dashboard
 import React from 'react';
 import {
   GraduationCap,
   Users,
   Wallet,
   Building,
-  ArrowUpRight,
-  ArrowDownRight,
-  UserPlus,
   Receipt,
-  FileSpreadsheet,
   Award,
-  Calendar,
   CheckCircle2,
-  TrendingUp,
 } from 'lucide-react';
 import { DatabaseSchema } from '../../types/school';
 import { CalculationService } from '../../services/calculations';
@@ -23,7 +16,6 @@ import { NavTab } from '../layout/Sidebar';
 interface DashboardHomeProps {
   db: DatabaseSchema;
   onNavigate: (tab: NavTab) => void;
-  onQuickAction: (action: 'NEW_STUDENT' | 'NEW_PAYMENT' | 'NEW_GRADE') => void;
   isDark: boolean;
   show3DVisualizer: boolean;
 }
@@ -31,7 +23,6 @@ interface DashboardHomeProps {
 export const DashboardHome: React.FC<DashboardHomeProps> = ({
   db,
   onNavigate,
-  onQuickAction,
   isDark,
   show3DVisualizer,
 }) => {
@@ -45,7 +36,12 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
   const titulaireCount = db.teachers.filter((t) => t.contractType === 'TITULAIRE').length;
   const vacataireCount = db.teachers.filter((t) => t.contractType === 'VACATAIRE').length;
 
-  const currentYear = db.schoolYears.find((y) => y.id === db.currentSchoolYearId);
+  const studentsByLevel = (level: 'primaire' | 'college' | 'lycee') =>
+    db.students.filter((s) => {
+      const cls = db.classes.find((c) => c.id === s.classId);
+      return cls?.level === level;
+    }).length;
+
   const termName =
     db.currentTermCode === 'TRIMESTRE_1'
       ? '1er Trimestre'
@@ -69,9 +65,8 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
 
   return (
     <div className="space-y-4">
-      {/* 4 Crisp Desktop KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        {/* KPI 1: Students */}
+        {/* Effectif total */}
         <div
           onClick={() => onNavigate('students')}
           className="p-3.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-sm hover:border-blue-500 transition cursor-pointer"
@@ -92,7 +87,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
           </div>
         </div>
 
-        {/* KPI 2: Classes */}
+        {/* Classes */}
         <div
           onClick={() => onNavigate('academics')}
           className="p-3.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-sm hover:border-blue-500 transition cursor-pointer"
@@ -108,13 +103,13 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
             <span className="text-xs text-slate-500">classes actives</span>
           </div>
           <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-between text-[11px] text-slate-500">
-            <span>Lycée : <strong>4</strong></span>
-            <span>Collège : <strong>1</strong></span>
-            <span>Primaire : <strong>1</strong></span>
+            <span>Lycée : <strong>{studentsByLevel('lycee')}</strong></span>
+            <span>Collège : <strong>{studentsByLevel('college')}</strong></span>
+            <span>Primaire : <strong>{studentsByLevel('primaire')}</strong></span>
           </div>
         </div>
 
-        {/* KPI 3: Teachers */}
+        {/* Enseignants */}
         <div
           onClick={() => onNavigate('teachers')}
           className="p-3.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-sm hover:border-blue-500 transition cursor-pointer"
@@ -135,7 +130,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
           </div>
         </div>
 
-        {/* KPI 4: Net Treasury */}
+        {/* Trésorerie */}
         <div
           onClick={() => onNavigate('finances')}
           className="p-3.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-sm hover:border-blue-500 transition cursor-pointer"
@@ -160,18 +155,17 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
         </div>
       </div>
 
-      {/* 3D Campus Architectural Visualizer (Toggleable) */}
+      {/* Vue 3D du campus (activable) */}
       {show3DVisualizer && (
         <div className="border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden bg-slate-900">
           <Campus3DVisualizer db={db} isDark={isDark} />
         </div>
       )}
 
-      {/* Desktop Main Grid: Academic Ranks & Financial Movements */}
+      {/* Palmarès et effectifs */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Left 2 Cols: Top Students & Classes Status */}
         <div className="lg:col-span-2 space-y-4">
-          {/* Top Academic Leaderboard */}
+          {/* Palmarès académique */}
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4 space-y-3">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
               <div className="flex items-center space-x-2">
@@ -188,6 +182,19 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
               </button>
             </div>
 
+            {topStudents.length === 0 ? (
+              <div className="py-8 text-center">
+                <p className="text-xs text-slate-500 dark:text-slate-400 m-0">
+                  Aucune note saisie pour le moment. Le palmarès apparaîtra dès la saisie des notes du trimestre.
+                </p>
+                <button
+                  onClick={() => onNavigate('academics')}
+                  className="mt-3 text-xs text-blue-600 dark:text-blue-400 font-semibold hover:underline"
+                >
+                  Saisir des notes
+                </button>
+              </div>
+            ) : (
             <table className="erp-table">
               <thead>
                 <tr>
@@ -232,9 +239,10 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
                 ))}
               </tbody>
             </table>
+            )}
           </div>
 
-          {/* Classes Grid */}
+          {/* Effectifs et tarifs par classe */}
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4 space-y-3">
             <h3 className="font-bold text-xs uppercase tracking-wide text-slate-800 dark:text-slate-200 border-b border-slate-100 dark:border-slate-800 pb-2">
               Effectifs & Tarification par Classe
@@ -266,7 +274,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
           </div>
         </div>
 
-        {/* Right 1 Col: Recent Payments & School Metadata */}
+        {/* Derniers règlements et informations établissement */}
         <div className="space-y-4">
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4 space-y-3">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
@@ -284,6 +292,19 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
               </button>
             </div>
 
+            {recentPayments.length === 0 ? (
+              <div className="py-8 text-center">
+                <p className="text-xs text-slate-500 dark:text-slate-400 m-0">
+                  Aucun règlement enregistré pour l'instant.
+                </p>
+                <button
+                  onClick={() => onNavigate('finances')}
+                  className="mt-3 text-xs text-emerald-600 dark:text-emerald-400 font-semibold hover:underline"
+                >
+                  Aller à la caisse
+                </button>
+              </div>
+            ) : (
             <div className="space-y-2">
               {recentPayments.map((p) => {
                 const stu = studentMap.get(p.studentId);
@@ -308,6 +329,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
                 );
               })}
             </div>
+            )}
           </div>
 
           <div className="p-3 bg-slate-100 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 text-xs space-y-1 text-slate-600 dark:text-slate-300">

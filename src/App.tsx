@@ -1,4 +1,3 @@
-// EduGasy Pro - Système Intégré de Gestion Scolaire (Desktop Architecture)
 import React, { useState, useEffect } from 'react';
 import { DatabaseSchema } from './types/school';
 import { StorageService } from './services/storage';
@@ -25,12 +24,15 @@ export function App() {
   const [show3DVisualizer, setShow3DVisualizer] = useState(false); // Clean desktop default
   const [selectedEntityId, setSelectedEntityId] = useState<string | undefined>(undefined);
 
-  // Dark mode
+  // Mode sombre : mémorisé, sinon préférence du système.
   const [isDark, setIsDark] = useState<boolean>(() => {
-    return localStorage.getItem('EDUGASY_THEME') === 'dark';
+    const stored = localStorage.getItem('EDUGASY_THEME');
+    if (stored === 'dark') return true;
+    if (stored === 'light') return false;
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
   });
 
-  // Toast notifications
+  // Notifications
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
   useEffect(() => {
@@ -69,11 +71,10 @@ export function App() {
 
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-slate-100 dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans antialiased">
-      {/* 1. Desktop Ribbon Menu Bar */}
+      {/* 1. Barre de menus */}
       <DesktopMenuBar
         db={db}
         onUpdateDb={setDb}
-        onNavigate={handleNavigate}
         onOpenNewAdmission={() => setCurrentTab('admissions')}
         onOpenNewPayment={() => setCurrentTab('finances')}
         onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
@@ -82,7 +83,7 @@ export function App() {
         onShowToast={showToast}
       />
 
-      {/* 2. Top Action Toolbar */}
+      {/* 2. Barre d'outils */}
       <Header
         db={db}
         onUpdateDb={setDb}
@@ -95,9 +96,9 @@ export function App() {
         onToggle3DVisualizer={() => setShow3DVisualizer(!show3DVisualizer)}
       />
 
-      {/* 3. Main Split View: Left Sidebar + Center Workspace */}
+      {/* 3. Zone de travail : barre latérale + contenu */}
       <div className="flex flex-1 min-h-0 overflow-hidden">
-        {/* Sidebar */}
+        {/* Barre latérale */}
         <Sidebar
           currentTab={currentTab}
           onSelectTab={(tab) => {
@@ -109,14 +110,13 @@ export function App() {
           onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
         />
 
-        {/* Dynamic Main Workspace Pane */}
+        {/* Contenu principal */}
         <main className="flex-1 overflow-y-auto p-3 sm:p-4 bg-slate-100 dark:bg-slate-950">
           <div className="max-w-7xl mx-auto">
             {currentTab === 'dashboard' && (
               <DashboardHome
                 db={db}
                 onNavigate={handleNavigate}
-                onQuickAction={handleQuickAction}
                 isDark={isDark}
                 show3DVisualizer={show3DVisualizer}
               />
@@ -184,10 +184,10 @@ export function App() {
         </main>
       </div>
 
-      {/* 4. Desktop Status Bar */}
+      {/* 4. Barre d'état */}
       <DesktopStatusBar db={db} />
 
-      {/* 5. Command Palette */}
+      {/* 5. Palette de commandes */}
       <CommandPalette
         isOpen={isCommandPaletteOpen}
         onClose={() => setIsCommandPaletteOpen(false)}
@@ -195,7 +195,7 @@ export function App() {
         onNavigate={handleNavigate}
       />
 
-      {/* 6. Toast Notifications */}
+      {/* 6. Notifications */}
       <ToastContainer toasts={toasts} onRemove={removeToast} />
     </div>
   );

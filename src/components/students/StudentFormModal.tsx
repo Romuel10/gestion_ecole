@@ -1,4 +1,3 @@
-// EduGasy Pro - Student Edit & Creation Modal
 import React, { useState, useEffect } from 'react';
 import { DatabaseSchema, Student, StudentStatus } from '../../types/school';
 import { Modal } from '../common/Modal';

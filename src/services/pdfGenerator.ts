@@ -1,4 +1,3 @@
-// EduGasy Pro - Official Document & Report Card PDF / Printable Generator
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { DatabaseSchema, ReportCardSummary, TuitionPayment, SalaryPayment, Student } from '../types/school';

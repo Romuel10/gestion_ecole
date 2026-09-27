@@ -1,4 +1,3 @@
-// EduGasy Pro - Dynamic Matricule Engine
 import { MatriculeConfig, Student } from '../types/school';
 
 export class MatriculeService {

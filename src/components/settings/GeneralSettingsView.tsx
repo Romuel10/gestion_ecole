@@ -1,34 +1,23 @@
-// EduGasy Pro - Comprehensive 100% Dynamic Configuration & Database Engine
 import React, { useState } from 'react';
 import {
-  Settings,
   Building,
   Hash,
-  Calendar,
-  Layers,
-  BookOpen,
   Database,
   Save,
   RotateCcw,
   FileDown,
   FileUp,
-  CheckCircle2,
   PlusCircle,
-  Trash2,
-  Sparkles,
 } from 'lucide-react';
 import {
   DatabaseSchema,
   SchoolConfig,
   MatriculeConfig,
   SchoolYear,
-  SchoolClass,
-  Subject,
 } from '../../types/school';
 import { StorageService } from '../../services/storage';
 import { MatriculeService } from '../../services/matricule';
 import { CalculationService } from '../../services/calculations';
-import { Modal } from '../common/Modal';
 
 interface GeneralSettingsViewProps {
   db: DatabaseSchema;
@@ -50,19 +39,6 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
 
   // Matricule Config form state
   const [matriculeConfig, setMatriculeConfig] = useState<MatriculeConfig>(db.matriculeConfig);
-
-  // Class & Subject Management state
-  const [editingClass, setEditingClass] = useState<SchoolClass | null>(null);
-  const [isClassModalOpen, setIsClassModalOpen] = useState(false);
-
-  // New Subject form state
-  const [newSubject, setNewSubject] = useState<Partial<Subject>>({
-    code: '',
-    name: '',
-    category: 'LITTERAIRE',
-    color: '#3b82f6',
-    defaultCoeff: 2,
-  });
 
   // Save School Identity
   const handleSaveSchoolIdentity = (e: React.FormEvent) => {
@@ -175,7 +151,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm">
         <div>
           <h2 className="text-base font-bold text-slate-900 dark:text-white m-0">
-            Centre de Configuration Système (100% Paramétrable)
+Paramétrage général de l'application
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             Personnalisation complète de l'établissement, du format des matricules, des séries et de la base locale

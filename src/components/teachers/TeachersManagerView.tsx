@@ -1,17 +1,10 @@
-// EduGasy Pro - Teachers Directory & Subject Assignments
 import React, { useState } from 'react';
 import {
-  Users,
   UserPlus,
-  BookOpen,
-  Phone,
-  Mail,
   Edit2,
   Trash2,
   Award,
   Clock,
-  DollarSign,
-  ShieldCheck,
   Search,
 } from 'lucide-react';
 import { DatabaseSchema, Teacher, TeacherContract } from '../../types/school';
@@ -57,7 +50,6 @@ export const TeachersManagerView: React.FC<TeachersManagerViewProps> = ({
   });
 
   const subjectMap = new Map(db.subjects.map((s) => [s.id, s.name]));
-  const classMap = new Map(db.classes.map((c) => [c.id, c.name]));
 
   const filteredTeachers = db.teachers.filter((t) => {
     const q = searchQuery.toLowerCase().trim();

@@ -1,9 +1,8 @@
-// EduGasy Pro - Interactive 3D School & Analytics Visualizer
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { DatabaseSchema } from '../../types/school';
 import { CalculationService } from '../../services/calculations';
-import { Building2, Layers, Eye, RotateCw, Sparkles, TrendingUp, DollarSign } from 'lucide-react';
+import { Building2, Layers, Sparkles, TrendingUp, DollarSign } from 'lucide-react';
 
 interface Campus3DVisualizerProps {
   db: DatabaseSchema;
@@ -12,9 +11,8 @@ interface Campus3DVisualizerProps {
 
 export const Campus3DVisualizer: React.FC<Campus3DVisualizerProps> = ({ db, isDark }) => {
   const mountRef = useRef<HTMLDivElement>(null);
-  const [viewMode, setViewMode] = useState<'CAMPUS' | 'ACADEMIC' | 'TREASURY'>('CAMPUS');
   const [hoveredObject, setHoveredObject] = useState<string | null>(null);
-  const [selectedBuilding, setSelectedBuilding] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'CAMPUS' | 'ACADEMIC' | 'TREASURY'>('CAMPUS');
 
   const metrics = CalculationService.computeFinancialMetrics(db);
   const totalStudents = db.students.length;
@@ -237,7 +235,7 @@ export const Campus3DVisualizer: React.FC<Campus3DVisualizerProps> = ({ db, isDa
       raycaster.setFromCamera(mouse, camera);
       const intersects = raycaster.intersectObjects(buildingMeshes);
       if (intersects.length > 0) {
-        setSelectedBuilding(intersects[0].object.name || null);
+        setHoveredObject(intersects[0].object.name || null);
       }
     };
 

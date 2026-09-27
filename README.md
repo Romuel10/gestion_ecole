@@ -1,75 +1,50 @@
-# EduGasy Pro — Logiciel Bureautique de Gestion Scolaire Intégrée (Madagascar)
+# EduGasy Pro
 
-**EduGasy Pro** est un logiciel bureautique autonome conçu spécifiquement pour répondre aux exigences pédagogiques, administratives et financières des établissements scolaires à Madagascar (Enseignement Primaire, Collège et Lycée), conformément aux directives du **Ministère de l'Éducation Nationale (MEN)**.
+Logiciel de gestion scolaire pour les établissements d'enseignement primaire, collège et lycée à Madagascar. Conçu pour couvrir les besoins administratifs, pédagogiques et financiers d'une école, en s'appuyant sur les usages du Ministère de l'Éducation Nationale (structures CISCO, DREN, ZAP, bulletins trimestriels sur 20, mentions officielles).
 
----
+L'application fonctionne entièrement en local, dans le navigateur. Aucun serveur n'est requis : les données sont enregistrées dans le navigateur et peuvent être sauvegardées ou restaurées sous forme de fichier JSON.
 
-## 🏛️ Architecture & Modules Principaux
+## Modules
 
-### 1. Inscriptions & Réinscriptions (Guichet d'Admission)
-- **Nouvelle Inscription** : Saisie du dossier civil, des parents/tuteurs, antécédents médicaux et établissement d'origine.
-- **Attribution Automatique du Matricule** : Moteur dynamique selon la formule paramétrée (ex: `LPSM-2025-0101`).
-- **Encaissement Immédiat des Droits** : Génération et impression instantanée du **Reçu de Quittance** officiel numéroté.
-- **Réinscription Express** : Recherche rapide des élèves des années antérieures, mise à jour de la classe de passage et encaissement.
-- **Documents Officiels Générés** : Certificat de scolarité officiel, Fiche d'inscription, Quittance de paiement.
+### Inscriptions
+Saisie du dossier élève (état civil, parents ou tuteurs, établissement d'origine), attribution automatique du matricule selon une formule paramétrable, encaissement des droits d'inscription avec récépissé numéroté, et réinscription rapide des élèves des années précédentes.
 
-### 2. Gestion des Élèves & Dossiers Individuels
-- **Répertoire Général Filtrable** : Recherche instantanée par nom, prénom, matricule, classe, genre et statut.
-- **Fiche Dossier Individuel** : 
-  - État civil et contacts d'urgence.
-  - Relevé des notes et historique académique.
-  - Historique de tous les écolages versés.
-  - Suivi d'assiduité (absences justifiées, non justifiées, retards).
-- **Export & Sauvegarde** : Exportation du registre matricule en format CSV et impression des certificats.
+### Fichier élèves
+Répertoire avec recherche par nom, matricule, classe ou statut. Chaque élève dispose d'une fiche individuelle regroupant ses informations civiles, ses notes, l'historique de ses règlements d'écolage et son suivi d'assiduité. Export du registre en CSV.
 
-### 3. Notes, Calculs Automatiques & Bulletins de Notes Officiels
-- **Grille de Saisie Matricielle** : Saisie rapide par classe et matière (Contrôles continus, Devoirs, Compositions trimestrielles).
-- **Calcul Automatique en Temps Réel** :
-  - Moyenne de chaque matière sur 20.
-  - Total des points et total des coefficients.
-  - **Moyenne Générale Pondérée Trimestrielle**.
-  - **Rang de l'élève** dans la classe (1er, 2ème, 3ème...).
-  - Attribution des **Mentions et Distinctions** officielles (Félicitations, Encouragements, Tableau d'honneur, Avertissement, Blâme).
-- **Générateur de Bulletins de Notes Conforme MEN Madagascar** :
-  - En-tête républicain officiel : *Repoblikan'i Madagasikara / Fitiavana - Tanindrazana - Fandrosoana*.
-  - Mentions CISCO, DREN, ZAP et N° Décision d'ouverture.
-  - Tableau des disciplines avec coefficients, notes, moyennes de classe (Min, Max, Moyenne), appréciations et signatures.
-  - Impression et export PDF individuel ou groupé pour toute la classe en 1 clic.
+### Notes et bulletins
+Saisie des notes par classe et par matière (contrôles continus, devoirs, compositions). Calcul automatique des moyennes par matière, de la moyenne générale pondérée, du rang dans la classe et des mentions. Génération des bulletins trimestriels au format PDF, individuellement ou pour une classe entière.
 
-### 4. Finances, Écolages & Paie du Personnel
-- **Recouvrement des Écolages** :
-  - Grille mensuelle par élève (Septembre à Juin).
-  - Encaissement multi-moyens de paiement adaptés à Madagascar : **Espèces, MVola (Telma), Orange Money, Airtel Money, Virement bancaire (BOA, BNI, BMOI, Société Générale), Chèque**.
-  - Émission immédiate de la quittance / facturette avec tampon.
-- **Paie des Enseignants & Personnel** :
-  - Gestion des enseignants **Titulaires** (salaire fixe) et **Vacataires** (taux horaire $\times$ volume d'heures).
-  - Déductions légales locales : **CNaPS (1%)**, **OSTIE / FUNHRE (1%)**, acomptes / avances sur salaire.
-  - Primes et indemnités.
-  - Génération du **Bulletin de Paie / Fiche de Salaire**.
-- **Grand Livre & Journal de Caisse** :
-  - Suivi des entrées et sorties (JIRAMA eau/électricité, papeterie, loyer, maintenance).
-  - Calcul en direct du Solde Net disponible.
+### Finances
+Recouvrement des écolages mensuels (septembre à juin) avec suivi par élève et par mois. Encaissements par espèces, Mobile Money (MVola, Orange Money, Airtel Money), virement ou chèque. Paie du personnel enseignant titulaire (salaire fixe) et vacataire (taux horaire), avec retenues CNaPS et OSTIE. Journal de casse pour les recettes et dépenses courantes.
 
-### 5. Emplois du Temps & Gestion du Temps
-- **Planning Hebdomadaire Interactif** (Lundi au Samedi).
-- **Vues Multiples** : Vue par Classe, par Enseignant et par Salle.
-- **Moteur Intelligent de Détection des Conflits** : Alerte immédiate si un enseignant ou une salle est en double réservation sur le même créneau.
+### Emplois du temps
+Planning hebdomadaire consultable par classe, par enseignant ou par salle, avec détection des conflits de réservation.
 
-### 6. Enseignants & Affectations Pédagogiques
-- Fichier du corps enseignant (qualifications CAPEN, Master, Doctorat, contacts, CIN).
-- Volumes horaires hebdomadaires et matières attribuées.
+### Paramétrage
+Identification de l'établissement, gestion des années scolaires et des trimestres, classes et coefficients par matière, formule de matricule, sauvegarde et restauration de la base de données.
 
-### 7. Configuration Intégrale (100% Personnalisable)
-- **Matricules** : Formule dynamique (`{PREFIX}-{YYYY}-{NUM4}`, etc.), longueur, séparateurs, réinitialisation annuelle ou continue.
-- **Établissement** : Nom, Devise, Code MEN, CISCO, DREN, ZAP, Coordonnées, Nom du Proviseur.
-- **Années Scolaires & Périodes** : Gestion multi-sessions, trimestres avec dates et pondérations.
-- **Classes, Séries & Coefficients** : Séries officielles du Baccalauréat malgache (**Série L**, **Série S**, **Série OSE**, **Séries A/C/D**) et cycles Primaire/Collège.
-- **Base de Données Locale** : Sauvegarde instantanée en fichier JSON, restauration de sauvegarde et réinitialisation aux normes MEN.
+## Interface
 
----
+Bureau de travail avec barre de menus, barre latérale, barre d'état et palette de commandes (Ctrl + K). Mode clair et mode sombre, mémorisés entre les sessions. Une vue 3D du campus est disponible sur le tableau de bord.
 
-## 🎨 Interface & Ergonomie Visuelle
-- **Style Professionnel Exécutif** : Design sobre, typographie nette, aucune fioriture enfantine ni emoji.
-- **Visualisation 3D Interactive** : Campus scolaire 3D en Three.js avec vue isométrique animée, inspection des pôles pédagogiques et graphiques de trésorerie en profondeur 3D.
-- **Mode Sombre / Mode Clair** avec persistance locale.
-- **Palette de Commande Rapide** (`Ctrl + K`) pour recherche instantanée.
+## Développement
+
+Prérequis : Node.js 18 ou plus récent.
+
+```bash
+npm install
+npm run dev
+```
+
+Autres scripts disponibles :
+
+```bash
+npm run build    # compilation TypeScript + build de production
+npm run preview  # prévisualisation du build de production
+npm run lint     # vérification statique avec oxlint
+```
+
+## Données
+
+La base est stockée dans le navigateur (localStorage). Pensez à exporter régulièrement une sauvegarde JSON depuis le menu Fichier ou la page Paramétrage — c'est le seul moyen de récupérer les données en cas de nettoyage du navigateur, ou de les transférer vers un autre poste.

@@ -1,4 +1,3 @@
-// EduGasy Pro - Comprehensive Initial Data configured for Madagascar Educational Curriculum
 import { DatabaseSchema } from '../types/school';
 
 export const INITIAL_DATA: DatabaseSchema = {

@@ -5,8 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>EduGasy Pro — Logiciel Intégré de Gestion Scolaire (Madagascar)</title>
   </head>
-  <body class="bg-slate-900 text-slate-100 overflow-hidden">
+  <body class="overflow-hidden">
     <div id="root"></div>
+    <script>
+      // Applique le thème mémorisé (ou la préférence système) AVANT le premier rendu,
+      // pour éviter un écran noir ou un flash au chargement en mode jour.
+      (function () {
+        var stored = localStorage.getItem('EDUGASY_THEME');
+        var dark = stored === 'dark' || (!stored && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        if (dark) document.documentElement.classList.add('dark');
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

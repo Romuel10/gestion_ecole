@@ -1,4 +1,3 @@
-// EduGasy Pro - Standalone Database Persistence Engine
 import { DatabaseSchema } from '../types/school';
 import { INITIAL_DATA } from '../data/initialData';
 

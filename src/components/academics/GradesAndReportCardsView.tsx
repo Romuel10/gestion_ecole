@@ -1,4 +1,3 @@
-// EduGasy Pro - Academic Grades, Report Cards, Deliberation Sheet & Attendance Sheets
 import React, { useState } from 'react';
 import {
   FileSpreadsheet,
@@ -6,14 +5,9 @@ import {
   Printer,
   Save,
   BookOpen,
-  Calendar,
-  Layers,
   Award,
-  Users,
-  CheckCircle2,
-  FileText,
   Sliders,
-  Sparkles,
+  Calendar,
 } from 'lucide-react';
 import {
   DatabaseSchema,

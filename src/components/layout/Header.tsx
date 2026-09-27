@@ -1,14 +1,12 @@
-// EduGasy Pro - Desktop Action Ribbon Header
 import React from 'react';
 import {
   Menu,
   UserPlus,
   Receipt,
-  FileCheck,
-  FileDown,
-  Calendar,
   Layers,
   Building,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import { DatabaseSchema, TermType } from '../../types/school';
 import { StorageService } from '../../services/storage';
@@ -28,13 +26,13 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({
   db,
   onUpdateDb,
+  isDark,
+  onToggleTheme,
   onToggleSidebar,
   onQuickAction,
   show3DVisualizer,
   onToggle3DVisualizer,
 }) => {
-  const currentYear = db.schoolYears.find((y) => y.id === db.currentSchoolYearId);
-
   const handleTermChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newTerm = e.target.value as TermType;
     const updated: DatabaseSchema = {
@@ -57,7 +55,7 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <header className="h-12 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 flex items-center justify-between select-none">
-      {/* Left: Sidebar Toggle & School Identifier */}
+      {/* Barre latérale et établissement */}
       <div className="flex items-center space-x-3">
         <button
           onClick={onToggleSidebar}
@@ -76,9 +74,9 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      {/* Right: Academic Session Selectors & Fast Action Toolbar */}
+      {/* Sélecteurs de période et actions rapides */}
       <div className="flex items-center space-x-2">
-        {/* Term Dropdown */}
+        {/* Période */}
         <div className="flex items-center space-x-1.5 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded border border-slate-200 dark:border-slate-700 text-xs">
           <span className="text-[10px] text-slate-400 font-bold uppercase">Période :</span>
           <select
@@ -92,7 +90,7 @@ export const Header: React.FC<HeaderProps> = ({
           </select>
         </div>
 
-        {/* School Year Dropdown */}
+        {/* Année scolaire */}
         <div className="flex items-center space-x-1.5 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded border border-slate-200 dark:border-slate-700 text-xs">
           <span className="text-[10px] text-slate-400 font-bold uppercase">Année :</span>
           <select
@@ -108,7 +106,17 @@ export const Header: React.FC<HeaderProps> = ({
           </select>
         </div>
 
-        {/* 3D Visualizer Toggle */}
+        {/* Jour / Nuit */}
+        <button
+          onClick={onToggleTheme}
+          className="flex items-center space-x-1 px-2.5 py-1 text-xs font-medium rounded border transition text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800"
+          title={isDark ? 'Passer en mode jour' : 'Passer en mode nuit'}
+        >
+          {isDark ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5" />}
+          <span className="hidden sm:inline">{isDark ? 'Jour' : 'Nuit'}</span>
+        </button>
+
+        {/* Vue 3D */}
         <button
           onClick={onToggle3DVisualizer}
           className={`flex items-center space-x-1 px-2.5 py-1 text-xs font-medium rounded border transition ${
@@ -122,7 +130,7 @@ export const Header: React.FC<HeaderProps> = ({
           <span className="hidden sm:inline">3D</span>
         </button>
 
-        {/* Fast Action: Inscription */}
+        {/* Inscription */}
         <button
           onClick={() => onQuickAction('NEW_STUDENT')}
           className="flex items-center space-x-1 px-2.5 py-1 text-xs font-semibold rounded bg-blue-700 hover:bg-blue-800 text-white shadow-sm transition"
@@ -131,7 +139,7 @@ export const Header: React.FC<HeaderProps> = ({
           <span>Inscription</span>
         </button>
 
-        {/* Fast Action: Encaisser */}
+        {/* Encaissement */}
         <button
           onClick={() => onQuickAction('NEW_PAYMENT')}
           className="flex items-center space-x-1 px-2.5 py-1 text-xs font-semibold rounded bg-emerald-700 hover:bg-emerald-800 text-white shadow-sm transition"

@@ -1,16 +1,11 @@
-// EduGasy Pro - Comprehensive Financial Management, Tuition Tracker & Payroll Engine
 import React, { useState } from 'react';
 import {
   Wallet,
-  Receipt,
-  CreditCard,
   PlusCircle,
   Printer,
   ArrowUpRight,
   ArrowDownRight,
   Check,
-  AlertCircle,
-  Clock,
   Calendar,
   Sliders,
   Send,
@@ -51,7 +46,7 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
   const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
   const [selectedStudentForReminder, setSelectedStudentForReminder] = useState<string | null>(null);
 
-  // Reminder Template State (100% Customizable)
+  // Texte de rappel personnalisable
   const [customReminderText, setCustomReminderText] = useState(
     db.schoolConfig.reminderTemplate ||
       "Chers Parents de l'élève {NOM} ({CLASSE}), sauf erreur de notre part, l'écolage du/des mois de {MOIS_IMPAYES} d'un montant de {MONTANT} reste en attente de règlement à la caisse de l'école. Merci de bien vouloir régulariser cette situation rapidement."
@@ -110,7 +105,6 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
     'Juin',
   ];
 
-  const currentClassObj = db.classes.find((c) => c.id === selectedClassId) || db.classes[0];
   const studentsInClass = db.students.filter(
     (s) => s.classId === selectedClassId && s.schoolYearId === db.currentSchoolYearId
   );
@@ -307,7 +301,7 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Top Header & Metrics Banner */}
+      {/* En-tête et indicateurs */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm">
         <div>
           <h2 className="text-base font-bold text-slate-900 dark:text-white m-0">
@@ -318,7 +312,7 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
           </p>
         </div>
 
-        {/* Tab Switcher & Buttons */}
+        {/* Onglets et actions */}
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center space-x-1 p-1 rounded-xl bg-slate-100 dark:bg-slate-800">
             <button
@@ -470,7 +464,6 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {studentsInClass.map((student) => {
                   const paidCount = schoolMonths.filter((m) => !!isMonthPaid(student.id, m)).length;
-                  const isUpToDate = paidCount >= 3; // e.g. up to November
 
                   return (
                     <tr key={student.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
@@ -758,7 +751,7 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
         </div>
       )}
 
-      {/* MODAL: MOTS DE RAPPEL CAHIER DE LIAISON (100% PERSONNALISABLE) */}
+      {/* Fenêtre de rappel (cahier de liaison) */}
       <Modal
         isOpen={isReminderModalOpen}
         onClose={() => setIsReminderModalOpen(false)}
@@ -812,7 +805,7 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
             {studentsInClass
               .filter((s) => !selectedStudentForReminder || s.id === selectedStudentForReminder)
               .map((stu) => {
-                const { text, unpaidMonths, totalDue } = getReminderTextForStudent(stu);
+                const { unpaidMonths, text } = getReminderTextForStudent(stu);
                 if (unpaidMonths.length === 0) return null;
 
                 return (
@@ -844,7 +837,7 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
         </div>
       </Modal>
 
-      {/* MODAL 1: NOUVEL ENCAISSEMENT ÉCOLAGE */}
+      {/* Fenêtre : nouvel encaissement d'écolage */}
       <Modal
         isOpen={isNewPaymentModalOpen}
         onClose={() => setIsNewPaymentModalOpen(false)}
@@ -950,6 +943,41 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
               />
             </div>
           </div>
+
+          {/* Résumé clair de l'opération avant validation */}
+          {(() => {
+            const stu = studentMap.get(tuitionForm.studentId);
+            const cls = stu ? classMap.get(stu.classId) : null;
+            const netAmount = Math.max(0, Number(tuitionForm.amount) - Number(tuitionForm.discount || 0));
+            return (
+              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-2">
+                <div className="font-bold uppercase tracking-wider text-[10px] text-slate-500">Récapitulatif de l'opération</div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-500">Élève</span>
+                  <span className="font-semibold text-slate-900 dark:text-white">
+                    {stu ? `${stu.lastName} ${stu.firstName}` : '—'} {cls ? `(${cls.name})` : ''}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-500">Écolage mensuel de la classe</span>
+                  <span className="font-mono font-medium text-slate-700 dark:text-slate-300">
+                    {cls ? CalculationService.formatAriary(cls.monthlyTuitionFee) : '—'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-sm border-t border-slate-200 dark:border-slate-700 pt-2">
+                  <span className="font-semibold text-slate-700 dark:text-slate-300">Montant encaissé</span>
+                  <span className="font-extrabold font-mono text-emerald-600 dark:text-emerald-400">
+                    {CalculationService.formatAriary(netAmount)}
+                  </span>
+                </div>
+                {cls && Number(tuitionForm.amount) !== cls.monthlyTuitionFee && tuitionForm.feeType === 'ECOLAGE_MENSUEL' && (
+                  <p className="text-[11px] text-amber-600 dark:text-amber-400 m-0">
+                    Le montant saisi diffère du tarif de la classe ({CalculationService.formatAriary(cls.monthlyTuitionFee)}). Vérifiez s'il s'agit d'un ajout volontaire.
+                  </p>
+                )}
+              </div>
+            );
+          })()}
 
           <button
             type="submit"

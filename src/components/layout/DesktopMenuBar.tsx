@@ -1,26 +1,18 @@
-// EduGasy Pro - Native Desktop ERP Menu Ribbon
 import React, { useState, useRef, useEffect } from 'react';
 import {
   FileDown,
   FileUp,
   RotateCcw,
-  Plus,
-  Printer,
   Search,
-  Database,
   Moon,
   Sun,
-  Shield,
-  Layers,
 } from 'lucide-react';
-import { DatabaseSchema, TermType } from '../../types/school';
+import { DatabaseSchema } from '../../types/school';
 import { StorageService } from '../../services/storage';
-import { NavTab } from './Sidebar';
 
 interface DesktopMenuBarProps {
   db: DatabaseSchema;
   onUpdateDb: (updated: DatabaseSchema) => void;
-  onNavigate: (tab: NavTab) => void;
   onOpenNewAdmission: () => void;
   onOpenNewPayment: () => void;
   onOpenCommandPalette: () => void;
@@ -32,7 +24,6 @@ interface DesktopMenuBarProps {
 export const DesktopMenuBar: React.FC<DesktopMenuBarProps> = ({
   db,
   onUpdateDb,
-  onNavigate,
   onOpenNewAdmission,
   onOpenNewPayment,
   onOpenCommandPalette,
@@ -83,11 +74,11 @@ export const DesktopMenuBar: React.FC<DesktopMenuBarProps> = ({
   };
 
   return (
-    <div className="h-8 bg-slate-900 text-slate-300 text-xs flex items-center justify-between px-3 border-b border-slate-800 select-none z-40">
+    <div className="h-8 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 text-xs flex items-center justify-between px-3 border-b border-slate-200 dark:border-slate-800 select-none z-40">
       {/* Left Menu Items */}
       <div className="flex items-center space-x-1">
         {/* App Title Stamp */}
-        <div className="flex items-center space-x-1.5 font-bold text-white mr-3 pr-3 border-r border-slate-800 text-[11px] tracking-wide">
+        <div className="flex items-center space-x-1.5 font-bold text-slate-900 dark:text-white mr-3 pr-3 border-r border-slate-200 dark:border-slate-800 text-[11px] tracking-wide">
           <div className="w-4 h-4 rounded bg-blue-600 text-white flex items-center justify-center text-[10px] font-black">
             E
           </div>
@@ -99,14 +90,14 @@ export const DesktopMenuBar: React.FC<DesktopMenuBarProps> = ({
         <div className="relative desktop-menu-item">
           <button
             onClick={() => setOpenMenu(openMenu === 'FILE' ? null : 'FILE')}
-            className={`px-2.5 py-1 rounded hover:bg-slate-800 hover:text-white transition ${
-              openMenu === 'FILE' ? 'bg-slate-800 text-white' : ''
+            className={`px-2.5 py-1 rounded transition hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-white ${
+              openMenu === 'FILE' ? 'bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-white' : ''
             }`}
           >
             Fichier
           </button>
           {openMenu === 'FILE' && (
-            <div className="absolute top-full left-0 mt-0.5 w-56 bg-slate-900 border border-slate-700 rounded shadow-2xl py-1 text-xs text-slate-200 divide-y divide-slate-800">
+            <div className="absolute top-full left-0 mt-0.5 w-56 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded shadow-2xl py-1 text-xs text-slate-700 dark:text-slate-200 divide-y divide-slate-100 dark:divide-slate-800">
               <div className="py-1">
                 <button
                   onClick={() => {
@@ -164,64 +155,28 @@ export const DesktopMenuBar: React.FC<DesktopMenuBarProps> = ({
           )}
         </div>
 
-        {/* Modules Shortcuts */}
+        {/* Ouverture de la palette de commandes */}
         <button
-          onClick={() => onNavigate('dashboard')}
-          className="px-2.5 py-1 rounded hover:bg-slate-800 hover:text-white transition"
+          onClick={onOpenCommandPalette}
+          className="px-2.5 py-1 rounded transition hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-white flex items-center space-x-1.5"
+          title="Rechercher un élève, une classe ou une commande (Ctrl+K)"
         >
-          Tableau de Bord
-        </button>
-        <button
-          onClick={() => onNavigate('students')}
-          className="px-2.5 py-1 rounded hover:bg-slate-800 hover:text-white transition"
-        >
-          Élèves
-        </button>
-        <button
-          onClick={() => onNavigate('academics')}
-          className="px-2.5 py-1 rounded hover:bg-slate-800 hover:text-white transition"
-        >
-          Notes & Bulletins
-        </button>
-        <button
-          onClick={() => onNavigate('finances')}
-          className="px-2.5 py-1 rounded hover:bg-slate-800 hover:text-white transition"
-        >
-          Finances
-        </button>
-        <button
-          onClick={() => onNavigate('schedule')}
-          className="px-2.5 py-1 rounded hover:bg-slate-800 hover:text-white transition"
-        >
-          Emplois du Temps
-        </button>
-        <button
-          onClick={() => onNavigate('settings')}
-          className="px-2.5 py-1 rounded hover:bg-slate-800 hover:text-white transition"
-        >
-          Paramètres
+          <Search className="w-3.5 h-3.5" />
+          <span>Rechercher</span>
+          <kbd className="text-[10px] text-slate-500 font-mono">Ctrl+K</kbd>
         </button>
       </div>
 
       {/* Right System Info & Quick Icons */}
       <div className="flex items-center space-x-3 text-[11px] text-slate-400">
-        <div className="flex items-center space-x-1.5 px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300">
+        <div className="flex items-center space-x-1.5 px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300">
           <span className="w-2 h-2 rounded-full bg-emerald-400" />
           <span>Base Locale Active</span>
         </div>
 
         <button
-          onClick={onOpenCommandPalette}
-          className="flex items-center space-x-1 text-slate-400 hover:text-white hover:bg-slate-800 px-2 py-0.5 rounded"
-          title="Recherche globale (Ctrl+K)"
-        >
-          <Search className="w-3.5 h-3.5" />
-          <span className="font-mono text-[10px]">Ctrl+K</span>
-        </button>
-
-        <button
           onClick={onToggleTheme}
-          className="p-1 rounded hover:bg-slate-800 text-slate-400 hover:text-white"
+          className="p-1 rounded transition hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-slate-100 text-slate-500 dark:text-slate-400"
           title="Basculer thème Sombre / Clair"
         >
           {isDark ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5 text-slate-300" />}

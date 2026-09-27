@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+/* Tailwind v4 : le variant dark: doit réagir à la classe .dark sur <html>.
+   Sans cette ligne, il suit la préférence du système et ignore le bouton jour/nuit. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @layer base {
   :root {
     --erp-bg: #f1f5f9;
