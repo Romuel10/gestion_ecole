@@ -110,8 +110,6 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 
   if (!isOpen) return null;
 
-  const q = query.trim().toLowerCase();
-
   const matchedStudents = allResults.filter((r) => r.type === 'student').map((r) =>
     db.students.find((s) => s.id === r.id)!
   );
