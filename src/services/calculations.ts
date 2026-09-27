@@ -13,7 +13,12 @@ export class CalculationService {
    * Formula: If exam exists, (Average(evaluations) + examGrade*2) / 3 or (Avg(evaluations) + examGrade) / 2
    * Standard Malagasy Secondary formula: Controles 40%, Compositions 60% or (Devoirs + Exam*2)/3
    */
-  static computeSubjectAverage(evaluations: number[], examGrade?: number): number {
+  static computeSubjectAverage(
+    evaluations: number[],
+    examGrade?: number,
+    continuousWeight = 1,
+    examWeight = 2
+  ): number {
     if ((!evaluations || evaluations.length === 0) && examGrade === undefined) {
       return 0;
     }
@@ -25,8 +30,11 @@ export class CalculationService {
     }
 
     if (examGrade !== undefined && evaluations && evaluations.length > 0) {
-      // 1 part continuous assessment, 2 parts term examination
-      const finalVal = (devAvg * 1 + examGrade * 2) / 3;
+      const safeContinuousWeight = Math.max(0, continuousWeight);
+      const safeExamWeight = Math.max(0, examWeight);
+      const totalWeight = safeContinuousWeight + safeExamWeight || 1;
+      const finalVal =
+        (devAvg * safeContinuousWeight + examGrade * safeExamWeight) / totalWeight;
       return Math.round(finalVal * 100) / 100;
     } else if (examGrade !== undefined) {
       return Math.round(examGrade * 100) / 100;
@@ -118,7 +126,15 @@ export class CalculationService {
         const hasRecordedGrade = Boolean(
           grade && ((grade.evaluations?.length || 0) > 0 || grade.examGrade !== undefined)
         );
-        const avg = hasRecordedGrade && grade ? grade.subjectAverage : 0;
+        const avg =
+          hasRecordedGrade && grade
+            ? this.computeSubjectAverage(
+                grade.evaluations || [],
+                grade.examGrade,
+                db.schoolConfig.continuousAssessmentWeight ?? 1,
+                db.schoolConfig.examWeight ?? 2
+              )
+            : 0;
         const pts = hasRecordedGrade ? avg * cs.coefficient : 0;
 
         // A subject that has not been graded yet must not lower the student's average.
@@ -294,14 +310,23 @@ export class CalculationService {
         schoolYearId
       ).find((item) => item.studentId === student.id);
 
-      const hasGrades = db.grades.some(
-        (grade) =>
-          grade.studentId === student.id &&
-          grade.classId === student.classId &&
-          grade.schoolYearId === schoolYearId &&
-          grade.termCode === term.code &&
-          ((grade.evaluations?.length || 0) > 0 || grade.examGrade !== undefined)
+      const gradedSubjectIds = new Set(
+        db.grades
+          .filter(
+            (grade) =>
+              grade.studentId === student.id &&
+              grade.classId === student.classId &&
+              grade.schoolYearId === schoolYearId &&
+              grade.termCode === term.code &&
+              ((grade.evaluations?.length || 0) > 0 || grade.examGrade !== undefined)
+          )
+          .map((grade) => grade.subjectId)
       );
+      const hasGrades = gradedSubjectIds.size > 0;
+      const isComplete =
+        Boolean(schoolClass) &&
+        schoolClass.subjects.length > 0 &&
+        schoolClass.subjects.every((subject) => gradedSubjectIds.has(subject.subjectId));
 
       return {
         code: term.code,
@@ -309,6 +334,7 @@ export class CalculationService {
         average: report?.generalAverage ?? 0,
         weight: Math.max(0.1, term.weight || 1),
         hasGrades,
+        isComplete,
       };
     });
 
@@ -336,6 +362,7 @@ export class CalculationService {
     const conductGrade = Math.max(0, 20 - unjustifiedAbsences * 2 - Math.floor(latenessCount * 0.5));
 
     const requireAllPeriods = db.schoolConfig.requireAllPeriodsForAnnualDecision ?? true;
+    const requireAllSubjects = db.schoolConfig.requireAllSubjectsForAnnualDecision ?? true;
     const reasons: string[] = [];
 
     if (completedPeriods.length === 0) {
@@ -350,9 +377,13 @@ export class CalculationService {
       };
     }
 
-    if (requireAllPeriods && completedPeriods.length < configuredTerms.length) {
+    const completePeriods = periods.filter((period) =>
+      requireAllSubjects ? period.isComplete : period.hasGrades
+    );
+
+    if (requireAllPeriods && completePeriods.length < configuredTerms.length) {
       reasons.push(
-        `${completedPeriods.length}/${configuredTerms.length} période(s) renseignée(s)`
+        `${completePeriods.length}/${configuredTerms.length} période(s) complète(s)`
       );
       return {
         student,
