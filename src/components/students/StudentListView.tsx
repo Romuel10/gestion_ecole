@@ -245,7 +245,13 @@ export const StudentListView: React.FC<StudentListViewProps> = ({
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {filteredStudents.map((s) => {
-                const age = new Date().getFullYear() - new Date(s.birthDate).getFullYear();
+                const birthDate = new Date(s.birthDate);
+                const today = new Date();
+                let age = today.getFullYear() - birthDate.getFullYear();
+                const birthdayNotReached =
+                  today.getMonth() < birthDate.getMonth() ||
+                  (today.getMonth() === birthDate.getMonth() && today.getDate() < birthDate.getDate());
+                if (birthdayNotReached) age -= 1;
                 return (
                   <tr key={s.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition group">
                     <td className="py-3 px-3 font-mono font-bold text-blue-600 dark:text-blue-400">
