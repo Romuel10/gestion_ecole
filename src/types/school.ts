@@ -148,6 +148,18 @@ export interface Student {
   councilDecision?: string; // Admis, Redouble, etc.
 }
 
+export interface AnnualDecisionResult {
+  student: Student;
+  annualAverage: number;
+  completedPeriods: number;
+  totalPeriods: number;
+  outcome: AnnualDecisionOutcome;
+  label: string;
+  destinationClassId?: string;
+  destinationClassName?: string;
+  reasons: string[];
+}
+
 export interface GradeEntry {
   id: string;
   studentId: string;
