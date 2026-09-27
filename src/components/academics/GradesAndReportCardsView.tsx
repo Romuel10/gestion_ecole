@@ -265,14 +265,15 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
         )
     );
 
+    const importedGrades = Array.from(importedByKey.values());
     const updatedDb: DatabaseSchema = {
       ...db,
-      grades: [...preserved, ...gradeImportPreview.grades],
+      grades: [...preserved, ...importedGrades],
     };
     StorageService.saveDatabase(updatedDb);
     onUpdateDb(updatedDb);
     onShowToast(
-      `${gradeImportPreview.grades.length} note(s) importée(s) ou mise(s) à jour.`,
+      `${importedGrades.length} note(s) importée(s) ou mise(s) à jour.`,
       'success'
     );
     setGradeImportPreview(null);
