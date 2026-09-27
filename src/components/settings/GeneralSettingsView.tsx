@@ -495,6 +495,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
       startDate: `${startYear}-09-01`,
       endDate: `${startYear + 1}-06-30`,
       isCurrent: false,
+      status: 'PLANNED',
       terms: [],
     });
   };
@@ -556,6 +557,12 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
         schoolYears: db.schoolYears.map((year) => ({
           ...year,
           isCurrent: year.id === schoolYear.id,
+          status:
+            year.id === schoolYear.id
+              ? 'ACTIVE'
+              : year.status === 'CLOSED'
+              ? 'CLOSED'
+              : 'PLANNED',
         })),
       },
       `Année scolaire ${schoolYear.label} activée.`
