@@ -80,6 +80,12 @@ grant execute on function sekoly_private.has_role(uuid, text[]) to authenticated
 
 alter table public.sekoly_schools enable row level security;
 alter table public.sekoly_memberships enable row level security;
+drop policy if exists "sekoly schools members read" on public.sekoly_schools;
+drop policy if exists "sekoly schools admins update" on public.sekoly_schools;
+drop policy if exists "sekoly memberships self or admin read" on public.sekoly_memberships;
+drop policy if exists "sekoly memberships admins insert" on public.sekoly_memberships;
+drop policy if exists "sekoly memberships admins update" on public.sekoly_memberships;
+drop policy if exists "sekoly memberships admins delete" on public.sekoly_memberships;
 
 create policy "sekoly schools members read"
 on public.sekoly_schools for select
