@@ -72,8 +72,20 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
   const [reRegPayMethod, setReRegPayMethod] = useState<PaymentMethod>('ESPECES');
   const [reRegReference, setReRegReference] = useState('');
 
-  const generatedMatriculePreview = MatriculeService.previewPattern(db.matriculeConfig);
+  const activeSchoolYear = db.schoolYears.find((year) => year.id === db.currentSchoolYearId);
+  const activeSchoolYearStart = activeSchoolYear?.startDate.slice(0, 4) || String(new Date().getFullYear());
+  const generatedMatriculePreview = MatriculeService.previewPattern(db.matriculeConfig, activeSchoolYearStart);
   const selectedClass = db.classes.find((c) => c.id === formData.classId) || db.classes[0];
+
+  const getNextReceiptNumber = () => {
+    const usedNumbers = db.tuitionPayments
+      .map((payment) => payment.receiptNumber)
+      .filter((number) => number.startsWith(`REC-${activeSchoolYearStart}-`))
+      .map((number) => Number(number.split('-').pop()))
+      .filter((number) => Number.isFinite(number));
+    const nextSequence = (usedNumbers.length > 0 ? Math.max(...usedNumbers) : 0) + 1;
+    return `REC-${activeSchoolYearStart}-${String(nextSequence).padStart(4, '0')}`;
+  };
 
   const handleNewAdmissionSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,12 +93,16 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
       onShowToast('Veuillez renseigner le nom et le prénom de l\'élève.', 'error');
       return;
     }
+    if (!selectedClass) {
+      onShowToast('Veuillez créer ou sélectionner une classe avant l’inscription.', 'error');
+      return;
+    }
 
     // 1. Generate unique matricule & update counter
     const { matricule, updatedCounter } = MatriculeService.generateNextMatricule(
       db.matriculeConfig,
       db.students,
-      { level: selectedClass.level, year: String(new Date().getFullYear()) }
+      { level: selectedClass.level, year: activeSchoolYearStart }
     );
 
     const newStudentId = `stu-${Date.now()}`;
@@ -127,8 +143,17 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
 
     if (formData.payFeeNow) {
       const regFee = selectedClass.registrationFee || 100000;
-      const actualAmount = Math.max(0, regFee - (formData.discount || 0));
-      const receiptNum = `REC-${new Date().getFullYear()}-${String(db.tuitionPayments.length + 1).padStart(4, '0')}`;
+      const discount = Math.max(0, Number(formData.discount || 0));
+      if (discount > regFee) {
+        onShowToast('La remise ne peut pas dépasser le droit d’inscription.', 'error');
+        return;
+      }
+      const actualAmount = regFee - discount;
+      if (actualAmount <= 0) {
+        onShowToast('Le montant encaissé doit être supérieur à 0.', 'error');
+        return;
+      }
+      const receiptNum = getNextReceiptNumber();
 
       newPaymentObj = {
         id: `pay-${Date.now()}`,
@@ -139,7 +164,7 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
         feeType: 'INSCRIPTION',
         monthTarget: `Droit Annuel Inscription`,
         amount: actualAmount,
-        discount: formData.discount || 0,
+        discount,
         totalDue: regFee,
         paymentDate: new Date().toISOString().slice(0, 10),
         paymentMethod: formData.paymentMethod,
@@ -225,21 +250,55 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
   const handleReRegistrationSubmit = () => {
     if (!selectedStudentForReReg) return;
     const targetClass = db.classes.find((c) => c.id === targetClassId) || db.classes[0];
+    if (!targetClass) {
+      onShowToast('Aucune classe cible disponible.', 'error');
+      return;
+    }
+
+    const alreadyRegistered = db.students.some(
+      (student) =>
+        student.matricule === selectedStudentForReReg.matricule &&
+        student.schoolYearId === db.currentSchoolYearId
+    );
+    if (alreadyRegistered) {
+      onShowToast(
+        `${selectedStudentForReReg.lastName} est déjà inscrit(e) pour l’année scolaire active.`,
+        'error'
+      );
+      return;
+    }
+
     const reRegFee = targetClass.reRegistrationFee || 80000;
-    const receiptNum = `REC-${new Date().getFullYear()}-${String(db.tuitionPayments.length + 1).padStart(4, '0')}`;
+    if (reRegFee <= 0) {
+      onShowToast('Le droit de réinscription doit être supérieur à 0.', 'error');
+      return;
+    }
+
+    const receiptNum = getNextReceiptNumber();
+    const now = Date.now();
+    const enrollmentDate = new Date().toISOString().slice(0, 10);
+    const newEnrollmentStudent: Student = {
+      ...selectedStudentForReReg,
+      id: `stu-${now}`,
+      classId: targetClass.id,
+      schoolYearId: db.currentSchoolYearId,
+      status: 'REINSCRIT' as StudentStatus,
+      enrollmentDate,
+      councilDecision: undefined,
+    };
 
     const newPayment: TuitionPayment = {
-      id: `pay-${Date.now()}`,
+      id: `pay-${now}`,
       receiptNumber: receiptNum,
-      studentId: selectedStudentForReReg.id,
-      classId: targetClassId,
+      studentId: newEnrollmentStudent.id,
+      classId: targetClass.id,
       schoolYearId: db.currentSchoolYearId,
       feeType: 'REINSCRIPTION',
       monthTarget: `Droit Annuel Réinscription`,
       amount: reRegFee,
       discount: 0,
       totalDue: reRegFee,
-      paymentDate: new Date().toISOString().slice(0, 10),
+      paymentDate: enrollmentDate,
       paymentMethod: reRegPayMethod,
       referenceNumber: reRegReference,
       payerName: selectedStudentForReReg.fatherName || selectedStudentForReReg.motherName || 'Parent',
@@ -247,41 +306,25 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
       notes: `Réinscription en classe de ${targetClass.name}`,
     };
 
-    const updatedStudents = db.students.map((s) => {
-      if (s.id === selectedStudentForReReg.id) {
-        return {
-          ...s,
-          classId: targetClassId,
-          schoolYearId: db.currentSchoolYearId,
-          status: 'REINSCRIT' as StudentStatus,
-          enrollmentDate: new Date().toISOString().slice(0, 10),
-        };
-      }
-      return s;
-    });
-
-    const updatedTransactions = [
-      ...db.cashTransactions,
-      {
-        id: `csh-${Date.now()}`,
-        voucherNumber: `TR-${receiptNum}`,
-        type: 'RECETTE' as const,
-        category: 'Inscriptions & Droits',
-        amount: reRegFee,
-        date: new Date().toISOString().slice(0, 10),
-        paymentMethod: reRegPayMethod,
-        beneficiaryOrPayer: newPayment.payerName,
-        description: `Droit de réinscription pour ${selectedStudentForReReg.lastName} ${selectedStudentForReReg.firstName} (${targetClass.name})`,
-        relatedReceiptId: newPayment.id,
-        schoolYearId: db.currentSchoolYearId,
-      },
-    ];
+    const newTransaction = {
+      id: `csh-${now}`,
+      voucherNumber: `TR-${receiptNum}`,
+      type: 'RECETTE' as const,
+      category: 'Inscriptions & Droits',
+      amount: reRegFee,
+      date: enrollmentDate,
+      paymentMethod: reRegPayMethod,
+      beneficiaryOrPayer: newPayment.payerName,
+      description: `Droit de réinscription pour ${selectedStudentForReReg.lastName} ${selectedStudentForReReg.firstName} (${targetClass.name})`,
+      relatedReceiptId: newPayment.id,
+      schoolYearId: db.currentSchoolYearId,
+    };
 
     const updatedDb: DatabaseSchema = {
       ...db,
-      students: updatedStudents,
+      students: [newEnrollmentStudent, ...db.students],
       tuitionPayments: [newPayment, ...db.tuitionPayments],
-      cashTransactions: updatedTransactions,
+      cashTransactions: [newTransaction, ...db.cashTransactions],
     };
 
     StorageService.saveDatabase(updatedDb);
@@ -296,7 +339,15 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
 
   const filteredStudentsForReReg = db.students.filter((s) => {
     const q = reRegSearch.toLowerCase().trim();
-    if (!q) return false;
+    if (!q || s.schoolYearId === db.currentSchoolYearId) return false;
+
+    const alreadyPresentInActiveYear = db.students.some(
+      (current) =>
+        current.matricule === s.matricule &&
+        current.schoolYearId === db.currentSchoolYearId
+    );
+    if (alreadyPresentInActiveYear) return false;
+
     return (
       s.lastName.toLowerCase().includes(q) ||
       s.firstName.toLowerCase().includes(q) ||
@@ -351,7 +402,9 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
             }`}
           >
             <FileCheck className="w-3.5 h-3.5" />
-            <span>Registre ({db.students.length})</span>
+            <span>
+              Registre ({db.students.filter((student) => student.schoolYearId === db.currentSchoolYearId).length})
+            </span>
           </button>
         </div>
       </div>
@@ -840,7 +893,14 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
               Registre Matricule Officiel des Élèves Inscrits
             </h3>
             <button
-              onClick={() => StorageService.exportStudentsCSV(db)}
+              onClick={() =>
+                StorageService.exportStudentsCSV({
+                  ...db,
+                  students: db.students.filter(
+                    (student) => student.schoolYearId === db.currentSchoolYearId
+                  ),
+                })
+              }
               className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 transition"
             >
               Exporter Registre (CSV)
@@ -860,7 +920,9 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {db.students.map((student) => (
+                {db.students
+                  .filter((student) => student.schoolYearId === db.currentSchoolYearId)
+                  .map((student) => (
                   <tr key={student.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">
                     <td className="py-3 px-3 font-mono font-bold text-blue-600 dark:text-blue-400">
                       {student.matricule}
