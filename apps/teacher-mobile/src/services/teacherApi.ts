@@ -522,7 +522,17 @@ export const teacherApi = {
     return offlineStore.queueCount();
   },
 
-  subscribeSchool(schoolId: string, onChange: () => void) {
+  async subscribeSchool(schoolId: string, onChange: () => void) {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (session?.access_token) {
+      await supabase.realtime.setAuth(session.access_token);
+    } else {
+      await supabase.realtime.setAuth();
+    }
+
     const channel = supabase
       .channel(`school:${schoolId}:sync`, {
         config: { private: true },
