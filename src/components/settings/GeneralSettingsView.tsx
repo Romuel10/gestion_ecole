@@ -745,27 +745,92 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
             </div>
 
             <div className="p-5 space-y-5">
-              <label className="flex items-start gap-3 border-b border-slate-200 dark:border-slate-800 pb-4">
-                <input
-                  type="checkbox"
-                  checked={schoolConfig.requireAllPeriodsForAnnualDecision ?? true}
-                  onChange={(e) =>
-                    setSchoolConfig({
-                      ...schoolConfig,
-                      requireAllPeriodsForAnnualDecision: e.target.checked,
-                    })
-                  }
-                  className="mt-0.5"
-                />
-                <span>
-                  <span className="block text-[11.5px] font-semibold">
-                    Exiger toutes les périodes avant une décision définitive
-                  </span>
-                  <span className="block mt-1 text-[10.5px] text-slate-500">
-                    Si une période n’est pas renseignée, l’élève reste « À examiner ».
-                  </span>
-                </span>
-              </label>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
+                <div className="space-y-3">
+                  <label className="flex items-start gap-3">
+                    <input
+                      type="checkbox"
+                      checked={schoolConfig.requireAllPeriodsForAnnualDecision ?? true}
+                      onChange={(e) =>
+                        setSchoolConfig({
+                          ...schoolConfig,
+                          requireAllPeriodsForAnnualDecision: e.target.checked,
+                        })
+                      }
+                      className="mt-0.5"
+                    />
+                    <span>
+                      <span className="block text-[11.5px] font-semibold">
+                        Exiger toutes les périodes
+                      </span>
+                      <span className="block mt-1 text-[10.5px] text-slate-500">
+                        Une période manquante laisse l’élève « À examiner ».
+                      </span>
+                    </span>
+                  </label>
+
+                  <label className="flex items-start gap-3">
+                    <input
+                      type="checkbox"
+                      checked={schoolConfig.requireAllSubjectsForAnnualDecision ?? true}
+                      onChange={(e) =>
+                        setSchoolConfig({
+                          ...schoolConfig,
+                          requireAllSubjectsForAnnualDecision: e.target.checked,
+                        })
+                      }
+                      className="mt-0.5"
+                    />
+                    <span>
+                      <span className="block text-[11.5px] font-semibold">
+                        Exiger toutes les matières de chaque période
+                      </span>
+                      <span className="block mt-1 text-[10.5px] text-slate-500">
+                        Évite une décision définitive sur une période partiellement saisie.
+                      </span>
+                    </span>
+                  </label>
+                </div>
+
+                <div>
+                  <div className="mb-2 text-[11px] font-semibold">Pondération des notes</div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Field label="Contrôles continus">
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.1"
+                        value={schoolConfig.continuousAssessmentWeight ?? 1}
+                        onChange={(e) =>
+                          setSchoolConfig({
+                            ...schoolConfig,
+                            continuousAssessmentWeight: Number(e.target.value),
+                          })
+                        }
+                        className="settings-input"
+                      />
+                    </Field>
+                    <Field label="Examen / composition">
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.1"
+                        value={schoolConfig.examWeight ?? 2}
+                        onChange={(e) =>
+                          setSchoolConfig({
+                            ...schoolConfig,
+                            examWeight: Number(e.target.value),
+                          })
+                        }
+                        className="settings-input"
+                      />
+                    </Field>
+                  </div>
+                  <div className="mt-2 text-[10px] text-slate-500">
+                    Exemple 1 / 2 : les contrôles comptent pour 1 part et l’examen pour 2 parts.
+                  </div>
+                </div>
+              </div>
 
               <div className="overflow-x-auto border border-slate-200 dark:border-slate-700">
                 <table className="erp-table">
