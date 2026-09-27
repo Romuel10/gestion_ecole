@@ -110,6 +110,11 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
   const [cloudBusy, setCloudBusy] = useState(false);
   const [cloudStats, setCloudStats] = useState<Record<string, number> | null>(null);
   const [invitingTeacherId, setInvitingTeacherId] = useState<string | null>(null);
+  const [pilotAccess, setPilotAccess] = useState<{
+    teacherName: string;
+    email: string;
+    temporaryPassword: string;
+  } | null>(null);
 
   useEffect(() => {
     if (!cloudConnected || cloudSchoolId) return;
@@ -280,6 +285,33 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
       );
     } finally {
       setCloudBusy(false);
+    }
+  };
+
+  const handleProvisionPilotTeacher = async (teacherId: string) => {
+    const teacher = db.teachers.find((item) => item.id === teacherId);
+    if (!teacher) return;
+
+    setInvitingTeacherId(teacherId);
+    try {
+      await CloudSyncService.syncLocalStructure(db);
+      const result = await CloudSyncService.provisionTeacherPilot(db, teacherId);
+      setPilotAccess({
+        teacherName: `${teacher.lastName} ${teacher.firstName}`,
+        email: teacher.email || '',
+        temporaryPassword: result.temporaryPassword,
+      });
+      onShowToast(
+        'Accès pilote créé. Communiquez le mot de passe temporaire à l’enseignant.',
+        'success'
+      );
+    } catch (error) {
+      onShowToast(
+        error instanceof Error ? error.message : 'Création de l’accès pilote impossible.',
+        'error'
+      );
+    } finally {
+      setInvitingTeacherId(null);
     }
   };
 
@@ -1993,7 +2025,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
                     <div className="cloud-info-cell">
                       <span>Projet Supabase</span>
-                      <strong>gmlofgsgnbbcbefogpww</strong>
+                      <strong>cmpbrouwcfoauwyeiyfj</strong>
                     </div>
                     <div className="cloud-info-cell">
                       <span>Établissement Cloud</span>
@@ -2079,20 +2111,34 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
                                   <td>{teacher.email || 'Email à renseigner'}</td>
                                   <td>{teacher.phone || '—'}</td>
                                   <td className="text-right">
-                                    <button
-                                      type="button"
-                                      disabled={
-                                        !teacher.email ||
-                                        invitingTeacherId === teacher.id
-                                      }
-                                      onClick={() => handleInviteCloudTeacher(teacher.id)}
-                                      className="button button--secondary disabled:opacity-40"
-                                    >
-                                      <UserPlus className="w-3.5 h-3.5" />
-                                      {invitingTeacherId === teacher.id
-                                        ? 'Invitation…'
-                                        : 'Inviter sur mobile'}
-                                    </button>
+                                    <div className="flex justify-end gap-2">
+                                      <button
+                                        type="button"
+                                        disabled={
+                                          !teacher.email ||
+                                          invitingTeacherId === teacher.id
+                                        }
+                                        onClick={() => handleProvisionPilotTeacher(teacher.id)}
+                                        className="button button--primary disabled:opacity-40"
+                                      >
+                                        <UserPlus className="w-3.5 h-3.5" />
+                                        {invitingTeacherId === teacher.id
+                                          ? 'Création…'
+                                          : 'Créer accès pilote'}
+                                      </button>
+                                      <button
+                                        type="button"
+                                        disabled={
+                                          !teacher.email ||
+                                          invitingTeacherId === teacher.id
+                                        }
+                                        onClick={() => handleInviteCloudTeacher(teacher.id)}
+                                        className="button button--secondary disabled:opacity-40"
+                                        title="Utilise l’invitation email Supabase lorsque le SMTP de production est configuré."
+                                      >
+                                        Invitation email
+                                      </button>
+                                    </div>
                                   </td>
                                 </tr>
                               ))}
@@ -2108,6 +2154,51 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
                         </div>
                       </div>
                     </>
+                  )}
+
+                  {pilotAccess && (
+                    <div className="border border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/20 p-4">
+                      <div className="text-[11px] font-semibold text-emerald-900 dark:text-emerald-200">
+                        Accès pilote créé — à transmettre une seule fois
+                      </div>
+                      <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3 text-[10.5px]">
+                        <div>
+                          <span className="block text-slate-500">Enseignant</span>
+                          <strong>{pilotAccess.teacherName}</strong>
+                        </div>
+                        <div>
+                          <span className="block text-slate-500">Email</span>
+                          <strong>{pilotAccess.email}</strong>
+                        </div>
+                        <div>
+                          <span className="block text-slate-500">Mot de passe temporaire</span>
+                          <strong className="font-mono">{pilotAccess.temporaryPassword}</strong>
+                        </div>
+                      </div>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          className="button button--secondary"
+                          onClick={() =>
+                            navigator.clipboard?.writeText(
+                              `Sekoly Enseignant\nEmail : ${pilotAccess.email}\nMot de passe temporaire : ${pilotAccess.temporaryPassword}`
+                            )
+                          }
+                        >
+                          Copier les identifiants
+                        </button>
+                        <button
+                          type="button"
+                          className="button button--secondary"
+                          onClick={() => setPilotAccess(null)}
+                        >
+                          Masquer
+                        </button>
+                      </div>
+                      <p className="mt-2 text-[10px] text-slate-500">
+                        L’application exigera un nouveau mot de passe lors de la première connexion.
+                      </p>
+                    </div>
                   )}
 
                   <div className="flex justify-end">
