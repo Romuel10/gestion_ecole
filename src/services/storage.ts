@@ -42,6 +42,7 @@ export class StorageService {
       tuitionPayments: Array.isArray(candidate.tuitionPayments) ? candidate.tuitionPayments : [],
       salaryPayments: Array.isArray(candidate.salaryPayments) ? candidate.salaryPayments : [],
       cashTransactions: Array.isArray(candidate.cashTransactions) ? candidate.cashTransactions : [],
+      cashDayClosures: Array.isArray(candidate.cashDayClosures) ? candidate.cashDayClosures : [],
       timetableSlots: Array.isArray(candidate.timetableSlots) ? candidate.timetableSlots : [],
       attendanceRecords: Array.isArray(candidate.attendanceRecords) ? candidate.attendanceRecords : [],
     };
