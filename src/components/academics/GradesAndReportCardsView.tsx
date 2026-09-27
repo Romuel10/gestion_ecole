@@ -226,18 +226,24 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
           g.termCode === termCode &&
           ((g.evaluations?.length || 0) > 0 || g.examGrade !== undefined)
       );
+    const hasT1 = hasGradesForTerm('TRIMESTRE_1');
+    const hasT2 = hasGradesForTerm('TRIMESTRE_2');
+    const hasT3 = hasGradesForTerm('TRIMESTRE_3');
     const validTerms = [
-      hasGradesForTerm('TRIMESTRE_1') ? avgT1 : null,
-      hasGradesForTerm('TRIMESTRE_2') ? avgT2 : null,
-      hasGradesForTerm('TRIMESTRE_3') ? avgT3 : null,
+      hasT1 ? avgT1 : null,
+      hasT2 ? avgT2 : null,
+      hasT3 ? avgT3 : null,
     ].filter((a): a is number => a !== null);
     const mag = validTerms.length > 0 ? validTerms.reduce((a, b) => a + b, 0) / validTerms.length : 0;
 
-    let decision = 'Admis(e) en classe supérieure';
-    if (mag < passingThreshold && mag >= passingThreshold - 1.5) {
-      decision = 'Autorisé(e) au rattrapage';
-    } else if (mag < passingThreshold - 1.5) {
-      decision = 'Redoublement conseillé';
+    let decision = 'En attente de saisie';
+    if (validTerms.length > 0) {
+      decision = 'Admis(e) en classe supérieure';
+      if (mag < passingThreshold && mag >= passingThreshold - 1.5) {
+        decision = 'Autorisé(e) au rattrapage';
+      } else if (mag < passingThreshold - 1.5) {
+        decision = 'Redoublement conseillé';
+      }
     }
 
     return {
@@ -245,6 +251,10 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
       avgT1,
       avgT2,
       avgT3,
+      hasT1,
+      hasT2,
+      hasT3,
+      hasAnyTerm: validTerms.length > 0,
       mag: Math.round(mag * 100) / 100,
       decision,
     };
@@ -703,16 +713,18 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
                     <td className="p-2.5 font-bold text-slate-900 dark:text-white">
                       {row.student.lastName} {row.student.firstName}
                     </td>
-                    <td className="p-2.5 text-right font-mono">{row.avgT1 > 0 ? row.avgT1.toFixed(2) : '-'}</td>
-                    <td className="p-2.5 text-right font-mono">{row.avgT2 > 0 ? row.avgT2.toFixed(2) : '-'}</td>
-                    <td className="p-2.5 text-right font-mono">{row.avgT3 > 0 ? row.avgT3.toFixed(2) : '-'}</td>
+                    <td className="p-2.5 text-right font-mono">{row.hasT1 ? row.avgT1.toFixed(2) : '-'}</td>
+                    <td className="p-2.5 text-right font-mono">{row.hasT2 ? row.avgT2.toFixed(2) : '-'}</td>
+                    <td className="p-2.5 text-right font-mono">{row.hasT3 ? row.avgT3.toFixed(2) : '-'}</td>
                     <td className="p-2.5 text-right font-extrabold font-mono text-sm text-blue-600 dark:text-blue-400">
-                      {row.mag.toFixed(2)}
+                      {row.hasAnyTerm ? row.mag.toFixed(2) : '-'}
                     </td>
                     <td className="p-2.5">
                       <span
                         className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                          row.mag >= passingThreshold
+                          !row.hasAnyTerm
+                            ? 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
+                            : row.mag >= passingThreshold
                             ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
                             : row.mag >= passingThreshold - 1.5
                             ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
