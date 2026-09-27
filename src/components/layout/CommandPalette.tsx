@@ -25,9 +25,12 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       .filter((s) => {
         const qq = q0;
         return (
-          s.lastName.toLowerCase().includes(qq) ||
-          s.firstName.toLowerCase().includes(qq) ||
-          s.matricule.toLowerCase().includes(qq)
+          s.schoolYearId === db.currentSchoolYearId &&
+          (
+            s.lastName.toLowerCase().includes(qq) ||
+            s.firstName.toLowerCase().includes(qq) ||
+            s.matricule.toLowerCase().includes(qq)
+          )
         );
       })
       .slice(0, 5)
@@ -50,6 +53,23 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       })
       .slice(0, 3)
       .map((c) => ({ type: 'class' as const, id: c.id, label: c.name, detail: c.code, tab: 'academics' as NavTab })),
+    ...db.tuitionPayments
+      .filter(
+        (p) =>
+          p.schoolYearId === db.currentSchoolYearId &&
+          (
+            p.receiptNumber.toLowerCase().includes(q0) ||
+            (p.referenceNumber?.toLowerCase().includes(q0) ?? false)
+          )
+      )
+      .slice(0, 3)
+      .map((p) => ({
+        type: 'payment' as const,
+        id: p.id,
+        label: `Reçu ${p.receiptNumber}`,
+        detail: `${p.amount.toLocaleString()} Ar`,
+        tab: 'finances' as NavTab,
+      })),
   ], [db, q0]);
 
   const maxIndex = Math.max(allResults.length - 1, 0);
@@ -90,8 +110,6 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 
   if (!isOpen) return null;
 
-  const q = query.trim().toLowerCase();
-
   const matchedStudents = allResults.filter((r) => r.type === 'student').map((r) =>
     db.students.find((s) => s.id === r.id)!
   );
@@ -104,11 +122,10 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     db.classes.find((c) => c.id === r.id)!
   );
 
-  const matchedPayments = db.tuitionPayments.filter(
-    (p) =>
-      p.receiptNumber.toLowerCase().includes(q) ||
-      (p.referenceNumber && p.referenceNumber.toLowerCase().includes(q))
-  ).slice(0, 3);
+  const matchedPayments = allResults
+    .filter((r) => r.type === 'payment')
+    .map((r) => db.tuitionPayments.find((p) => p.id === r.id)!)
+    .filter(Boolean);
 
   const classMap = new Map(db.classes.map((c) => [c.id, c.name]));
 

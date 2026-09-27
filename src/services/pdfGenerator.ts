@@ -16,7 +16,7 @@ export class PdfGeneratorService {
 
     const cfg = db.schoolConfig;
     const yearObj = db.schoolYears.find(y => y.id === summary.schoolYearId);
-    const yearLabel = yearObj ? yearObj.label : '2025-2026';
+    const yearLabel = yearObj?.label || 'Année scolaire';
     const termLabel = summary.termCode === 'TRIMESTRE_1' ? '1er TRIMESTRE' : summary.termCode === 'TRIMESTRE_2' ? '2ème TRIMESTRE' : '3ème TRIMESTRE';
 
     // Official Madagascar Top Header
@@ -467,7 +467,9 @@ export class PdfGeneratorService {
     });
 
     const cfg = db.schoolConfig;
-    const currentYear = db.schoolYears.find(y => y.id === student.schoolYearId)?.label || '2025-2026';
+    const studentYear = db.schoolYears.find(y => y.id === student.schoolYearId);
+    const currentYear = studentYear?.label || 'Année scolaire';
+    const certificateYear = studentYear?.startDate.slice(0, 4) || new Date().getFullYear().toString();
     const cls = db.classes.find(c => c.id === student.classId);
 
     // Official Madagascar Top Header
@@ -501,7 +503,7 @@ export class PdfGeneratorService {
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
-    doc.text(`N° Réf : CERT/${student.matricule}/${new Date().getFullYear()}`, 105, 68, { align: 'center' });
+    doc.text(`N° Réf : CERT/${student.matricule}/${certificateYear}`, 105, 68, { align: 'center' });
 
     // Certificate Body Text
     const bodyY = 85;

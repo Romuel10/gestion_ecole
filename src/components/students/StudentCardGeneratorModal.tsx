@@ -46,7 +46,10 @@ export const StudentCardGeneratorModal: React.FC<StudentCardGeneratorModalProps>
     { name: 'Ambre Doré', value: '#b45309' },
   ];
 
-  const currentYear = db.schoolYears.find((y) => y.id === db.currentSchoolYearId)?.label || '2025-2026';
+  const currentYear =
+    db.schoolYears.find((y) => y.id === student?.schoolYearId)?.label ||
+    db.schoolYears.find((y) => y.id === db.currentSchoolYearId)?.label ||
+    'Année scolaire';
   const selectedStudent = db.students.find((s) => s.id === selectedStudentId) || null;
   const effectiveClass = targetClass || (selectedStudent ? db.classes.find((c) => c.id === selectedStudent.classId) : db.classes[0]);
   const studentsToPrint = printMode === 'BATCH_CLASS' && effectiveClass

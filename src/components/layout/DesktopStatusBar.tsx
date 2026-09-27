@@ -9,6 +9,7 @@ interface DesktopStatusBarProps {
 export const DesktopStatusBar: React.FC<DesktopStatusBarProps> = ({ db }) => {
   const metrics = CalculationService.computeFinancialMetrics(db);
   const activeYear = db.schoolYears.find((y) => y.id === db.currentSchoolYearId);
+  const activeStudentCount = db.students.filter((student) => student.schoolYearId === db.currentSchoolYearId).length;
 
   return (
     <footer className="h-6 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 text-[11px] text-slate-500 dark:text-slate-400 px-3 flex items-center justify-between select-none z-30">
@@ -30,7 +31,7 @@ export const DesktopStatusBar: React.FC<DesktopStatusBarProps> = ({ db }) => {
       <div className="flex items-center space-x-4">
         <div className="hidden md:flex items-center space-x-1">
           <span>Effectif :</span>
-          <strong className="text-slate-800 dark:text-slate-200 font-mono">{db.students.length}</strong>
+          <strong className="text-slate-800 dark:text-slate-200 font-mono">{activeStudentCount}</strong>
         </div>
 
         <div className="hidden md:flex items-center space-x-1">

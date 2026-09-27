@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   UserPlus,
   Edit2,
@@ -16,12 +16,14 @@ interface TeachersManagerViewProps {
   db: DatabaseSchema;
   onUpdateDb: (updated: DatabaseSchema) => void;
   onShowToast: (msg: string, type?: 'success' | 'error' | 'info') => void;
+  initialTeacherId?: string;
 }
 
 export const TeachersManagerView: React.FC<TeachersManagerViewProps> = ({
   db,
   onUpdateDb,
   onShowToast,
+  initialTeacherId,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [contractFilter, setContractFilter] = useState<string>('ALL');
@@ -51,6 +53,15 @@ export const TeachersManagerView: React.FC<TeachersManagerViewProps> = ({
 
   const subjectMap = new Map(db.subjects.map((s) => [s.id, s.name]));
 
+  useEffect(() => {
+    if (!initialTeacherId) return;
+    const teacher = db.teachers.find((item) => item.id === initialTeacherId);
+    if (!teacher) return;
+    setEditingTeacher(teacher);
+    setFormData(teacher);
+    setIsModalOpen(true);
+  }, [initialTeacherId, db.teachers]);
+
   const filteredTeachers = db.teachers.filter((t) => {
     const q = searchQuery.toLowerCase().trim();
     const matchQuery =
@@ -65,8 +76,12 @@ export const TeachersManagerView: React.FC<TeachersManagerViewProps> = ({
 
   const handleOpenAdd = () => {
     setEditingTeacher(null);
+    const usedTeacherNumbers = db.teachers
+      .map((teacher) => Number(teacher.matricule.match(/(\d+)$/)?.[1] || 0))
+      .filter((value) => Number.isFinite(value));
+    const nextTeacherNumber = (usedTeacherNumbers.length > 0 ? Math.max(...usedTeacherNumbers) : 0) + 1;
     setFormData({
-      matricule: `ENS-${String(db.teachers.length + 1).padStart(3, '0')}`,
+      matricule: `ENS-${String(nextTeacherNumber).padStart(3, '0')}`,
       lastName: '',
       firstName: '',
       gender: 'M',
@@ -99,17 +114,34 @@ export const TeachersManagerView: React.FC<TeachersManagerViewProps> = ({
       return;
     }
 
+    const normalizedMatricule = (formData.matricule || '').trim().toUpperCase();
+    if (!normalizedMatricule) {
+      onShowToast('Le matricule enseignant est obligatoire.', 'error');
+      return;
+    }
+    const matriculeAlreadyUsed = db.teachers.some(
+      (teacher) =>
+        teacher.id !== editingTeacher?.id &&
+        teacher.matricule.trim().toUpperCase() === normalizedMatricule
+    );
+    if (matriculeAlreadyUsed) {
+      onShowToast(`Le matricule ${normalizedMatricule} est déjà utilisé.`, 'error');
+      return;
+    }
+
     let updatedTeachers = [...db.teachers];
 
     if (editingTeacher) {
       updatedTeachers = updatedTeachers.map((t) =>
-        t.id === editingTeacher.id ? ({ ...t, ...formData } as Teacher) : t
+        t.id === editingTeacher.id
+          ? ({ ...t, ...formData, matricule: normalizedMatricule } as Teacher)
+          : t
       );
       onShowToast(`Enseignant ${formData.lastName} modifié avec succès.`, 'success');
     } else {
       const newTeacher: Teacher = {
         id: `tea-${Date.now()}`,
-        matricule: formData.matricule || `ENS-${Date.now().toString().slice(-3)}`,
+        matricule: normalizedMatricule,
         lastName: (formData.lastName || '').toUpperCase(),
         firstName: formData.firstName || '',
         gender: formData.gender || 'M',
