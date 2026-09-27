@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronRight, CircleDollarSign, UsersRound, GraduationCap, School } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import { DatabaseSchema } from '../../types/school';
 import { CalculationService } from '../../services/calculations';
 import { NavTab } from '../layout/Sidebar';
@@ -44,53 +44,26 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ db, onNavigate }) 
 
   return (
     <div className="space-y-4">
-      <div className="metric-grid">
-        <button type="button" onClick={() => onNavigate('students')} className="metric-card text-left">
-          <div className="flex items-center justify-between">
-            <div className="metric-card__label">Élèves inscrits</div>
-            <UsersRound className="w-4 h-4 text-slate-400" />
-          </div>
-          <div className="metric-card__value">{activeStudents.length}</div>
-          <div className="metric-card__meta">
-            {activeYear?.label || 'Année active'} · {db.classes.length} classes
-          </div>
+      <div className="dashboard-summary">
+        <button type="button" onClick={() => onNavigate('students')} className="dashboard-summary__cell">
+          <span className="dashboard-summary__label">Élèves inscrits</span>
+          <strong>{activeStudents.length}</strong>
+          <small>{activeYear?.label || 'Année active'} · {db.classes.length} classes</small>
         </button>
-
-        <button type="button" onClick={() => onNavigate('teachers')} className="metric-card text-left">
-          <div className="flex items-center justify-between">
-            <div className="metric-card__label">Enseignants</div>
-            <GraduationCap className="w-4 h-4 text-slate-400" />
-          </div>
-          <div className="metric-card__value">{db.teachers.length}</div>
-          <div className="metric-card__meta">
-            {db.teachers.filter((teacher) => teacher.contractType === 'TITULAIRE').length} titulaires
-          </div>
+        <button type="button" onClick={() => onNavigate('teachers')} className="dashboard-summary__cell">
+          <span className="dashboard-summary__label">Enseignants</span>
+          <strong>{db.teachers.length}</strong>
+          <small>{db.teachers.filter((teacher) => teacher.contractType === 'TITULAIRE').length} titulaires</small>
         </button>
-
-        <button type="button" onClick={() => onNavigate('academics')} className="metric-card text-left">
-          <div className="flex items-center justify-between">
-            <div className="metric-card__label">Moyenne générale</div>
-            <School className="w-4 h-4 text-slate-400" />
-          </div>
-          <div className="metric-card__value">
-            {gradedSummaries.length > 0 ? classAverage.toFixed(2) : '—'}
-          </div>
-          <div className="metric-card__meta">
-            {activeTerm?.label || 'Période active'} · {gradedSummaries.length} bulletins calculés
-          </div>
+        <button type="button" onClick={() => onNavigate('academics')} className="dashboard-summary__cell">
+          <span className="dashboard-summary__label">Moyenne générale</span>
+          <strong>{gradedSummaries.length > 0 ? classAverage.toFixed(2) : '—'}</strong>
+          <small>{activeTerm?.label || 'Période active'} · {gradedSummaries.length} bulletins</small>
         </button>
-
-        <button type="button" onClick={() => onNavigate('finances')} className="metric-card text-left">
-          <div className="flex items-center justify-between">
-            <div className="metric-card__label">Solde de caisse</div>
-            <CircleDollarSign className="w-4 h-4 text-slate-400" />
-          </div>
-          <div className="metric-card__value text-[21px]">
-            {CalculationService.formatAriary(metrics.netTreasuryBalance)}
-          </div>
-          <div className="metric-card__meta">
-            Recettes {CalculationService.formatAriary(metrics.grandTotalRevenues)}
-          </div>
+        <button type="button" onClick={() => onNavigate('finances')} className="dashboard-summary__cell">
+          <span className="dashboard-summary__label">Solde de caisse</span>
+          <strong className="text-[18px]">{CalculationService.formatAriary(metrics.netTreasuryBalance)}</strong>
+          <small>Recettes {CalculationService.formatAriary(metrics.grandTotalRevenues)}</small>
         </button>
       </div>
 
