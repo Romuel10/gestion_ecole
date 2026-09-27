@@ -1,6 +1,6 @@
 import { DatabaseSchema } from '../types/school';
 
-export const INITIAL_DATA: DatabaseSchema = {
+export const BASE_INITIAL_DATA: DatabaseSchema = {
   version: '2.4.0',
   lastUpdated: new Date().toISOString(),
   currentSchoolYearId: 'sy-2025-2026',
@@ -1137,3 +1137,8 @@ export const INITIAL_DATA: DatabaseSchema = {
     { id: 'att-03', studentId: 'stu-03', classId: 'cls-tle-s1', date: '2025-10-15', type: 'RETARD', minutesLate: 15, reason: 'Embouteillage axe Mahamasina' },
   ],
 };
+
+
+import { buildSimulationDatabase } from './simulationData';
+
+export const INITIAL_DATA: DatabaseSchema = buildSimulationDatabase(BASE_INITIAL_DATA);
