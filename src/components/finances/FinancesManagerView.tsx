@@ -999,7 +999,7 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
             </div>
 
             <div>
-              <label className="block font-semibold mb-1">Montant perçu (Ariary) *</label>
+              <label className="block font-semibold mb-1">Montant brut / demandé (Ariary) *</label>
               <input
                 type="number"
                 min="0"
@@ -1008,6 +1008,18 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
                 value={tuitionForm.amount}
                 onChange={(e) => setTuitionForm({ ...tuitionForm, amount: Number(e.target.value) })}
                 className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-extrabold text-blue-600 dark:text-blue-400 text-sm"
+              />
+            </div>
+
+            <div>
+              <label className="block font-semibold mb-1">Remise / réduction (Ariary)</label>
+              <input
+                type="number"
+                min="0"
+                step="500"
+                value={tuitionForm.discount}
+                onChange={(e) => setTuitionForm({ ...tuitionForm, discount: Number(e.target.value) })}
+                className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-mono"
               />
             </div>
 
@@ -1070,8 +1082,16 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
                     {cls ? CalculationService.formatAriary(cls.monthlyTuitionFee) : '—'}
                   </span>
                 </div>
+                {Number(tuitionForm.discount || 0) > 0 && (
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-500">Remise accordée</span>
+                    <span className="font-mono font-semibold text-amber-600 dark:text-amber-400">
+                      -{CalculationService.formatAriary(Number(tuitionForm.discount || 0))}
+                    </span>
+                  </div>
+                )}
                 <div className="flex items-center justify-between text-sm border-t border-slate-200 dark:border-slate-700 pt-2">
-                  <span className="font-semibold text-slate-700 dark:text-slate-300">Montant encaissé</span>
+                  <span className="font-semibold text-slate-700 dark:text-slate-300">Montant encaissé net</span>
                   <span className="font-extrabold font-mono text-emerald-600 dark:text-emerald-400">
                     {CalculationService.formatAriary(netAmount)}
                   </span>
