@@ -1,4 +1,4 @@
-project_id = "gmlofgsgnbbcbefogpww"
+project_id = "cmpbrouwcfoauwyeiyfj"
 
 [functions.sekoly-create-school]
 verify_jwt = true

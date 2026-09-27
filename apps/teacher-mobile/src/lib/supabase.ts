@@ -2,8 +2,10 @@ import 'react-native-url-polyfill/auto';
 import 'expo-sqlite/localStorage/install';
 import { createClient } from '@supabase/supabase-js';
 
-const url = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
-const publishableKey = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? '';
+const url = process.env.EXPO_PUBLIC_SUPABASE_URL ?? 'https://cmpbrouwcfoauwyeiyfj.supabase.co';
+const publishableKey =
+  process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
+  'sb_publishable_ox4EuxE10F3DLNxr1wP74A_fI_dhJgQ';
 
 if (!url || !publishableKey) {
   console.warn(

@@ -2,13 +2,13 @@ import { CalculationService } from './calculations';
 import { DatabaseSchema, GradeEntry, AttendanceRecord } from '../types/school';
 
 const DEFAULT_URL =
-  import.meta.env.VITE_SUPABASE_URL || 'https://gmlofgsgnbbcbefogpww.supabase.co';
+  import.meta.env.VITE_SUPABASE_URL || 'https://cmpbrouwcfoauwyeiyfj.supabase.co';
 const DEFAULT_KEY =
   import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
-  'sb_publishable_5TlVWknK1BODxwWqw4efEA_y4DI-JRP';
+  'sb_publishable_ox4EuxE10F3DLNxr1wP74A_fI_dhJgQ';
 
-const SESSION_KEY = 'SEKOLY_CLOUD_SESSION_V1';
-const SCHOOL_KEY = 'SEKOLY_CLOUD_SCHOOL_ID_V1';
+const SESSION_KEY = 'SEKOLY_CLOUD_SESSION_V2';
+const SCHOOL_KEY = 'SEKOLY_CLOUD_SCHOOL_ID_V2';
 
 type CloudSession = {
   access_token: string;
