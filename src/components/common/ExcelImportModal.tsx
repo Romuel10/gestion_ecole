@@ -31,7 +31,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
     onClose={onClose}
     title={title}
     subtitle={fileName}
-    maxWidth="3xl"
+    maxWidth="4xl"
     actions={
       <div className="flex items-center gap-2">
         <button type="button" onClick={onClose} className="button button--secondary">
