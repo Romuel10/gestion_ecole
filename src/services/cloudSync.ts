@@ -167,6 +167,38 @@ export class CloudSyncService {
     return Boolean(getStoredSession());
   }
 
+  static async signup(email: string, password: string) {
+    const response = await authRequest(
+      '/auth/v1/signup',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          email: email.trim().toLowerCase(),
+          password,
+        }),
+      },
+      false
+    );
+
+    const result = await parseResponse<any>(response);
+    if (result.access_token && result.refresh_token) {
+      const session: CloudSession = {
+        access_token: result.access_token,
+        refresh_token: result.refresh_token,
+        expires_at:
+          Math.floor(Date.now() / 1000) + Number(result.expires_in || 3600),
+        user: result.user,
+      };
+      saveSession(session);
+      return { session, requiresEmailConfirmation: false };
+    }
+
+    return {
+      session: null,
+      requiresEmailConfirmation: true,
+    };
+  }
+
   static async login(email: string, password: string) {
     const response = await authRequest(
       '/auth/v1/token?grant_type=password',
@@ -481,6 +513,7 @@ export class CloudSyncService {
           lastName: teacher.lastName,
           email: teacher.email,
           phone: teacher.phone,
+          redirectTo: 'sekoly-teacher://auth/callback',
         }),
       }
     );
