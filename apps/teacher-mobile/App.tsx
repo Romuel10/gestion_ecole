@@ -152,8 +152,7 @@ function ActivateAccountScreen({
 
     setBusy(true);
     try {
-      const { error } = await supabase.auth.updateUser({ password });
-      if (error) throw error;
+      await teacherApi.changeInitialPassword(password);
       await onDone();
     } catch (error) {
       Alert.alert(
@@ -957,7 +956,12 @@ export default function App() {
     try {
       const session = await teacherApi.getSession();
       if (session) {
-        await loadWorkspace();
+        const mustChange = await teacherApi.requiresPasswordChange();
+        if (mustChange) {
+          setNeedsPassword(true);
+        } else {
+          await loadWorkspace();
+        }
       }
     } catch (error) {
       console.warn(error);
@@ -1094,6 +1098,11 @@ export default function App() {
         <ExpoStatusBar style="dark" />
         <LoginScreen
           onLoggedIn={async () => {
+            const mustChange = await teacherApi.requiresPasswordChange();
+            if (mustChange) {
+              setNeedsPassword(true);
+              return;
+            }
             await loadWorkspace();
           }}
         />
