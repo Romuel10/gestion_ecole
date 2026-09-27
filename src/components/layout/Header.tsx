@@ -67,7 +67,7 @@ export const Header: React.FC<HeaderProps> = ({
 
     const nextTermCode = selectedYear.terms.some((term) => term.code === db.currentTermCode)
       ? db.currentTermCode
-      : selectedYear.terms[0]?.code || db.currentTermCode;
+      : selectedYear.terms[0]?.code || '';
 
     const updated: DatabaseSchema = {
       ...db,
