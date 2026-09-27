@@ -78,9 +78,42 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
     }
 
     if (student) {
+      const normalizedMatricule = (formData.matricule || '').trim().toUpperCase();
+      if (!normalizedMatricule) {
+        onShowToast('Le matricule est obligatoire.', 'error');
+        return;
+      }
+
+      const duplicateMatricule = db.students.some(
+        (candidate) =>
+          candidate.id !== student.id &&
+          candidate.schoolYearId === student.schoolYearId &&
+          candidate.matricule.trim().toUpperCase() === normalizedMatricule
+      );
+      if (duplicateMatricule) {
+        onShowToast(`Le matricule ${normalizedMatricule} est déjà utilisé pour cette année scolaire.`, 'error');
+        return;
+      }
+
+      const targetClass = db.classes.find((cls) => cls.id === formData.classId);
+      if (targetClass && targetClass.id !== student.classId) {
+        const currentCount = db.students.filter(
+          (candidate) =>
+            candidate.schoolYearId === student.schoolYearId &&
+            candidate.classId === targetClass.id &&
+            candidate.id !== student.id
+        ).length;
+        if (currentCount >= targetClass.capacity) {
+          onShowToast(`La classe ${targetClass.name} a atteint sa capacité maximale (${targetClass.capacity}).`, 'error');
+          return;
+        }
+      }
+
       // Update existing
       const updatedStudents = db.students.map((s) =>
-        s.id === student.id ? ({ ...s, ...formData } as Student) : s
+        s.id === student.id
+          ? ({ ...s, ...formData, matricule: normalizedMatricule } as Student)
+          : s
       );
       const updatedDb: DatabaseSchema = {
         ...db,
