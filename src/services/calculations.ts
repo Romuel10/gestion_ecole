@@ -1,4 +1,11 @@
-import { DatabaseSchema, Student, TermType, ReportCardSummary, GradeEntry } from '../types/school';
+import {
+  AnnualDecisionResult,
+  DatabaseSchema,
+  Student,
+  TermType,
+  ReportCardSummary,
+  GradeEntry,
+} from '../types/school';
 
 export class CalculationService {
   /**
@@ -268,6 +275,186 @@ export class CalculationService {
         councilDecision: s.generalAverage >= 10 ? 'Admis en classe supérieure' : 'Résultats insuffisants / En attente',
       };
     }).sort((a, b) => a.rank - b.rank);
+  }
+
+  static computeAnnualDecisionForStudent(
+    db: DatabaseSchema,
+    student: Student,
+    schoolYearId: string = db.currentSchoolYearId
+  ): AnnualDecisionResult {
+    const schoolYear = db.schoolYears.find((year) => year.id === schoolYearId);
+    const schoolClass = db.classes.find((item) => item.id === student.classId);
+    const configuredTerms = schoolYear?.terms || [];
+
+    const periods = configuredTerms.map((term) => {
+      const report = this.generateClassReportCards(
+        db,
+        student.classId,
+        term.code,
+        schoolYearId
+      ).find((item) => item.studentId === student.id);
+
+      const hasGrades = db.grades.some(
+        (grade) =>
+          grade.studentId === student.id &&
+          grade.classId === student.classId &&
+          grade.schoolYearId === schoolYearId &&
+          grade.termCode === term.code &&
+          ((grade.evaluations?.length || 0) > 0 || grade.examGrade !== undefined)
+      );
+
+      return {
+        code: term.code,
+        label: term.label,
+        average: report?.generalAverage ?? 0,
+        weight: Math.max(0.1, term.weight || 1),
+        hasGrades,
+      };
+    });
+
+    const completedPeriods = periods.filter((period) => period.hasGrades);
+    const totalWeight = completedPeriods.reduce((sum, period) => sum + period.weight, 0);
+    const annualAverage =
+      totalWeight > 0
+        ? completedPeriods.reduce(
+            (sum, period) => sum + period.average * period.weight,
+            0
+          ) / totalWeight
+        : 0;
+
+    const annualAttendance = db.attendanceRecords.filter(
+      (record) =>
+        record.studentId === student.id &&
+        record.classId === student.classId &&
+        (!schoolYear ||
+          (record.date >= schoolYear.startDate && record.date <= schoolYear.endDate))
+    );
+    const unjustifiedAbsences = annualAttendance.filter(
+      (record) => record.type === 'ABSENT_NON_JUSTIFIE'
+    ).length;
+    const latenessCount = annualAttendance.filter((record) => record.type === 'RETARD').length;
+    const conductGrade = Math.max(0, 20 - unjustifiedAbsences * 2 - Math.floor(latenessCount * 0.5));
+
+    const requireAllPeriods = db.schoolConfig.requireAllPeriodsForAnnualDecision ?? true;
+    const reasons: string[] = [];
+
+    if (completedPeriods.length === 0) {
+      return {
+        student,
+        annualAverage: 0,
+        completedPeriods: 0,
+        totalPeriods: configuredTerms.length,
+        outcome: 'REVIEW',
+        label: 'À examiner',
+        reasons: ['Aucune période notée'],
+      };
+    }
+
+    if (requireAllPeriods && completedPeriods.length < configuredTerms.length) {
+      reasons.push(
+        `${completedPeriods.length}/${configuredTerms.length} période(s) renseignée(s)`
+      );
+      return {
+        student,
+        annualAverage: Math.round(annualAverage * 100) / 100,
+        completedPeriods: completedPeriods.length,
+        totalPeriods: configuredTerms.length,
+        outcome: 'REVIEW',
+        label: 'À examiner',
+        reasons,
+      };
+    }
+
+    const rules = [...(db.schoolConfig.annualDecisionRules || [])].sort(
+      (a, b) => b.minAverage - a.minAverage
+    );
+    const matchedRule = rules.find((rule) => {
+      const averageMatches =
+        annualAverage >= rule.minAverage && annualAverage <= rule.maxAverage;
+      const absenceMatches =
+        rule.maxUnjustifiedAbsences === undefined ||
+        unjustifiedAbsences <= rule.maxUnjustifiedAbsences;
+      const conductMatches =
+        rule.minConductGrade === undefined || conductGrade >= rule.minConductGrade;
+      return averageMatches && absenceMatches && conductMatches;
+    });
+
+    if (!matchedRule) {
+      reasons.push('Aucune règle ne correspond aux résultats de l’élève');
+      return {
+        student,
+        annualAverage: Math.round(annualAverage * 100) / 100,
+        completedPeriods: completedPeriods.length,
+        totalPeriods: configuredTerms.length,
+        outcome: 'REVIEW',
+        label: 'À examiner',
+        reasons,
+      };
+    }
+
+    if (
+      matchedRule.maxUnjustifiedAbsences !== undefined &&
+      unjustifiedAbsences > matchedRule.maxUnjustifiedAbsences
+    ) {
+      reasons.push(`${unjustifiedAbsences} absence(s) non justifiée(s)`);
+    }
+    if (
+      matchedRule.minConductGrade !== undefined &&
+      conductGrade < matchedRule.minConductGrade
+    ) {
+      reasons.push(`Conduite : ${conductGrade.toFixed(1)}/20`);
+    }
+
+    let destinationClassId: string | undefined;
+    if (matchedRule.outcome === 'PROMOTE') {
+      destinationClassId = schoolClass?.nextClassId;
+      if (!destinationClassId) reasons.push('Classe suivante non configurée');
+    } else if (matchedRule.outcome === 'REPEAT') {
+      destinationClassId = schoolClass?.id;
+    }
+
+    const destinationClassName = destinationClassId
+      ? db.classes.find((item) => item.id === destinationClassId)?.name
+      : undefined;
+
+    return {
+      student,
+      annualAverage: Math.round(annualAverage * 100) / 100,
+      completedPeriods: completedPeriods.length,
+      totalPeriods: configuredTerms.length,
+      outcome: matchedRule.outcome,
+      label: matchedRule.label,
+      destinationClassId,
+      destinationClassName,
+      reasons,
+    };
+  }
+
+  static computeAnnualDecisionsForClass(
+    db: DatabaseSchema,
+    classId: string,
+    schoolYearId: string = db.currentSchoolYearId
+  ): AnnualDecisionResult[] {
+    return db.students
+      .filter(
+        (student) =>
+          student.classId === classId && student.schoolYearId === schoolYearId
+      )
+      .map((student) => this.computeAnnualDecisionForStudent(db, student, schoolYearId))
+      .sort((a, b) => b.annualAverage - a.annualAverage);
+  }
+
+  static computeAnnualDecisions(
+    db: DatabaseSchema,
+    schoolYearId: string = db.currentSchoolYearId
+  ): AnnualDecisionResult[] {
+    return db.students
+      .filter((student) => student.schoolYearId === schoolYearId)
+      .map((student) => this.computeAnnualDecisionForStudent(db, student, schoolYearId))
+      .sort((a, b) => {
+        const classCompare = a.student.classId.localeCompare(b.student.classId);
+        return classCompare !== 0 ? classCompare : b.annualAverage - a.annualAverage;
+      });
   }
 
   /**
