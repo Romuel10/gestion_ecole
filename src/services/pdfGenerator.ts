@@ -373,6 +373,115 @@ export class PdfGeneratorService {
     );
   }
 
+  static generateTimetablePDF(
+    db: DatabaseSchema,
+    viewType: 'CLASS' | 'TEACHER' | 'ROOM',
+    selectedEntityId: string
+  ): void {
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    const year = db.schoolYears.find((item) => item.id === db.currentSchoolYearId);
+    const classMap = new Map(db.classes.map((item) => [item.id, item]));
+    const teacherMap = new Map(db.teachers.map((item) => [item.id, item]));
+    const subjectMap = new Map(db.subjects.map((item) => [item.id, item]));
+    const days = [
+      { id: 1, label: 'Lundi' },
+      { id: 2, label: 'Mardi' },
+      { id: 3, label: 'Mercredi' },
+      { id: 4, label: 'Jeudi' },
+      { id: 5, label: 'Vendredi' },
+      { id: 6, label: 'Samedi' },
+    ];
+
+    const slots = db.timetableSlots.filter((slot) => {
+      if (viewType === 'CLASS') return slot.classId === selectedEntityId;
+      if (viewType === 'TEACHER') return slot.teacherId === selectedEntityId;
+      return slot.room === selectedEntityId;
+    });
+
+    const title =
+      viewType === 'CLASS'
+        ? classMap.get(selectedEntityId)?.name || 'Classe'
+        : viewType === 'TEACHER'
+        ? `${teacherMap.get(selectedEntityId)?.lastName || ''} ${teacherMap.get(selectedEntityId)?.firstName || ''}`.trim()
+        : selectedEntityId;
+
+    const timeRanges = Array.from(
+      new Set(slots.map((slot) => `${slot.startTime}|${slot.endTime}`))
+    )
+      .sort((a, b) => a.localeCompare(b))
+      .map((value) => {
+        const [start, end] = value.split('|');
+        return { start, end };
+      });
+
+    let y = this.drawInstitutionHeader(
+      doc,
+      db,
+      'Emploi du temps',
+      `${title} • ${year?.label || ''}`
+    );
+
+    const body = timeRanges.map((range) => [
+      `${range.start} – ${range.end}`,
+      ...days.map((day) => {
+        const slot = slots.find(
+          (item) =>
+            item.dayOfWeek === day.id &&
+            item.startTime === range.start &&
+            item.endTime === range.end
+        );
+        if (!slot) return '';
+        const subject = subjectMap.get(slot.subjectId)?.name || 'Cours';
+        const teacher = teacherMap.get(slot.teacherId);
+        const schoolClass = classMap.get(slot.classId);
+        const context =
+          viewType === 'CLASS'
+            ? teacher?.lastName || ''
+            : viewType === 'TEACHER'
+            ? schoolClass?.name || ''
+            : `${schoolClass?.name || ''} · ${teacher?.lastName || ''}`;
+        return `${subject}\n${context}\n${slot.room}`;
+      }),
+    ]);
+
+    autoTable(doc, {
+      startY: y,
+      head: [['HORAIRES', ...days.map((day) => day.label.toUpperCase())]],
+      body,
+      theme: 'grid',
+      styles: {
+        font: 'helvetica',
+        fontSize: 7.2,
+        textColor: this.BRAND.ink,
+        lineColor: this.BRAND.line,
+        lineWidth: 0.15,
+        cellPadding: 2.2,
+        valign: 'middle',
+        minCellHeight: 17,
+      },
+      headStyles: {
+        fillColor: [239, 242, 246],
+        textColor: this.BRAND.ink,
+        fontStyle: 'bold',
+        halign: 'center',
+        fontSize: 7,
+      },
+      columnStyles: {
+        0: { cellWidth: 25, halign: 'center', fillColor: [248, 250, 252], fontStyle: 'bold' },
+        1: { cellWidth: 42 },
+        2: { cellWidth: 42 },
+        3: { cellWidth: 42 },
+        4: { cellWidth: 42 },
+        5: { cellWidth: 42 },
+        6: { cellWidth: 34 },
+      },
+      margin: { left: 10, right: 10 },
+    });
+
+    this.drawDocumentFooter(doc, db, `Emploi du temps • ${title}`);
+    doc.save(`EMPLOI_DU_TEMPS_${title.replace(/[^a-z0-9]+/gi, '_').toUpperCase()}.pdf`);
+  }
+
   /**
    * Generates and downloads an Official Tuition Fee Payment Receipt (Reçu de Caisse Écolage)
    */
