@@ -54,6 +54,10 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
   const [inspectSummary, setInspectSummary] = useState<ReportCardSummary | null>(null);
 
   const targetClass = db.classes.find((c) => c.id === selectedClassId) || db.classes[0];
+  const activeSchoolYear = db.schoolYears.find((year) => year.id === db.currentSchoolYearId);
+  const configuredTerms = activeSchoolYear?.terms || [];
+  const selectedTermLabel =
+    configuredTerms.find((term) => term.code === selectedTerm)?.label || selectedTerm;
   const studentsInClass = db.students.filter(
     (s) => s.classId === selectedClassId && s.schoolYearId === db.currentSchoolYearId
   );
@@ -216,38 +220,46 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
 
   const subjectMap = new Map(db.subjects.map((s) => [s.id, s]));
 
-  // Calculate annual averages for all 3 terms for deliberation sheet
+  // Moyenne annuelle basée sur les périodes réellement configurées par l'établissement.
   const deliberationData = studentsInClass.map((student) => {
-    const rcT1 = CalculationService.generateClassReportCards(db, selectedClassId, 'TRIMESTRE_1', db.currentSchoolYearId).find((r) => r.studentId === student.id);
-    const rcT2 = CalculationService.generateClassReportCards(db, selectedClassId, 'TRIMESTRE_2', db.currentSchoolYearId).find((r) => r.studentId === student.id);
-    const rcT3 = CalculationService.generateClassReportCards(db, selectedClassId, 'TRIMESTRE_3', db.currentSchoolYearId).find((r) => r.studentId === student.id);
+    const periods = configuredTerms.map((term) => {
+      const report = CalculationService.generateClassReportCards(
+        db,
+        selectedClassId,
+        term.code,
+        db.currentSchoolYearId
+      ).find((item) => item.studentId === student.id);
 
-    const avgT1 = rcT1?.generalAverage ?? 0;
-    const avgT2 = rcT2?.generalAverage ?? 0;
-    const avgT3 = rcT3?.generalAverage ?? 0;
-
-    // MAG: include a trimester only when at least one grade has actually been recorded.
-    const hasGradesForTerm = (termCode: 'TRIMESTRE_1' | 'TRIMESTRE_2' | 'TRIMESTRE_3') =>
-      db.grades.some(
-        (g) =>
-          g.studentId === student.id &&
-          g.classId === selectedClassId &&
-          g.schoolYearId === db.currentSchoolYearId &&
-          g.termCode === termCode &&
-          ((g.evaluations?.length || 0) > 0 || g.examGrade !== undefined)
+      const hasGrades = db.grades.some(
+        (grade) =>
+          grade.studentId === student.id &&
+          grade.classId === selectedClassId &&
+          grade.schoolYearId === db.currentSchoolYearId &&
+          grade.termCode === term.code &&
+          ((grade.evaluations?.length || 0) > 0 || grade.examGrade !== undefined)
       );
-    const hasT1 = hasGradesForTerm('TRIMESTRE_1');
-    const hasT2 = hasGradesForTerm('TRIMESTRE_2');
-    const hasT3 = hasGradesForTerm('TRIMESTRE_3');
-    const validTerms = [
-      hasT1 ? avgT1 : null,
-      hasT2 ? avgT2 : null,
-      hasT3 ? avgT3 : null,
-    ].filter((a): a is number => a !== null);
-    const mag = validTerms.length > 0 ? validTerms.reduce((a, b) => a + b, 0) / validTerms.length : 0;
+
+      return {
+        code: term.code,
+        label: term.label,
+        average: report?.generalAverage ?? 0,
+        hasGrades,
+        weight: Math.max(0.1, term.weight || 1),
+      };
+    });
+
+    const completedPeriods = periods.filter((period) => period.hasGrades);
+    const totalWeight = completedPeriods.reduce((sum, period) => sum + period.weight, 0);
+    const mag =
+      totalWeight > 0
+        ? completedPeriods.reduce(
+            (sum, period) => sum + period.average * period.weight,
+            0
+          ) / totalWeight
+        : 0;
 
     let decision = 'En attente de saisie';
-    if (validTerms.length > 0) {
+    if (completedPeriods.length > 0) {
       decision = 'Admis(e) en classe supérieure';
       if (mag < passingThreshold && mag >= passingThreshold - 1.5) {
         decision = 'Autorisé(e) au rattrapage';
@@ -258,13 +270,8 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
 
     return {
       student,
-      avgT1,
-      avgT2,
-      avgT3,
-      hasT1,
-      hasT2,
-      hasT3,
-      hasAnyTerm: validTerms.length > 0,
+      periods,
+      hasAnyTerm: completedPeriods.length > 0,
       mag: Math.round(mag * 100) / 100,
       decision,
     };
@@ -272,28 +279,15 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
 
   return (
     <div className="space-y-6">
-      {/* Top Banner & Selectors */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm">
-        <div>
-          <h2 className="text-base font-bold text-slate-900 dark:text-white m-0">
-            Pédagogie de l'École : Notes, Bulletins & Délibérations
-          </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Saisie rapide, calcul automatique des moyennes, fiches synoptiques du conseil et feuilles d'appel
-          </p>
-        </div>
-
-        {/* Global Selectors */}
-        <div className="flex flex-wrap items-center gap-2.5">
+      <div className="page-panel p-3 flex flex-col xl:flex-row xl:items-center gap-3 justify-between">
+        <div className="flex flex-wrap items-center gap-2">
           <select
             value={selectedClassId}
             onChange={(e) => handleSelectSubjectOrClass(e.target.value, selectedSubjectId, selectedTerm)}
-            className="text-xs font-bold px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="settings-input w-auto min-w-[180px]"
           >
             {db.classes.map((cls) => (
-              <option key={cls.id} value={cls.id}>
-                {cls.name} ({cls.serie || 'GEN'})
-              </option>
+              <option key={cls.id} value={cls.id}>{cls.name}</option>
             ))}
           </select>
 
@@ -303,61 +297,35 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
               onChange={(e) =>
                 handleSelectSubjectOrClass(selectedClassId, selectedSubjectId, e.target.value as TermType)
               }
-              className="text-xs font-bold px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="settings-input w-auto min-w-[150px]"
             >
-              <option value="TRIMESTRE_1">1er Trimestre</option>
-              <option value="TRIMESTRE_2">2ème Trimestre</option>
-              <option value="TRIMESTRE_3">3ème Trimestre</option>
+              {configuredTerms.map((term) => (
+                <option key={term.id} value={term.code}>{term.label}</option>
+              ))}
             </select>
           )}
+        </div>
 
-          {/* View Tab Switcher */}
-          <div className="flex flex-wrap items-center space-x-1 p-1 rounded-xl bg-slate-100 dark:bg-slate-800">
+        <div className="flex flex-wrap items-center gap-1">
+          {[
+            ['REPORT_CARDS', 'Bulletins'],
+            ['ENTRY_MATRIX', 'Saisie des notes'],
+            ['DELIBERATION_SHEET', 'Délibération'],
+            ['ATTENDANCE_SHEET', 'Feuille d’appel'],
+          ].map(([id, label]) => (
             <button
-              onClick={() => setActiveTab('REPORT_CARDS')}
-              className={`px-3 py-1 text-xs font-semibold rounded-lg transition flex items-center space-x-1.5 ${
-                activeTab === 'REPORT_CARDS'
-                  ? 'bg-blue-600 text-white shadow'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              key={id}
+              type="button"
+              onClick={() => setActiveTab(id as typeof activeTab)}
+              className={`px-3 py-2 rounded-md text-[11px] font-semibold transition ${
+                activeTab === id
+                  ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
+                  : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
               }`}
             >
-              <FileSpreadsheet className="w-3.5 h-3.5" />
-              <span>Bulletins</span>
+              {label}
             </button>
-            <button
-              onClick={() => setActiveTab('ENTRY_MATRIX')}
-              className={`px-3 py-1 text-xs font-semibold rounded-lg transition flex items-center space-x-1.5 ${
-                activeTab === 'ENTRY_MATRIX'
-                  ? 'bg-blue-600 text-white shadow'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              <Calculator className="w-3.5 h-3.5" />
-              <span>Saisie Notes</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('DELIBERATION_SHEET')}
-              className={`px-3 py-1 text-xs font-semibold rounded-lg transition flex items-center space-x-1.5 ${
-                activeTab === 'DELIBERATION_SHEET'
-                  ? 'bg-blue-600 text-white shadow'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              <Award className="w-3.5 h-3.5" />
-              <span>Conseil de Classe</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('ATTENDANCE_SHEET')}
-              className={`px-3 py-1 text-xs font-semibold rounded-lg transition flex items-center space-x-1.5 ${
-                activeTab === 'ATTENDANCE_SHEET'
-                  ? 'bg-blue-600 text-white shadow'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              <Calendar className="w-3.5 h-3.5" />
-              <span>Feuille d'Appel</span>
-            </button>
-          </div>
+          ))}
         </div>
       </div>
 
@@ -714,10 +682,12 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
                   <th className="p-2.5">Rang</th>
                   <th className="p-2.5">Matricule</th>
                   <th className="p-2.5">Nom & Prénoms</th>
-                  <th className="p-2.5 text-right">Moy T1</th>
-                  <th className="p-2.5 text-right">Moy T2</th>
-                  <th className="p-2.5 text-right">Moy T3</th>
-                  <th className="p-2.5 text-right font-extrabold text-blue-700 dark:text-blue-300">Moy Annuelle (MAG)</th>
+                  {configuredTerms.map((term) => (
+                    <th key={term.id} className="p-2.5 text-right">
+                      {term.label}
+                    </th>
+                  ))}
+                  <th className="p-2.5 text-right font-extrabold text-blue-700 dark:text-blue-300">Moyenne annuelle</th>
                   <th className="p-2.5">Décision du Conseil</th>
                 </tr>
               </thead>
@@ -729,9 +699,11 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
                     <td className="p-2.5 font-bold text-slate-900 dark:text-white">
                       {row.student.lastName} {row.student.firstName}
                     </td>
-                    <td className="p-2.5 text-right font-mono">{row.hasT1 ? row.avgT1.toFixed(2) : '-'}</td>
-                    <td className="p-2.5 text-right font-mono">{row.hasT2 ? row.avgT2.toFixed(2) : '-'}</td>
-                    <td className="p-2.5 text-right font-mono">{row.hasT3 ? row.avgT3.toFixed(2) : '-'}</td>
+                    {row.periods.map((period) => (
+                      <td key={period.code} className="p-2.5 text-right font-mono">
+                        {period.hasGrades ? period.average.toFixed(2) : '-'}
+                      </td>
+                    ))}
                     <td className="p-2.5 text-right font-extrabold font-mono text-sm text-blue-600 dark:text-blue-400">
                       {row.hasAnyTerm ? row.mag.toFixed(2) : '-'}
                     </td>
@@ -849,7 +821,12 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
           isOpen={!!inspectSummary}
           onClose={() => setInspectSummary(null)}
           title={`Bulletin — ${inspectSummary.student.lastName} ${inspectSummary.student.firstName}`}
-          subtitle={`${inspectSummary.schoolClass.name} • ${inspectSummary.termCode}`}
+          subtitle={`${inspectSummary.schoolClass.name} • ${
+            db.schoolYears
+              .find((year) => year.id === inspectSummary.schoolYearId)
+              ?.terms.find((term) => term.code === inspectSummary.termCode)?.label ||
+            inspectSummary.termCode
+          }`}
           maxWidth="4xl"
           actions={
             <div className="flex items-center space-x-2">
@@ -864,7 +841,7 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
                 className="px-4 py-1.5 text-xs font-bold rounded-lg bg-blue-600 hover:bg-blue-700 text-white flex items-center space-x-1.5 shadow"
               >
                 <Printer className="w-4 h-4" />
-                <span>Télécharger le PDF Officiel</span>
+                <span>Télécharger le PDF</span>
               </button>
             </div>
           }
@@ -875,7 +852,12 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
                 {db.schoolConfig.name.toUpperCase()}
               </div>
               <div className="text-[10px] text-slate-500">
-                Bulletin de Notes — {inspectSummary.termCode}
+                Bulletin de Notes — {
+                  db.schoolYears
+                    .find((year) => year.id === inspectSummary.schoolYearId)
+                    ?.terms.find((term) => term.code === inspectSummary.termCode)?.label ||
+                  inspectSummary.termCode
+                }
               </div>
             </div>
 

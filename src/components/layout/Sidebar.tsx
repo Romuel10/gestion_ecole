@@ -1,13 +1,15 @@
 import React from 'react';
 import {
   LayoutDashboard,
-  UserPlus,
+  UserRoundPlus,
+  UsersRound,
+  BookOpenCheck,
+  CalendarDays,
+  WalletCards,
   GraduationCap,
-  FileSpreadsheet,
-  Wallet,
-  Calendar,
-  Users,
-  Settings,
+  Settings2,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from 'lucide-react';
 import { DatabaseSchema } from '../../types/school';
 
@@ -34,80 +36,76 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onSelectTab,
   db,
   isCollapsed,
+  onToggleCollapse,
 }) => {
-  const sections = [
+  const activeStudentCount = db.students.filter(
+    (student) => student.schoolYearId === db.currentSchoolYearId
+  ).length;
+
+  const groups = [
     {
-      group: 'Vue d\'ensemble',
+      label: 'Pilotage',
       items: [
         { id: 'dashboard' as NavTab, label: 'Tableau de bord', icon: LayoutDashboard },
       ],
     },
     {
-      group: 'Scolarité',
+      label: 'Scolarité',
       items: [
-        { id: 'admissions' as NavTab, label: 'Inscriptions', icon: UserPlus },
-        { id: 'students' as NavTab, label: 'Fichier élèves', icon: GraduationCap, badge: String(db.students.length) },
-        { id: 'academics' as NavTab, label: 'Notes et bulletins', icon: FileSpreadsheet },
-        { id: 'schedule' as NavTab, label: 'Emplois du temps', icon: Calendar },
+        { id: 'admissions' as NavTab, label: 'Admissions', icon: UserRoundPlus },
+        { id: 'students' as NavTab, label: 'Élèves', icon: UsersRound, count: activeStudentCount },
+        { id: 'academics' as NavTab, label: 'Notes et bulletins', icon: BookOpenCheck },
+        { id: 'schedule' as NavTab, label: 'Emploi du temps', icon: CalendarDays },
       ],
     },
     {
-      group: 'Caisse & Personnel',
+      label: 'Administration',
       items: [
-        { id: 'finances' as NavTab, label: 'Écolages et salaires', icon: Wallet },
-        { id: 'teachers' as NavTab, label: 'Corps enseignant', icon: Users, badge: String(db.teachers.length) },
-      ],
-    },
-    {
-      group: 'Système',
-      items: [
-        { id: 'settings' as NavTab, label: 'Paramétrage', icon: Settings },
+        { id: 'teachers' as NavTab, label: 'Enseignants', icon: GraduationCap, count: db.teachers.length },
+        { id: 'finances' as NavTab, label: 'Finances', icon: WalletCards },
+        { id: 'settings' as NavTab, label: 'Paramètres', icon: Settings2 },
       ],
     },
   ];
 
   return (
     <aside
-      className={`bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-r border-slate-200 dark:border-slate-800 flex flex-col flex-shrink-0 transition-all duration-200 select-none ${
-        isCollapsed ? 'w-16' : 'w-60 sm:w-64'
-      }`}
+      className={`app-sidebar ${isCollapsed ? 'app-sidebar--collapsed' : ''}`}
+      aria-label="Navigation principale"
     >
-      <div className="flex-1 py-3 px-2 space-y-4 overflow-y-auto">
-        {sections.map((sec) => (
-          <div key={sec.group} className="space-y-1">
-            {!isCollapsed && (
-              <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                {sec.group}
-              </div>
-            )}
+      <div className="app-sidebar__brand">
+        <div className="app-sidebar__mark">
+          {db.schoolConfig.acronym?.slice(0, 2).toUpperCase() || 'EC'}
+        </div>
+        {!isCollapsed && (
+          <div className="min-w-0">
+            <div className="app-sidebar__school">{db.schoolConfig.name}</div>
+            <div className="app-sidebar__location">{db.schoolConfig.city || 'Madagascar'}</div>
+          </div>
+        )}
+      </div>
 
-            {sec.items.map((item) => {
+      <nav className="app-sidebar__nav">
+        {groups.map((group) => (
+          <div key={group.label} className="app-sidebar__group">
+            {!isCollapsed && <div className="app-sidebar__group-label">{group.label}</div>}
+            {group.items.map((item) => {
               const Icon = item.icon;
-              const isActive = currentTab === item.id;
-
+              const active = currentTab === item.id;
               return (
                 <button
                   key={item.id}
+                  type="button"
                   onClick={() => onSelectTab(item.id)}
-                  className={`w-full flex items-center space-x-2.5 px-2.5 py-2 rounded text-xs transition ${
-                    isActive
-                      ? 'bg-blue-700 text-white font-bold shadow-sm'
-                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200'
-                  }`}
+                  className={`app-sidebar__item ${active ? 'is-active' : ''}`}
                   title={isCollapsed ? item.label : undefined}
                 >
-                  <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-white' : 'text-slate-500 dark:text-slate-400'}`} />
+                  <Icon className="w-[17px] h-[17px] shrink-0" />
                   {!isCollapsed && (
                     <>
-                      <span className="flex-1 text-left truncate">{item.label}</span>
-                      {item.badge && (
-                        <span
-                          className={`text-[10px] px-1.5 py-0.2 rounded font-mono font-medium ${
-                            isActive ? 'bg-blue-800 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
-                          }`}
-                        >
-                          {item.badge}
-                        </span>
+                      <span className="app-sidebar__item-label">{item.label}</span>
+                      {'count' in item && item.count !== undefined && (
+                        <span className="app-sidebar__count">{item.count}</span>
                       )}
                     </>
                   )}
@@ -116,14 +114,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
             })}
           </div>
         ))}
-      </div>
+      </nav>
 
-      {!isCollapsed && (
-        <div className="p-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/40 text-[11px] text-slate-500 dark:text-slate-400">
-          <div className="font-bold text-slate-800 dark:text-slate-200 truncate">{db.schoolConfig.name}</div>
-          <div className="text-[10px] text-slate-400 dark:text-slate-500 font-mono mt-0.5">{db.schoolConfig.city || 'Antananarivo'}</div>
-        </div>
-      )}
+      <div className="app-sidebar__footer">
+        <button
+          type="button"
+          onClick={onToggleCollapse}
+          className="app-sidebar__collapse"
+          title={isCollapsed ? 'Déployer la navigation' : 'Réduire la navigation'}
+        >
+          {isCollapsed ? (
+            <PanelLeftOpen className="w-4 h-4" />
+          ) : (
+            <>
+              <PanelLeftClose className="w-4 h-4" />
+              <span>Réduire</span>
+            </>
+          )}
+        </button>
+      </div>
     </aside>
   );
 };

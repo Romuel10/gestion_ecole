@@ -1,44 +1,55 @@
 import React from 'react';
 import {
   Menu,
-  UserPlus,
-  Receipt,
-  Layers,
-  Building,
-  Sun,
+  Search,
+  UserRoundPlus,
+  CircleDollarSign,
   Moon,
+  Sun,
 } from 'lucide-react';
 import { DatabaseSchema, TermType } from '../../types/school';
 import { StorageService } from '../../services/storage';
+import { NavTab } from './Sidebar';
 
 interface HeaderProps {
   db: DatabaseSchema;
   onUpdateDb: (updated: DatabaseSchema) => void;
+  currentTab: NavTab;
   isDark: boolean;
   onToggleTheme: () => void;
   onToggleSidebar: () => void;
   onOpenCommandPalette: () => void;
   onQuickAction: (action: 'NEW_STUDENT' | 'NEW_PAYMENT' | 'NEW_GRADE') => void;
-  show3DVisualizer: boolean;
-  onToggle3DVisualizer: () => void;
 }
+
+const pageMeta: Record<NavTab, { title: string; description: string }> = {
+  dashboard: { title: 'Tableau de bord', description: 'Vue d’ensemble de l’établissement' },
+  admissions: { title: 'Admissions', description: 'Inscriptions et réinscriptions' },
+  students: { title: 'Élèves', description: 'Dossiers et suivi des élèves' },
+  academics: { title: 'Notes et bulletins', description: 'Évaluations, résultats et délibérations' },
+  finances: { title: 'Finances', description: 'Écolages, caisse et rémunérations' },
+  schedule: { title: 'Emploi du temps', description: 'Organisation des cours et salles' },
+  teachers: { title: 'Enseignants', description: 'Personnel enseignant et affectations' },
+  settings: { title: 'Paramètres', description: 'Organisation et règles de l’établissement' },
+};
 
 export const Header: React.FC<HeaderProps> = ({
   db,
   onUpdateDb,
+  currentTab,
   isDark,
   onToggleTheme,
   onToggleSidebar,
+  onOpenCommandPalette,
   onQuickAction,
-  show3DVisualizer,
-  onToggle3DVisualizer,
 }) => {
+  const activeYear = db.schoolYears.find((year) => year.id === db.currentSchoolYearId);
+  const periods = activeYear?.terms || [];
+  const meta = pageMeta[currentTab];
+
   const handleTermChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newTerm = e.target.value as TermType;
-    const updated: DatabaseSchema = {
-      ...db,
-      currentTermCode: newTerm,
-    };
+    const updated = { ...db, currentTermCode: newTerm };
     StorageService.saveDatabase(updated);
     onUpdateDb(updated);
   };
@@ -48,8 +59,7 @@ export const Header: React.FC<HeaderProps> = ({
     const selectedYear = db.schoolYears.find((year) => year.id === newYearId);
     if (!selectedYear) return;
 
-    const validTermCodes = selectedYear.terms.map((term) => term.code);
-    const nextTermCode = validTermCodes.includes(db.currentTermCode)
+    const nextTermCode = selectedYear.terms.some((term) => term.code === db.currentTermCode)
       ? db.currentTermCode
       : selectedYear.terms[0]?.code || db.currentTermCode;
 
@@ -67,98 +77,49 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <header className="h-12 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 flex items-center justify-between select-none">
-      {/* Barre latérale et établissement */}
-      <div className="flex items-center space-x-3">
-        <button
-          onClick={onToggleSidebar}
-          className="p-1.5 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition"
-          title="Afficher / Masquer la barre latérale"
-        >
+    <header className="app-header">
+      <div className="app-header__left">
+        <button type="button" onClick={onToggleSidebar} className="icon-button lg:hidden" aria-label="Navigation">
           <Menu className="w-4 h-4" />
         </button>
-
-        <div className="flex items-center space-x-2 text-xs">
-          <Building className="w-4 h-4 text-slate-500" />
-          <span className="font-bold text-slate-900 dark:text-white truncate max-w-xs sm:max-w-md">
-            {db.schoolConfig.name}
-          </span>
-          <span className="text-slate-400 font-mono text-[11px]">({db.schoolConfig.acronym})</span>
+        <div>
+          <h1 className="app-header__title">{meta.title}</h1>
+          <p className="app-header__description">{meta.description}</p>
         </div>
       </div>
 
-      {/* Sélecteurs de période et actions rapides */}
-      <div className="flex items-center space-x-2">
-        {/* Période */}
-        <div className="flex items-center space-x-1.5 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded border border-slate-200 dark:border-slate-700 text-xs">
-          <span className="text-[10px] text-slate-400 font-bold uppercase">Période :</span>
-          <select
-            value={db.currentTermCode}
-            onChange={handleTermChange}
-            className="bg-transparent font-semibold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer"
-          >
-            <option value="TRIMESTRE_1">1er Trimestre</option>
-            <option value="TRIMESTRE_2">2ème Trimestre</option>
-            <option value="TRIMESTRE_3">3ème Trimestre</option>
+      <div className="app-header__right">
+        <div className="app-period-switcher">
+          <select value={db.currentSchoolYearId} onChange={handleYearChange} aria-label="Année scolaire">
+            {db.schoolYears.map((year) => (
+              <option key={year.id} value={year.id}>{year.label}</option>
+            ))}
           </select>
-        </div>
-
-        {/* Année scolaire */}
-        <div className="flex items-center space-x-1.5 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded border border-slate-200 dark:border-slate-700 text-xs">
-          <span className="text-[10px] text-slate-400 font-bold uppercase">Année :</span>
-          <select
-            value={db.currentSchoolYearId}
-            onChange={handleYearChange}
-            className="bg-transparent font-semibold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer"
-          >
-            {db.schoolYears.map((y) => (
-              <option key={y.id} value={y.id}>
-                {y.label}
-              </option>
+          <span className="app-period-switcher__separator" />
+          <select value={db.currentTermCode} onChange={handleTermChange} aria-label="Période académique">
+            {periods.map((term) => (
+              <option key={term.id} value={term.code}>{term.label}</option>
             ))}
           </select>
         </div>
 
-        {/* Jour / Nuit */}
-        <button
-          onClick={onToggleTheme}
-          className="flex items-center space-x-1 px-2.5 py-1 text-xs font-medium rounded border transition text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800"
-          title={isDark ? 'Passer en mode jour' : 'Passer en mode nuit'}
-        >
-          {isDark ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5" />}
-          <span className="hidden sm:inline">{isDark ? 'Jour' : 'Nuit'}</span>
+        <button type="button" onClick={onOpenCommandPalette} className="header-search">
+          <Search className="w-4 h-4" />
+          <span className="hidden xl:inline">Rechercher</span>
+          <kbd className="hidden xl:inline">Ctrl K</kbd>
         </button>
 
-        {/* Vue 3D */}
-        <button
-          onClick={onToggle3DVisualizer}
-          className={`flex items-center space-x-1 px-2.5 py-1 text-xs font-medium rounded border transition ${
-            show3DVisualizer
-              ? 'bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-800'
-              : 'text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800'
-          }`}
-          title="Basculer le modèle 3D du campus"
-        >
-          <Layers className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">3D</span>
-        </button>
-
-        {/* Inscription */}
-        <button
-          onClick={() => onQuickAction('NEW_STUDENT')}
-          className="flex items-center space-x-1 px-2.5 py-1 text-xs font-semibold rounded bg-blue-700 hover:bg-blue-800 text-white shadow-sm transition"
-        >
-          <UserPlus className="w-3.5 h-3.5" />
+        <button type="button" onClick={() => onQuickAction('NEW_STUDENT')} className="button button--secondary hidden md:inline-flex">
+          <UserRoundPlus className="w-4 h-4" />
           <span>Inscription</span>
         </button>
+        <button type="button" onClick={() => onQuickAction('NEW_PAYMENT')} className="button button--primary">
+          <CircleDollarSign className="w-4 h-4" />
+          <span className="hidden sm:inline">Encaisser</span>
+        </button>
 
-        {/* Encaissement */}
-        <button
-          onClick={() => onQuickAction('NEW_PAYMENT')}
-          className="flex items-center space-x-1 px-2.5 py-1 text-xs font-semibold rounded bg-emerald-700 hover:bg-emerald-800 text-white shadow-sm transition"
-        >
-          <Receipt className="w-3.5 h-3.5" />
-          <span>Encaisser</span>
+        <button type="button" onClick={onToggleTheme} className="icon-button" aria-label="Changer de thème">
+          {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
         </button>
       </div>
     </header>

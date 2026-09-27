@@ -6,7 +6,8 @@ export type StudentStatus = 'INSCRIT' | 'REINSCRIT' | 'EN_ATTENTE' | 'TRANSFERE'
 
 export type TeacherContract = 'TITULAIRE' | 'VACATAIRE' | 'FRAM' | 'STAGIAIRE';
 
-export type TermType = 'TRIMESTRE_1' | 'TRIMESTRE_2' | 'TRIMESTRE_3' | 'SEMESTRE_1' | 'SEMESTRE_2';
+// Les périodes académiques sont administrables depuis les paramètres.
+export type TermType = string;
 
 export interface SchoolConfig {
   id: string;

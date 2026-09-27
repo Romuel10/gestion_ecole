@@ -1,8 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { DatabaseSchema } from './types/school';
 import { StorageService } from './services/storage';
-import { DesktopMenuBar } from './components/layout/DesktopMenuBar';
-import { DesktopStatusBar } from './components/layout/DesktopStatusBar';
 import { Sidebar, NavTab } from './components/layout/Sidebar';
 import { Header } from './components/layout/Header';
 import { CommandPalette } from './components/layout/CommandPalette';
@@ -21,11 +19,10 @@ export function App() {
   const [currentTab, setCurrentTab] = useState<NavTab>('dashboard');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
-  const [show3DVisualizer, setShow3DVisualizer] = useState(false); // Clean desktop default
-  const [selectedEntityId, setSelectedEntityId] = useState<string | undefined>(undefined);
+  const [selectedEntityId, setSelectedEntityId] = useState<string | undefined>();
   const [pendingFinanceAction, setPendingFinanceAction] = useState<'NEW_PAYMENT' | null>(null);
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
-  // Mode sombre : mémorisé, sinon préférence du système.
   const [isDark, setIsDark] = useState<boolean>(() => {
     const stored = localStorage.getItem('EDUGASY_THEME');
     if (stored === 'dark') return true;
@@ -33,26 +30,16 @@ export function App() {
     return window.matchMedia('(prefers-color-scheme: dark)').matches;
   });
 
-  // Notifications
-  const [toasts, setToasts] = useState<ToastMessage[]>([]);
-
   useEffect(() => {
-    if (isDark) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('EDUGASY_THEME', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('EDUGASY_THEME', 'light');
-    }
+    document.documentElement.classList.toggle('dark', isDark);
+    localStorage.setItem('EDUGASY_THEME', isDark ? 'dark' : 'light');
   }, [isDark]);
 
   const showToast = (text: string, type: 'success' | 'error' | 'info' = 'info') => {
-    const id = `toast-${Date.now()}-${Math.random()}`;
-    setToasts((prev) => [...prev, { id, text, type }]);
-  };
-
-  const removeToast = (id: string) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
+    setToasts((current) => [
+      ...current,
+      { id: `toast-${Date.now()}-${Math.random()}`, text, type },
+    ]);
   };
 
   const handleNavigate = (tab: NavTab, entityId?: string) => {
@@ -68,35 +55,35 @@ export function App() {
     } else if (action === 'NEW_PAYMENT') {
       setPendingFinanceAction('NEW_PAYMENT');
       setCurrentTab('finances');
-    } else if (action === 'NEW_GRADE') {
+    } else {
       setPendingFinanceAction(null);
       setCurrentTab('academics');
     }
   };
 
-  // Raccourcis annoncés dans l'interface : Ctrl/Cmd+K, Ctrl/Cmd+N et Ctrl/Cmd+E.
   useEffect(() => {
-    const handleGlobalShortcut = (e: KeyboardEvent) => {
-      if (!(e.ctrlKey || e.metaKey)) return;
-      const key = e.key.toLowerCase();
+    const handleShortcut = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey)) return;
+      const key = event.key.toLowerCase();
 
       if (key === 'k') {
-        e.preventDefault();
+        event.preventDefault();
         setIsCommandPaletteOpen((open) => !open);
-      } else if (key === 'n') {
-        e.preventDefault();
+      }
+      if (key === 'n') {
+        event.preventDefault();
         handleQuickAction('NEW_STUDENT');
-      } else if (key === 'e') {
-        e.preventDefault();
+      }
+      if (key === 'e') {
+        event.preventDefault();
         handleQuickAction('NEW_PAYMENT');
       }
     };
 
-    window.addEventListener('keydown', handleGlobalShortcut);
-    return () => window.removeEventListener('keydown', handleGlobalShortcut);
+    window.addEventListener('keydown', handleShortcut);
+    return () => window.removeEventListener('keydown', handleShortcut);
   }, []);
 
-  // L'action est consommée après le rendu du module Finances.
   useEffect(() => {
     if (currentTab === 'finances' && pendingFinanceAction) {
       const timer = window.setTimeout(() => setPendingFinanceAction(null), 0);
@@ -105,66 +92,35 @@ export function App() {
   }, [currentTab, pendingFinanceAction]);
 
   return (
-    <div className="flex flex-col h-screen w-screen overflow-hidden bg-slate-100 dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans antialiased">
-      {/* 1. Barre de menus */}
-      <DesktopMenuBar
+    <div className="app-shell">
+      <Sidebar
+        currentTab={currentTab}
+        onSelectTab={(tab) => handleNavigate(tab)}
         db={db}
-        onUpdateDb={setDb}
-        onOpenNewAdmission={() => handleQuickAction('NEW_STUDENT')}
-        onOpenNewPayment={() => handleQuickAction('NEW_PAYMENT')}
-        onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
-        isDark={isDark}
-        onToggleTheme={() => setIsDark(!isDark)}
-        onShowToast={showToast}
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapse={() => setIsSidebarCollapsed((value) => !value)}
       />
 
-      {/* 2. Barre d'outils */}
-      <Header
-        db={db}
-        onUpdateDb={setDb}
-        isDark={isDark}
-        onToggleTheme={() => setIsDark(!isDark)}
-        onToggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-        onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
-        onQuickAction={handleQuickAction}
-        show3DVisualizer={show3DVisualizer}
-        onToggle3DVisualizer={() => setShow3DVisualizer(!show3DVisualizer)}
-      />
-
-      {/* 3. Zone de travail : barre latérale + contenu */}
-      <div className="flex flex-1 min-h-0 overflow-hidden">
-        {/* Barre latérale */}
-        <Sidebar
-          currentTab={currentTab}
-          onSelectTab={(tab) => {
-            setCurrentTab(tab);
-            setSelectedEntityId(undefined);
-          }}
+      <div className="app-workspace">
+        <Header
           db={db}
-          isCollapsed={isSidebarCollapsed}
-          onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+          onUpdateDb={setDb}
+          currentTab={currentTab}
+          isDark={isDark}
+          onToggleTheme={() => setIsDark((value) => !value)}
+          onToggleSidebar={() => setIsSidebarCollapsed((value) => !value)}
+          onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
+          onQuickAction={handleQuickAction}
         />
 
-        {/* Contenu principal */}
-        <main className="flex-1 overflow-y-auto p-3 sm:p-4 bg-slate-100 dark:bg-slate-950">
-          <div className="max-w-7xl mx-auto">
+        <main className="app-main">
+          <div className="app-content">
             {currentTab === 'dashboard' && (
-              <DashboardHome
-                db={db}
-                onNavigate={handleNavigate}
-                isDark={isDark}
-                show3DVisualizer={show3DVisualizer}
-              />
+              <DashboardHome db={db} onNavigate={handleNavigate} />
             )}
-
             {currentTab === 'admissions' && (
-              <RegistrationView
-                db={db}
-                onUpdateDb={setDb}
-                onShowToast={showToast}
-              />
+              <RegistrationView db={db} onUpdateDb={setDb} onShowToast={showToast} />
             )}
-
             {currentTab === 'students' && (
               <StudentListView
                 db={db}
@@ -174,7 +130,6 @@ export function App() {
                 initialSelectedStudentId={selectedEntityId}
               />
             )}
-
             {currentTab === 'academics' && (
               <GradesAndReportCardsView
                 db={db}
@@ -183,7 +138,6 @@ export function App() {
                 initialClassId={selectedEntityId}
               />
             )}
-
             {currentTab === 'finances' && (
               <FinancesManagerView
                 db={db}
@@ -193,15 +147,9 @@ export function App() {
                 initialPaymentId={selectedEntityId}
               />
             )}
-
             {currentTab === 'schedule' && (
-              <TimetableView
-                db={db}
-                onUpdateDb={setDb}
-                onShowToast={showToast}
-              />
+              <TimetableView db={db} onUpdateDb={setDb} onShowToast={showToast} />
             )}
-
             {currentTab === 'teachers' && (
               <TeachersManagerView
                 db={db}
@@ -210,22 +158,13 @@ export function App() {
                 initialTeacherId={selectedEntityId}
               />
             )}
-
             {currentTab === 'settings' && (
-              <GeneralSettingsView
-                db={db}
-                onUpdateDb={setDb}
-                onShowToast={showToast}
-              />
+              <GeneralSettingsView db={db} onUpdateDb={setDb} onShowToast={showToast} />
             )}
           </div>
         </main>
       </div>
 
-      {/* 4. Barre d'état */}
-      <DesktopStatusBar db={db} />
-
-      {/* 5. Palette de commandes */}
       <CommandPalette
         isOpen={isCommandPaletteOpen}
         onClose={() => setIsCommandPaletteOpen(false)}
@@ -233,8 +172,10 @@ export function App() {
         onNavigate={handleNavigate}
       />
 
-      {/* 6. Notifications */}
-      <ToastContainer toasts={toasts} onRemove={removeToast} />
+      <ToastContainer
+        toasts={toasts}
+        onRemove={(id) => setToasts((current) => current.filter((toast) => toast.id !== id))}
+      />
     </div>
   );
 }

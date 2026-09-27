@@ -426,75 +426,38 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* En-tête et indicateurs */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm">
-        <div>
-          <h2 className="text-base font-bold text-slate-900 dark:text-white m-0">
-            Caisse de l'École : Pointage des Écolages & Salaires
-          </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Tableau de pointage des 10 mois, encaissements rapides, rappels de cahier de liaison et paie des professeurs
-          </p>
+      <div className="page-panel p-2 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-1">
+          {[
+            ['TUITION_GRID', 'Écolages'],
+            ['PAYMENTS_HISTORY', 'Encaissements'],
+            ['PAYROLL', 'Salaires'],
+            ['TREASURY', 'Livre de caisse'],
+          ].map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setActiveTab(id as typeof activeTab)}
+              className={`px-3 py-2 rounded-md text-[11px] font-semibold transition ${
+                activeTab === id
+                  ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
+                  : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
         </div>
 
-        {/* Onglets et actions */}
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center space-x-1 p-1 rounded-xl bg-slate-100 dark:bg-slate-800">
-            <button
-              onClick={() => setActiveTab('TUITION_GRID')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${
-                activeTab === 'TUITION_GRID'
-                  ? 'bg-blue-600 text-white shadow'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              Pointage des 10 Mois
-            </button>
-            <button
-              onClick={() => setActiveTab('PAYMENTS_HISTORY')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${
-                activeTab === 'PAYMENTS_HISTORY'
-                  ? 'bg-blue-600 text-white shadow'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              Reçus & Quittances
-            </button>
-            <button
-              onClick={() => setActiveTab('PAYROLL')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${
-                activeTab === 'PAYROLL'
-                  ? 'bg-blue-600 text-white shadow'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              Salaires & Vacations
-            </button>
-            <button
-              onClick={() => setActiveTab('TREASURY')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${
-                activeTab === 'TREASURY'
-                  ? 'bg-blue-600 text-white shadow'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              Livre de Caisse
-            </button>
-          </div>
-
-          <button
-            onClick={() => setIsNewPaymentModalOpen(true)}
-            className="flex items-center space-x-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-600/20 active:scale-95 transition"
-          >
-            <PlusCircle className="w-3.5 h-3.5" />
-            <span>Encaisser</span>
-          </button>
-        </div>
+        <button type="button" onClick={() => setIsNewPaymentModalOpen(true)} className="button button--primary">
+          <PlusCircle className="w-3.5 h-3.5" />
+          Encaisser
+        </button>
       </div>
 
       {/* 3 Financial Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm">
+      <div className="metric-grid">
+        <div className="metric-card">
           <div className="flex items-center justify-between text-xs text-slate-500">
             <span>Total Recettes Encaissées</span>
             <ArrowUpRight className="w-4 h-4 text-emerald-600" />
@@ -507,7 +470,7 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
           </div>
         </div>
 
-        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm">
+        <div className="metric-card">
           <div className="flex items-center justify-between text-xs text-slate-500">
             <span>Dépenses & Salaires</span>
             <ArrowDownRight className="w-4 h-4 text-rose-600" />
@@ -520,7 +483,7 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
           </div>
         </div>
 
-        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm">
+        <div className="metric-card">
           <div className="flex items-center justify-between text-xs text-slate-500">
             <span>Solde Disponible en Caisse</span>
             <Wallet className="w-4 h-4 text-blue-600" />
@@ -1146,7 +1109,7 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
         isOpen={isNewSalaryModalOpen}
         onClose={() => setIsNewSalaryModalOpen(false)}
         title="Émettre une Fiche de Paie Enseignant"
-        subtitle="Calculs automatiques CNaPS 1% et OSTIE 1% selon législation Madagascar"
+        subtitle="Calcul du salaire, retenues et éléments variables"
         maxWidth="2xl"
       >
         <form onSubmit={handleSubmitSalary} className="space-y-4 text-xs">

@@ -402,54 +402,40 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* En-tête du module */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm">
-        <div>
-          <h2 className="text-base font-bold text-slate-900 dark:text-white m-0">
-            Guichet des Inscriptions & Réinscriptions
-          </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Admission rapide, assignation de matricule paramétrable, quittance et certificat instantanés
-          </p>
-        </div>
-
-        <div className="flex items-center space-x-1.5 p-1 rounded-xl bg-slate-100 dark:bg-slate-800">
-          <button
-            onClick={() => setActiveTab('NEW_ADMISSION')}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition flex items-center space-x-1.5 ${
-              activeTab === 'NEW_ADMISSION'
-                ? 'bg-blue-600 text-white shadow'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            <UserPlus className="w-3.5 h-3.5" />
-            <span>Nouvelle Inscription</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('RE_REGISTRATION')}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition flex items-center space-x-1.5 ${
-              activeTab === 'RE_REGISTRATION'
-                ? 'bg-blue-600 text-white shadow'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            <RefreshCw className="w-3.5 h-3.5" />
-            <span>Réinscription Express</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('LOG')}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition flex items-center space-x-1.5 ${
-              activeTab === 'LOG'
-                ? 'bg-blue-600 text-white shadow'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            <FileCheck className="w-3.5 h-3.5" />
-            <span>
-              Registre ({db.students.filter((student) => student.schoolYearId === db.currentSchoolYearId).length})
-            </span>
-          </button>
-        </div>
+      <div className="page-panel p-2 flex flex-wrap items-center gap-1">
+        <button
+          type="button"
+          onClick={() => setActiveTab('NEW_ADMISSION')}
+          className={`px-3 py-2 rounded-md text-[11.5px] font-semibold transition ${
+            activeTab === 'NEW_ADMISSION'
+              ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
+              : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+          }`}
+        >
+          Nouvelle inscription
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('RE_REGISTRATION')}
+          className={`px-3 py-2 rounded-md text-[11.5px] font-semibold transition ${
+            activeTab === 'RE_REGISTRATION'
+              ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
+              : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+          }`}
+        >
+          Réinscription
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('LOG')}
+          className={`px-3 py-2 rounded-md text-[11.5px] font-semibold transition ${
+            activeTab === 'LOG'
+              ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
+              : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+          }`}
+        >
+          Registre ({db.students.filter((student) => student.schoolYearId === db.currentSchoolYearId).length})
+        </button>
       </div>
 
       {/* Onglet : nouvelle inscription */}
@@ -704,7 +690,7 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
                     {generatedMatriculePreview}
                   </div>
                   <div className="text-[10px] text-slate-400">
-                    Généré et incrémenté automatiquement selon vos règles de configuration
+                    Format défini dans les paramètres de matricule
                   </div>
                 </div>
 
@@ -957,7 +943,7 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
         <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-              Registre Matricule Officiel des Élèves Inscrits
+              Registre des élèves inscrits
             </h3>
             <button
               onClick={() =>

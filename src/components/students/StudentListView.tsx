@@ -117,47 +117,37 @@ export const StudentListView: React.FC<StudentListViewProps> = ({
   return (
     <div className="space-y-6">
       {/* Top Banner & Fast Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm">
-        <div>
-          <h2 className="text-base font-bold text-slate-900 dark:text-white m-0">
-            Fichier Général des Élèves & Cartes Scolaires
-          </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Gestion des effectifs, suivi administratif, fiches individuelles et impression des cartes d'élèves
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={() => {
-              setCardModalStudent(filteredStudents[0] || null);
-              setIsCardModalOpen(true);
-            }}
-            className="flex items-center space-x-1.5 px-3 py-2 text-xs font-semibold rounded-xl bg-purple-600 hover:bg-purple-700 text-white shadow-md shadow-purple-600/20 transition active:scale-95"
-            title="Générateur et impression des cartes scolaires"
-          >
-            <CreditCard className="w-3.5 h-3.5" />
-            <span>Cartes d'Élèves</span>
-          </button>
-          <button
-            onClick={() => StorageService.exportStudentsCSV(db)}
-            className="flex items-center space-x-1.5 px-3 py-2 text-xs font-semibold rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 transition"
-          >
-            <FileDown className="w-3.5 h-3.5" />
-            <span>Exporter CSV</span>
-          </button>
-          <button
-            onClick={onOpenNewAdmission}
-            className="flex items-center space-x-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-600/20 transition active:scale-95"
-          >
-            <UserPlus className="w-3.5 h-3.5" />
-            <span>Nouvelle Inscription</span>
-          </button>
-        </div>
+      <div className="flex flex-wrap justify-end gap-2">
+        <button
+          type="button"
+          onClick={() => {
+            setCardModalStudent(filteredStudents[0] || null);
+            setIsCardModalOpen(true);
+          }}
+          className="button button--secondary"
+        >
+          <CreditCard className="w-3.5 h-3.5" />
+          Cartes scolaires
+        </button>
+        <button
+          type="button"
+          onClick={() => StorageService.exportStudentsCSV({
+            ...db,
+            students: activeYearStudents,
+          })}
+          className="button button--secondary"
+        >
+          <FileDown className="w-3.5 h-3.5" />
+          Exporter CSV
+        </button>
+        <button type="button" onClick={onOpenNewAdmission} className="button button--primary">
+          <UserPlus className="w-3.5 h-3.5" />
+          Inscrire un élève
+        </button>
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+      <div className="page-panel p-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
         <div className="lg:col-span-2 relative">
           <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
           <input
@@ -222,7 +212,7 @@ export const StudentListView: React.FC<StudentListViewProps> = ({
       </div>
 
       {/* Students Data Table */}
-      <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm overflow-hidden">
+      <div className="page-panel overflow-hidden">
         <div className="flex items-center justify-between mb-3 text-xs text-slate-500">
           <span>
             Affichage de <strong>{filteredStudents.length}</strong> élève(s) sur un effectif total de{' '}
@@ -231,7 +221,7 @@ export const StudentListView: React.FC<StudentListViewProps> = ({
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
+          <table className="erp-table">
             <thead>
               <tr className="border-b border-slate-200 dark:border-slate-800 text-[11px] font-semibold text-slate-400 uppercase tracking-wider bg-slate-50/50 dark:bg-slate-800/40">
                 <th className="py-3 px-3">Matricule</th>
