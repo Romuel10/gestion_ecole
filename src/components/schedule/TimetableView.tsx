@@ -343,6 +343,18 @@ export const TimetableView: React.FC<TimetableViewProps> = ({
     return Array.from(new Set(issues));
   })();
 
+  if (db.classes.length === 0 || db.subjects.length === 0 || db.teachers.length === 0) {
+    return (
+      <div className="page-panel p-8 text-center">
+        <div className="text-sm font-semibold">Configuration nécessaire</div>
+        <p className="mt-2 text-[11px] text-slate-500">
+          Configurez d’abord les classes, matières et enseignants. Sekoly pourra ensuite
+          générer ou saisir l’emploi du temps.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="page-panel p-3 flex flex-col xl:flex-row xl:items-center justify-between gap-3">

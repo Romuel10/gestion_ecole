@@ -138,17 +138,28 @@
 }
 
 .app-sidebar__mark {
-  width: 32px;
-  height: 32px;
-  border-radius: 3px;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
   display: grid;
   place-items: center;
   flex: 0 0 auto;
-  background: rgba(255,255,255,.95);
-  color: #173e61;
+  overflow: hidden;
+  background: #ffffff;
+}
+
+.app-sidebar__mark img {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.app-sidebar__product {
+  color: #ffffff;
+  font-size: 13px;
   font-weight: 800;
-  font-size: 12px;
-  letter-spacing: .04em;
+  letter-spacing: .12em;
+  line-height: 1;
 }
 
 .app-sidebar__school {
@@ -483,6 +494,40 @@
   color: var(--text-muted);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 10px;
+}
+
+.excel-import-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.excel-import-summary > div {
+  min-height: 72px;
+  padding: 12px;
+  border-right: 1px solid var(--border);
+}
+
+.excel-import-summary > div:last-child {
+  border-right: 0;
+}
+
+.excel-import-summary span {
+  display: block;
+  margin-top: 8px;
+  color: var(--text-muted);
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
+.excel-import-summary strong {
+  display: block;
+  margin-top: 4px;
+  color: var(--text);
+  font-size: 20px;
 }
 
 .page-panel {

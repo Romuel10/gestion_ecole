@@ -1149,6 +1149,6 @@ export const BASE_INITIAL_DATA: DatabaseSchema = {
 };
 
 
-import { buildSimulationDatabase } from './simulationData';
+import { EMPTY_INITIAL_DATA } from './emptyInitialData';
 
-export const INITIAL_DATA: DatabaseSchema = buildSimulationDatabase(BASE_INITIAL_DATA);
+export const INITIAL_DATA: DatabaseSchema = EMPTY_INITIAL_DATA;

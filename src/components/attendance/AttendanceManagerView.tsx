@@ -154,6 +154,17 @@ export const AttendanceManagerView: React.FC<AttendanceManagerViewProps> = ({
     };
   });
 
+  if (db.classes.length === 0) {
+    return (
+      <div className="page-panel p-8 text-center">
+        <div className="text-sm font-semibold">Aucune classe configurée</div>
+        <p className="mt-2 text-[11px] text-slate-500">
+          Ajoutez vos classes dans Paramètres avant de commencer l’appel quotidien.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div className="page-panel p-3 flex flex-col xl:flex-row xl:items-center justify-between gap-3">

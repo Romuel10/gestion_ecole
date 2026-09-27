@@ -12,6 +12,7 @@ import {
   RotateCcw,
   UserX,
   AlertCircle,
+  Upload,
 } from 'lucide-react';
 import {
   DatabaseSchema,
@@ -23,7 +24,12 @@ import {
 import { CalculationService } from '../../services/calculations';
 import { StorageService } from '../../services/storage';
 import { PdfGeneratorService } from '../../services/pdfGenerator';
+import {
+  ExcelImportService,
+  GradeImportPreview,
+} from '../../services/excelImporter';
 import { Modal } from '../common/Modal';
+import { ExcelImportModal } from '../common/ExcelImportModal';
 
 interface GradesAndReportCardsViewProps {
   db: DatabaseSchema;
@@ -52,6 +58,10 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
 
   // Selected Report Card for On-screen Interactive Inspection
   const [inspectSummary, setInspectSummary] = useState<ReportCardSummary | null>(null);
+  const gradeImportRef = React.useRef<HTMLInputElement>(null);
+  const [gradeImportPreview, setGradeImportPreview] =
+    useState<GradeImportPreview | null>(null);
+  const [gradeImportFileName, setGradeImportFileName] = useState('');
 
   const targetClass = db.classes.find((c) => c.id === selectedClassId) || db.classes[0];
   const activeSchoolYear = db.schoolYears.find((year) => year.id === db.currentSchoolYearId);
@@ -209,6 +219,65 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
     StorageService.saveDatabase(updatedDb);
     onUpdateDb(updatedDb);
     onShowToast('Notes et moyennes enregistrées avec succès !', 'success');
+  };
+
+  const handleGradeExcelFile = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    if (db.students.length === 0 || db.subjects.length === 0) {
+      onShowToast(
+        'Importez d’abord les élèves et configurez les matières avant d’importer les notes.',
+        'error'
+      );
+      return;
+    }
+
+    try {
+      const preview = await ExcelImportService.parseGrades(file, db);
+      setGradeImportPreview(preview);
+      setGradeImportFileName(file.name);
+    } catch (error) {
+      onShowToast(
+        error instanceof Error ? error.message : 'Impossible de lire ce fichier Excel.',
+        'error'
+      );
+    }
+  };
+
+  const confirmGradeImport = () => {
+    if (!gradeImportPreview || gradeImportPreview.issues.length > 0) return;
+
+    const importedByKey = new Map(
+      gradeImportPreview.grades.map((grade) => [
+        `${grade.studentId}|${grade.subjectId}|${grade.termCode}|${grade.schoolYearId}`,
+        grade,
+      ])
+    );
+
+    const preserved = db.grades.filter(
+      (grade) =>
+        !importedByKey.has(
+          `${grade.studentId}|${grade.subjectId}|${grade.termCode}|${grade.schoolYearId}`
+        )
+    );
+
+    const importedGrades = Array.from(importedByKey.values());
+    const updatedDb: DatabaseSchema = {
+      ...db,
+      grades: [...preserved, ...importedGrades],
+    };
+    StorageService.saveDatabase(updatedDb);
+    onUpdateDb(updatedDb);
+    onShowToast(
+      `${importedGrades.length} note(s) importée(s) ou mise(s) à jour.`,
+      'success'
+    );
+    setGradeImportPreview(null);
+    setGradeImportFileName('');
   };
 
   // Batch Print All Report Cards for Class
@@ -383,8 +452,46 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
     onShowToast(details, skippedCapacity || skippedNoDestination ? 'info' : 'success');
   };
 
+  if (!targetClass || db.subjects.length === 0) {
+    return (
+      <div className="page-panel p-8 text-center">
+        <div className="text-sm font-semibold">Configuration académique requise</div>
+        <p className="mt-2 text-[11px] text-slate-500">
+          Ajoutez d’abord vos matières et vos classes dans Paramètres. Vous pourrez ensuite
+          importer les élèves et les notes depuis Excel.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
+      <input
+        ref={gradeImportRef}
+        type="file"
+        accept=".xlsx,.xls"
+        onChange={handleGradeExcelFile}
+        className="hidden"
+      />
+      <div className="flex flex-wrap justify-end gap-2">
+        <button
+          type="button"
+          onClick={() => ExcelImportService.downloadGradesTemplate(db)}
+          className="button button--secondary"
+        >
+          <FileSpreadsheet className="w-3.5 h-3.5" />
+          Modèle notes Excel
+        </button>
+        <button
+          type="button"
+          onClick={() => gradeImportRef.current?.click()}
+          className="button button--secondary"
+        >
+          <Upload className="w-3.5 h-3.5" />
+          Importer notes Excel
+        </button>
+      </div>
+
       <div className="page-panel p-3 flex flex-col xl:flex-row xl:items-center gap-3 justify-between">
         <div className="flex flex-wrap items-center gap-2">
           <select
@@ -609,7 +716,7 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
                     }
                     className="text-sm font-extrabold px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
                   >
-                    {targetClass.subjects.map((cs) => {
+                    {targetClass?.subjects.map((cs) => {
                       const sub = subjectMap.get(cs.subjectId);
                       return (
                         <option key={cs.subjectId} value={cs.subjectId}>
@@ -1023,6 +1130,21 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
           </div>
         </div>
       )}
+
+      <ExcelImportModal
+        isOpen={!!gradeImportPreview}
+        onClose={() => {
+          setGradeImportPreview(null);
+          setGradeImportFileName('');
+        }}
+        title="Importer les notes depuis Excel"
+        fileName={gradeImportFileName}
+        validCount={gradeImportPreview?.grades.length || 0}
+        validLabel="note(s)"
+        issues={gradeImportPreview?.issues || []}
+        warnings={gradeImportPreview?.warnings || []}
+        onConfirm={confirmGradeImport}
+      />
 
       {/* Modal Preview for an Official Report Card */}
       {inspectSummary && (

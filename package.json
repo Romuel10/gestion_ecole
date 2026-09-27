@@ -1,13 +1,15 @@
 {
-  "name": "school-manager",
+  "name": "sekoly",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "desktop:dev": "cargo tauri dev",
+    "desktop:build": "cargo tauri build"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",
