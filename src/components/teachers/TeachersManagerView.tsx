@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   UserPlus,
   Edit2,
@@ -16,12 +16,14 @@ interface TeachersManagerViewProps {
   db: DatabaseSchema;
   onUpdateDb: (updated: DatabaseSchema) => void;
   onShowToast: (msg: string, type?: 'success' | 'error' | 'info') => void;
+  initialTeacherId?: string;
 }
 
 export const TeachersManagerView: React.FC<TeachersManagerViewProps> = ({
   db,
   onUpdateDb,
   onShowToast,
+  initialTeacherId,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [contractFilter, setContractFilter] = useState<string>('ALL');
@@ -50,6 +52,15 @@ export const TeachersManagerView: React.FC<TeachersManagerViewProps> = ({
   });
 
   const subjectMap = new Map(db.subjects.map((s) => [s.id, s.name]));
+
+  useEffect(() => {
+    if (!initialTeacherId) return;
+    const teacher = db.teachers.find((item) => item.id === initialTeacherId);
+    if (!teacher) return;
+    setEditingTeacher(teacher);
+    setFormData(teacher);
+    setIsModalOpen(true);
+  }, [initialTeacherId, db.teachers]);
 
   const filteredTeachers = db.teachers.filter((t) => {
     const q = searchQuery.toLowerCase().trim();
