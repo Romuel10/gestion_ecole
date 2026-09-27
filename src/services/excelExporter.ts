@@ -50,7 +50,7 @@ export class ExcelExporterService {
         Effectif: students.length,
         Capacité: schoolClass.capacity,
         'Taux occupation': schoolClass.capacity
-          ? \`\${Math.round((students.length / schoolClass.capacity) * 100)}%\`
+          ? `${Math.round((students.length / schoolClass.capacity) * 100)}%`
           : '0%',
         'Écolage mensuel': schoolClass.monthlyTuitionFee,
       };
@@ -60,7 +60,7 @@ export class ExcelExporterService {
     XLSX.utils.book_append_sheet(workbook, classSheet, 'Classes');
 
     const year = db.schoolYears.find((item) => item.id === db.currentSchoolYearId)?.label || 'annee';
-    XLSX.writeFile(workbook, \`ELEVES_\${db.schoolConfig.acronym}_\${year.replace(/\\s+/g, '_')}.xlsx\`);
+    XLSX.writeFile(workbook, `ELEVES_${db.schoolConfig.acronym}_${year.replace(/\s+/g, '_')}.xlsx`);
   }
 
   static exportFinances(db: DatabaseSchema): void {
@@ -79,7 +79,7 @@ export class ExcelExporterService {
           Reçu: payment.receiptNumber,
           Date: payment.paymentDate,
           Matricule: student?.matricule || '',
-          Élève: student ? \`\${student.lastName} \${student.firstName}\` : '',
+          Élève: student ? `${student.lastName} ${student.firstName}` : '',
           Classe: schoolClass?.name || '',
           'Type de frais': payment.feeType,
           Période: payment.monthTarget || '',
@@ -119,7 +119,7 @@ export class ExcelExporterService {
           Fiche: item.voucherNumber,
           Date: item.paymentDate,
           Mois: item.month,
-          Enseignant: teacher ? \`\${teacher.lastName} \${teacher.firstName}\` : '',
+          Enseignant: teacher ? `${teacher.lastName} ${teacher.firstName}` : '',
           Contrat: item.contractType,
           Brut: item.grossSalary,
           Avances: item.advances,
@@ -148,6 +148,6 @@ export class ExcelExporterService {
     XLSX.utils.book_append_sheet(workbook, summarySheet, 'Synthèse');
 
     const year = db.schoolYears.find((item) => item.id === db.currentSchoolYearId)?.label || 'annee';
-    XLSX.writeFile(workbook, \`FINANCES_\${db.schoolConfig.acronym}_\${year.replace(/\\s+/g, '_')}.xlsx\`);
+    XLSX.writeFile(workbook, `FINANCES_${db.schoolConfig.acronym}_${year.replace(/\s+/g, '_')}.xlsx`);
   }
 }
