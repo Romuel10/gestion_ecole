@@ -604,18 +604,36 @@ export class PdfGeneratorService {
 
     // Bottom Date & Official Seal
     const calculatedDateY = bodyY + splitText.length * 7 + 22;
-    const dateY = Math.min(238, Math.max(175, calculatedDateY));
+    const dateY = Math.min(232, Math.max(175, calculatedDateY));
+    const signatureX = 126;
+    const signatureWidth = 66;
+    const dateText = `Fait à ${cfg.city}, le ${new Date().toLocaleDateString('fr-FR')}`;
+    const dateLines = doc.splitTextToSize(dateText, signatureWidth);
+
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
-    doc.text(`Fait à ${cfg.city}, le ${new Date().toLocaleDateString('fr-FR')}`, 130, dateY);
+    doc.setFontSize(9.5);
+    doc.text(dateLines, signatureX, dateY);
+
+    const dateBlockHeight = Math.max(6, dateLines.length * 5);
+    const titleY = dateY + dateBlockHeight + 4;
 
     doc.setFont('helvetica', 'bold');
-    doc.text(cfg.directorTitle, 130, dateY + 8);
-    doc.text(cfg.directorName, 130, dateY + 26);
+    doc.setFontSize(9.5);
+    const titleLines = doc.splitTextToSize(cfg.directorTitle, signatureWidth);
+    doc.text(titleLines, signatureX, titleY);
 
+    const titleBlockHeight = Math.max(6, titleLines.length * 5);
+    const nameY = titleY + titleBlockHeight + 14;
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9.5);
+    const directorLines = doc.splitTextToSize(cfg.directorName, signatureWidth);
+    doc.text(directorLines, signatureX, nameY);
+
+    const directorBlockHeight = Math.max(5, directorLines.length * 5);
     doc.setFont('helvetica', 'italic');
     doc.setFontSize(8);
-    doc.text("(Cachet officiel et signature)", 130, dateY + 32);
+    doc.text("(Cachet officiel et signature)", signatureX, nameY + directorBlockHeight + 3);
 
     doc.setDrawColor(30, 64, 175);
     doc.setLineWidth(0.6);
