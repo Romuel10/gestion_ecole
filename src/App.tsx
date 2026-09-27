@@ -55,15 +55,19 @@ export function App() {
   }, [isDark]);
 
   useEffect(() => {
-    if (!CloudSyncService.isConnected() || !CloudSyncService.getSchoolId()) {
-      return;
-    }
-
     let cancelled = false;
     let running = false;
 
     const pull = async () => {
-      if (running || cancelled) return;
+      if (
+        running ||
+        cancelled ||
+        !CloudSyncService.isConnected() ||
+        !CloudSyncService.getSchoolId()
+      ) {
+        return;
+      }
+
       running = true;
       try {
         const result = await CloudSyncService.pullTeacherChanges(dbRef.current);
