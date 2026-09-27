@@ -545,3 +545,233 @@ on public.sekoly_attendance_entries;
 create trigger sekoly_validate_attendance_entry
 before insert or update on public.sekoly_attendance_entries
 for each row execute function sekoly_private.validate_attendance_entry();
+
+
+-- Restrict teacher reads to their own academic scope.
+drop policy if exists "sekoly member read" on public.sekoly_students;
+create policy "sekoly students scoped read"
+on public.sekoly_students for select
+to authenticated
+using (
+  sekoly_private.has_role(
+    sekoly_students.school_id,
+    array['SCHOOL_ADMIN','DIRECTOR','SECRETARY','SUPERVISOR']
+  )
+  or (
+    sekoly_private.has_role(sekoly_students.school_id, array['TEACHER'])
+    and exists (
+      select 1
+      from public.sekoly_enrollments e
+      join public.sekoly_teacher_assignments a
+        on a.school_id=e.school_id
+       and a.school_year_id=e.school_year_id
+       and a.class_id=e.class_id
+       and a.active
+      join public.sekoly_teachers t on t.id=a.teacher_id
+      where e.student_id=sekoly_students.id
+        and e.school_id=sekoly_students.school_id
+        and e.status in ('PENDING','ENROLLED')
+        and t.user_id=(select auth.uid())
+        and t.status='ACTIVE'
+    )
+  )
+);
+
+drop policy if exists "sekoly member read" on public.sekoly_enrollments;
+create policy "sekoly enrollments scoped read"
+on public.sekoly_enrollments for select
+to authenticated
+using (
+  sekoly_private.has_role(
+    sekoly_enrollments.school_id,
+    array['SCHOOL_ADMIN','DIRECTOR','SECRETARY','SUPERVISOR']
+  )
+  or (
+    sekoly_private.has_role(sekoly_enrollments.school_id, array['TEACHER'])
+    and exists (
+      select 1
+      from public.sekoly_teacher_assignments a
+      join public.sekoly_teachers t on t.id=a.teacher_id
+      where a.school_id=sekoly_enrollments.school_id
+        and a.school_year_id=sekoly_enrollments.school_year_id
+        and a.class_id=sekoly_enrollments.class_id
+        and a.active
+        and t.user_id=(select auth.uid())
+        and t.status='ACTIVE'
+    )
+  )
+);
+
+drop policy if exists "sekoly member read" on public.sekoly_teachers;
+create policy "sekoly teachers scoped read"
+on public.sekoly_teachers for select
+to authenticated
+using (
+  sekoly_private.has_role(
+    sekoly_teachers.school_id,
+    array['SCHOOL_ADMIN','DIRECTOR','SECRETARY','SUPERVISOR']
+  )
+  or sekoly_teachers.user_id=(select auth.uid())
+);
+
+drop policy if exists "sekoly member read" on public.sekoly_teacher_assignments;
+create policy "sekoly teacher assignments scoped read"
+on public.sekoly_teacher_assignments for select
+to authenticated
+using (
+  sekoly_private.has_role(
+    sekoly_teacher_assignments.school_id,
+    array['SCHOOL_ADMIN','DIRECTOR','SECRETARY','SUPERVISOR']
+  )
+  or exists (
+    select 1 from public.sekoly_teachers t
+    where t.id=sekoly_teacher_assignments.teacher_id
+      and t.user_id=(select auth.uid())
+      and t.status='ACTIVE'
+  )
+);
+
+drop policy if exists "sekoly member read" on public.sekoly_class_subjects;
+create policy "sekoly class subjects scoped read"
+on public.sekoly_class_subjects for select
+to authenticated
+using (
+  sekoly_private.has_role(
+    sekoly_class_subjects.school_id,
+    array['SCHOOL_ADMIN','DIRECTOR','SECRETARY','SUPERVISOR']
+  )
+  or exists (
+    select 1 from public.sekoly_teachers t
+    where t.id=sekoly_class_subjects.teacher_id
+      and t.user_id=(select auth.uid())
+      and t.status='ACTIVE'
+  )
+);
+
+drop policy if exists "sekoly member read" on public.sekoly_timetable_slots;
+create policy "sekoly timetable scoped read"
+on public.sekoly_timetable_slots for select
+to authenticated
+using (
+  sekoly_private.has_role(
+    sekoly_timetable_slots.school_id,
+    array['SCHOOL_ADMIN','DIRECTOR','SECRETARY','SUPERVISOR']
+  )
+  or exists (
+    select 1 from public.sekoly_teachers t
+    where t.id=sekoly_timetable_slots.teacher_id
+      and t.user_id=(select auth.uid())
+      and t.status='ACTIVE'
+  )
+);
+
+drop policy if exists "sekoly attendance sessions read"
+on public.sekoly_attendance_sessions;
+create policy "sekoly attendance sessions scoped read"
+on public.sekoly_attendance_sessions for select
+to authenticated
+using (
+  sekoly_private.has_role(
+    sekoly_attendance_sessions.school_id,
+    array['SCHOOL_ADMIN','DIRECTOR','SECRETARY','SUPERVISOR']
+  )
+  or exists (
+    select 1 from public.sekoly_teachers t
+    where t.id=sekoly_attendance_sessions.teacher_id
+      and t.user_id=(select auth.uid())
+      and t.status='ACTIVE'
+  )
+);
+
+drop policy if exists "sekoly attendance entries read"
+on public.sekoly_attendance_entries;
+create policy "sekoly attendance entries scoped read"
+on public.sekoly_attendance_entries for select
+to authenticated
+using (
+  sekoly_private.has_role(
+    sekoly_attendance_entries.school_id,
+    array['SCHOOL_ADMIN','DIRECTOR','SECRETARY','SUPERVISOR']
+  )
+  or sekoly_private.is_teacher_for_session(sekoly_attendance_entries.session_id)
+);
+
+drop policy if exists "sekoly assessments read" on public.sekoly_assessments;
+create policy "sekoly assessments scoped read"
+on public.sekoly_assessments for select
+to authenticated
+using (
+  sekoly_private.has_role(
+    sekoly_assessments.school_id,
+    array['SCHOOL_ADMIN','DIRECTOR','SECRETARY','SUPERVISOR']
+  )
+  or exists (
+    select 1 from public.sekoly_teachers t
+    where t.id=sekoly_assessments.teacher_id
+      and t.user_id=(select auth.uid())
+      and t.status='ACTIVE'
+  )
+);
+
+drop policy if exists "sekoly scores read"
+on public.sekoly_assessment_scores;
+create policy "sekoly scores scoped read"
+on public.sekoly_assessment_scores for select
+to authenticated
+using (
+  sekoly_private.has_role(
+    sekoly_assessment_scores.school_id,
+    array['SCHOOL_ADMIN','DIRECTOR','SECRETARY','SUPERVISOR']
+  )
+  or sekoly_private.is_teacher_for_assessment(
+    sekoly_assessment_scores.assessment_id
+  )
+);
+
+drop policy if exists "sekoly member read" on public.sekoly_classes;
+create policy "sekoly classes scoped read"
+on public.sekoly_classes for select
+to authenticated
+using (
+  sekoly_private.has_role(
+    sekoly_classes.school_id,
+    array['SCHOOL_ADMIN','DIRECTOR','SECRETARY','SUPERVISOR']
+  )
+  or (
+    sekoly_private.has_role(sekoly_classes.school_id, array['TEACHER'])
+    and exists (
+      select 1
+      from public.sekoly_teacher_assignments a
+      join public.sekoly_teachers t on t.id=a.teacher_id
+      where a.school_id=sekoly_classes.school_id
+        and a.class_id=sekoly_classes.id
+        and a.active
+        and t.user_id=(select auth.uid())
+        and t.status='ACTIVE'
+    )
+  )
+);
+
+drop policy if exists "sekoly member read" on public.sekoly_subjects;
+create policy "sekoly subjects scoped read"
+on public.sekoly_subjects for select
+to authenticated
+using (
+  sekoly_private.has_role(
+    sekoly_subjects.school_id,
+    array['SCHOOL_ADMIN','DIRECTOR','SECRETARY','SUPERVISOR']
+  )
+  or (
+    sekoly_private.has_role(sekoly_subjects.school_id, array['TEACHER'])
+    and exists (
+      select 1
+      from public.sekoly_teacher_assignments a
+      join public.sekoly_teachers t on t.id=a.teacher_id
+      where a.school_id=sekoly_subjects.school_id
+        and a.subject_id=sekoly_subjects.id
+        and a.active
+        and t.user_id=(select auth.uid())
+        and t.status='ACTIVE'
+    )
+  )
+);
