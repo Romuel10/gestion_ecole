@@ -1008,11 +1008,28 @@ export default function App() {
 
   useEffect(() => {
     if (!context) return;
-    return teacherApi.subscribeSchool(context.schoolId, () => {
-      if (tab === 'HOME') {
-        void loadWorkspace();
-      }
-    });
+
+    let cancelled = false;
+    let cleanup: (() => void) | undefined;
+
+    teacherApi
+      .subscribeSchool(context.schoolId, () => {
+        if (tab === 'HOME') {
+          void loadWorkspace();
+        }
+      })
+      .then((unsubscribe) => {
+        if (cancelled) unsubscribe();
+        else cleanup = unsubscribe;
+      })
+      .catch((error) => {
+        console.warn('Sekoly Realtime:', error);
+      });
+
+    return () => {
+      cancelled = true;
+      cleanup?.();
+    };
   }, [context?.schoolId, tab]);
 
   const sync = async () => {
