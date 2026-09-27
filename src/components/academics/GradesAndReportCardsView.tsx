@@ -65,6 +65,7 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
     selectedTerm,
     db.currentSchoolYearId
   );
+  const gradedReportCards = reportCards.filter((report) => report.totalCoefficients > 0);
 
   // Local state for Matrix entry
   const [matrixGrades, setMatrixGrades] = useState<{
@@ -120,9 +121,13 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
   };
 
   useEffect(() => {
-    handleSelectSubjectOrClass(selectedClassId, selectedSubjectId, db.currentTermCode);
+    const requestedClassId =
+      initialClassId && db.classes.some((cls) => cls.id === initialClassId)
+        ? initialClassId
+        : selectedClassId;
+    handleSelectSubjectOrClass(requestedClassId, selectedSubjectId, db.currentTermCode);
     setInspectSummary(null);
-  }, [db.currentSchoolYearId, db.currentTermCode]);
+  }, [db.currentSchoolYearId, db.currentTermCode, initialClassId]);
 
   const handleSaveGradesMatrix = () => {
     const activeYear = db.schoolYears.find((y) => y.id === db.currentSchoolYearId);
@@ -199,14 +204,14 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
 
   // Batch Print All Report Cards for Class
   const handleBatchPrintReportCards = () => {
-    if (reportCards.length === 0) {
-      onShowToast('Aucun bulletin disponible à imprimer.', 'error');
+    if (gradedReportCards.length === 0) {
+      onShowToast('Aucun bulletin noté disponible à imprimer.', 'error');
       return;
     }
-    reportCards.forEach((rc) => {
+    gradedReportCards.forEach((rc) => {
       PdfGeneratorService.generateOfficialReportCardPDF(rc, db);
     });
-    onShowToast(`Génération de ${reportCards.length} bulletins de notes lancée !`, 'success');
+    onShowToast(`Génération de ${gradedReportCards.length} bulletins de notes lancée !`, 'success');
   };
 
   const subjectMap = new Map(db.subjects.map((s) => [s.id, s]));
@@ -366,7 +371,7 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
                 Moyenne de la Classe
               </span>
               <div className="mt-2 text-2xl font-extrabold text-blue-600 dark:text-blue-400">
-                {reportCards.length > 0 ? reportCards[0].classGeneralAverage.toFixed(2) : '0.00'} / 20
+                {gradedReportCards.length > 0 ? gradedReportCards[0].classGeneralAverage.toFixed(2) : '0.00'} / 20
               </div>
             </div>
 
@@ -375,7 +380,7 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
                 Meilleure Moyenne (Max)
               </span>
               <div className="mt-2 text-2xl font-extrabold text-emerald-600 dark:text-emerald-400">
-                {reportCards.length > 0 ? reportCards[0].classMaxAverage.toFixed(2) : '0.00'} / 20
+                {gradedReportCards.length > 0 ? gradedReportCards[0].classMaxAverage.toFixed(2) : '0.00'} / 20
               </div>
             </div>
 
@@ -384,7 +389,7 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
                 Moyenne la Plus Basse
               </span>
               <div className="mt-2 text-2xl font-extrabold text-slate-700 dark:text-slate-300">
-                {reportCards.length > 0 ? reportCards[0].classMinAverage.toFixed(2) : '0.00'} / 20
+                {gradedReportCards.length > 0 ? gradedReportCards[0].classMinAverage.toFixed(2) : '0.00'} / 20
               </div>
             </div>
 
@@ -393,8 +398,8 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
                 Taux d'Admission (≥ 10/20)
               </span>
               <div className="mt-2 text-2xl font-extrabold text-purple-600 dark:text-purple-400">
-                {reportCards.length > 0
-                  ? Math.round((reportCards.filter((r) => r.generalAverage >= 10).length / reportCards.length) * 100)
+                {gradedReportCards.length > 0
+                  ? Math.round((gradedReportCards.filter((r) => r.generalAverage >= 10).length / gradedReportCards.length) * 100)
                   : 0}
                 %
               </div>
@@ -409,7 +414,7 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
                   Palmarès Trimestriel — {targetClass.name}
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Total de {reportCards.length} élève(s) classé(s)
+                  Total de {gradedReportCards.length} élève(s) classé(s)
                 </p>
               </div>
 
@@ -437,7 +442,7 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {reportCards.map((rc) => (
+                  {gradedReportCards.map((rc) => (
                     <tr key={rc.studentId} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">
                       <td className="py-3 px-3 font-bold">
                         <span
