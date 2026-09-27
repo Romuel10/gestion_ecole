@@ -112,7 +112,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
     const file = event.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith('image/')) {
-      onShowToast('Sélectionnez une image PNG, JPG ou WEBP.', 'error');
+      onShowToast('Sélectionnez une image PNG ou JPG.', 'error');
       event.target.value = '';
       return;
     }
@@ -771,7 +771,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
                       <label className="button button--secondary cursor-pointer">
                         <Upload className="w-3.5 h-3.5" />
                         Choisir
-                        <input type="file" accept="image/png,image/jpeg,image/webp" onChange={handleLogoUpload} className="hidden" />
+                        <input type="file" accept="image/png,image/jpeg" onChange={handleLogoUpload} className="hidden" />
                       </label>
                       {schoolConfig.logoUrl && (
                         <button
