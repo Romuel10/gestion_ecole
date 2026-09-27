@@ -108,6 +108,30 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
     updateDatabase({ ...db, schoolConfig }, 'Paramètres de l’établissement enregistrés.');
   };
 
+  const handleLogoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      onShowToast('Sélectionnez une image PNG, JPG ou WEBP.', 'error');
+      event.target.value = '';
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      onShowToast('Le logo doit faire moins de 2 Mo.', 'error');
+      event.target.value = '';
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const logoUrl = typeof reader.result === 'string' ? reader.result : '';
+      setSchoolConfig((current) => ({ ...current, logoUrl }));
+      onShowToast('Logo chargé. Enregistrez les paramètres pour le conserver.', 'info');
+    };
+    reader.readAsDataURL(file);
+    event.target.value = '';
+  };
+
   const handleSaveMatricule = (event: React.FormEvent) => {
     event.preventDefault();
     if (!matriculeConfig.pattern.trim() || !matriculeConfig.prefix.trim()) {
@@ -695,6 +719,97 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
               <Field label="Couleur des cartes scolaires">
                 <input type="color" value={schoolConfig.badgeThemeColor} onChange={(e) => setSchoolConfig({ ...schoolConfig, badgeThemeColor: e.target.value })} className="settings-input h-9" />
               </Field>
+
+              <div className="md:col-span-2 border-t border-slate-200 dark:border-slate-800 pt-4">
+                <div className="grid grid-cols-1 lg:grid-cols-[180px_1fr] gap-5">
+                  <div>
+                    <div className="text-[10.5px] font-semibold mb-2">Logo de l’établissement</div>
+                    <div className="h-28 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 flex items-center justify-center overflow-hidden">
+                      {schoolConfig.logoUrl ? (
+                        <img src={schoolConfig.logoUrl} alt="Logo établissement" className="max-h-24 max-w-[150px] object-contain" />
+                      ) : (
+                        <span className="text-[10px] text-slate-400">Aucun logo</span>
+                      )}
+                    </div>
+                    <div className="mt-2 flex gap-2">
+                      <label className="button button--secondary cursor-pointer">
+                        <Upload className="w-3.5 h-3.5" />
+                        Choisir
+                        <input type="file" accept="image/png,image/jpeg,image/webp" onChange={handleLogoUpload} className="hidden" />
+                      </label>
+                      {schoolConfig.logoUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setSchoolConfig({ ...schoolConfig, logoUrl: undefined })}
+                          className="button button--secondary"
+                        >
+                          Retirer
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Field label="Position du logo sur les documents">
+                      <select
+                        value={schoolConfig.documentLogoPosition || 'LEFT'}
+                        onChange={(e) =>
+                          setSchoolConfig({
+                            ...schoolConfig,
+                            documentLogoPosition: e.target.value as 'LEFT' | 'CENTER' | 'RIGHT',
+                          })
+                        }
+                        className="settings-input"
+                      >
+                        <option value="LEFT">À gauche</option>
+                        <option value="CENTER">Au centre</option>
+                        <option value="RIGHT">À droite</option>
+                      </select>
+                    </Field>
+                    <Field label="Largeur du logo sur PDF (mm)">
+                      <input
+                        type="number"
+                        min="8"
+                        max="40"
+                        value={schoolConfig.documentLogoWidthMm || 18}
+                        onChange={(e) =>
+                          setSchoolConfig({
+                            ...schoolConfig,
+                            documentLogoWidthMm: Number(e.target.value),
+                          })
+                        }
+                        className="settings-input"
+                      />
+                    </Field>
+                    <div className="md:col-span-2">
+                      <Field label="Titre du certificat de scolarité">
+                        <input
+                          value={schoolConfig.certificateTitle || 'CERTIFICAT DE SCOLARITÉ'}
+                          onChange={(e) =>
+                            setSchoolConfig({ ...schoolConfig, certificateTitle: e.target.value })
+                          }
+                          className="settings-input"
+                        />
+                      </Field>
+                    </div>
+                    <div className="md:col-span-2">
+                      <Field label="Contenu du certificat de scolarité">
+                        <textarea
+                          rows={7}
+                          value={schoolConfig.certificateTemplate || ''}
+                          onChange={(e) =>
+                            setSchoolConfig({ ...schoolConfig, certificateTemplate: e.target.value })
+                          }
+                          className="settings-input resize-y leading-relaxed"
+                        />
+                      </Field>
+                      <div className="mt-1.5 text-[10px] text-slate-500">
+                        Variables : {'{NOM_ET_PRENOMS}'}, {'{MATRICULE}'}, {'{DATE_NAISSANCE}'}, {'{LIEU_NAISSANCE}'}, {'{CLASSE}'}, {'{ANNEE_SCOLAIRE}'}, {'{DIRECTEUR}'}, {'{FONCTION}'}, {'{ETABLISSEMENT}'}, {'{VILLE}'}.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
 
               <div className="md:col-span-2 border-t border-slate-200 dark:border-slate-800 pt-4">
                 <div className="text-[11px] font-semibold text-slate-800 dark:text-slate-200">Périodes d’écolage</div>
