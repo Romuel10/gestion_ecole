@@ -29,6 +29,7 @@ const pageMeta: Record<NavTab, { title: string; description: string }> = {
   academics: { title: 'Notes et bulletins', description: 'Évaluations, résultats et délibérations' },
   finances: { title: 'Finances', description: 'Écolages, caisse et rémunérations' },
   schedule: { title: 'Emploi du temps', description: 'Organisation des cours et salles' },
+  attendance: { title: 'Vie scolaire', description: 'Présences, absences, retards et suivi quotidien' },
   teachers: { title: 'Enseignants', description: 'Personnel enseignant et affectations' },
   settings: { title: 'Paramètres', description: 'Organisation et règles de l’établissement' },
 };

@@ -123,7 +123,7 @@ export class PdfGeneratorService {
     doc.setFontSize(6.5);
     doc.setTextColor(...muted);
     doc.text(
-      note || `${cfg.acronym} • ${cfg.email || cfg.phone || ''}`,
+      note || cfg.documentFooterText || `${cfg.acronym} • ${cfg.email || cfg.phone || ''}`,
       left,
       pageHeight - 9
     );
@@ -177,7 +177,7 @@ export class PdfGeneratorService {
     let y = this.drawInstitutionHeader(
       doc,
       db,
-      'Bulletin scolaire',
+      db.schoolConfig.reportCardTitle || 'Bulletin scolaire',
       `${termLabel} • ${yearLabel}`
     );
 
@@ -424,7 +424,7 @@ export class PdfGeneratorService {
     let y = this.drawInstitutionHeader(
       doc,
       db,
-      'Emploi du temps',
+      db.schoolConfig.timetableTitle || 'Emploi du temps',
       `${title} • ${year?.label || ''}`
     );
 
@@ -501,7 +501,7 @@ export class PdfGeneratorService {
     let y = this.drawInstitutionHeader(
       doc,
       db,
-      'Reçu de paiement',
+      db.schoolConfig.tuitionReceiptTitle || 'Reçu de paiement',
       payment.receiptNumber
     );
 
@@ -586,7 +586,7 @@ export class PdfGeneratorService {
     let y = this.drawInstitutionHeader(
       doc,
       db,
-      'Bulletin de paie',
+      db.schoolConfig.payslipTitle || 'Bulletin de paie',
       salary.month
     );
 

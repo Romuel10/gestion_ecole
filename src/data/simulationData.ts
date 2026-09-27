@@ -62,6 +62,7 @@ const currentYear: SchoolYear = {
   startDate: '2026-09-01',
   endDate: '2027-06-30',
   isCurrent: true,
+  status: 'ACTIVE',
   terms: [
     { id: 'term-2026-t1', code: 'TRIMESTRE_1', label: '1er Trimestre', startDate: '2026-09-01', endDate: '2026-12-18', weight: 1, isLocked: false },
     { id: 'term-2026-t2', code: 'TRIMESTRE_2', label: '2ème Trimestre', startDate: '2027-01-04', endDate: '2027-03-26', weight: 1, isLocked: false },
@@ -75,6 +76,8 @@ const archiveYear: SchoolYear = {
   startDate: '2024-09-02',
   endDate: '2025-06-27',
   isCurrent: false,
+  status: 'CLOSED',
+  closedAt: '2025-06-30T12:00:00.000Z',
   terms: [
     { id: 'term-2024-t1', code: 'TRIMESTRE_1', label: '1er Trimestre', startDate: '2024-09-02', endDate: '2024-12-20', weight: 1, isLocked: true },
     { id: 'term-2024-t2', code: 'TRIMESTRE_2', label: '2ème Trimestre', startDate: '2025-01-06', endDate: '2025-03-28', weight: 1, isLocked: true },
@@ -744,6 +747,7 @@ export const buildSimulationDatabase = (base: DatabaseSchema): DatabaseSchema =>
     grades: [...currentGrades, ...archiveGrades],
     tuitionPayments: [...currentFinance.payments, ...archiveFinance.payments],
     salaryPayments,
+    cashDayClosures: [],
     cashTransactions: [
       ...currentFinance.cash,
       ...archiveFinance.cash,

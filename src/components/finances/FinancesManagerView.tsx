@@ -11,6 +11,7 @@ import {
   Send,
   FileText,
   FileSpreadsheet,
+  LockKeyhole,
 } from 'lucide-react';
 import {
   DatabaseSchema,
@@ -40,7 +41,7 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
   initialAction,
   initialPaymentId,
 }) => {
-  const [activeTab, setActiveTab] = useState<'TUITION_GRID' | 'PAYMENTS_HISTORY' | 'PAYROLL' | 'TREASURY'>('TUITION_GRID');
+  const [activeTab, setActiveTab] = useState<'TUITION_GRID' | 'PAYMENTS_HISTORY' | 'PAYROLL' | 'TREASURY' | 'CASH_CLOSING'>('TUITION_GRID');
   const [selectedClassId, setSelectedClassId] = useState<string>(db.classes[0]?.id || '');
 
   // Modals state
@@ -49,6 +50,9 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
   const [isNewExpenseModalOpen, setIsNewExpenseModalOpen] = useState(false);
   const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
   const [selectedStudentForReminder, setSelectedStudentForReminder] = useState<string | null>(null);
+  const [closingDate, setClosingDate] = useState(new Date().toISOString().slice(0, 10));
+  const [countedBalance, setCountedBalance] = useState('');
+  const [cashClosingNote, setCashClosingNote] = useState('');
 
   // Texte de rappel personnalisable
   const [customReminderText, setCustomReminderText] = useState(
@@ -101,6 +105,71 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
     description: '',
     paymentMethod: 'ESPECES' as PaymentMethod,
   });
+
+  const cashBeforeClosingDate = db.cashTransactions.filter(
+    (transaction) =>
+      transaction.schoolYearId === db.currentSchoolYearId &&
+      transaction.date < closingDate
+  );
+  const cashOnClosingDate = db.cashTransactions.filter(
+    (transaction) =>
+      transaction.schoolYearId === db.currentSchoolYearId &&
+      transaction.date === closingDate
+  );
+  const openingCashBalance = cashBeforeClosingDate.reduce(
+    (sum, transaction) =>
+      sum + (transaction.type === 'RECETTE' ? transaction.amount : -transaction.amount),
+    0
+  );
+  const dayCashIn = cashOnClosingDate
+    .filter((transaction) => transaction.type === 'RECETTE')
+    .reduce((sum, transaction) => sum + transaction.amount, 0);
+  const dayCashOut = cashOnClosingDate
+    .filter((transaction) => transaction.type === 'DEPENSE')
+    .reduce((sum, transaction) => sum + transaction.amount, 0);
+  const expectedClosingBalance = openingCashBalance + dayCashIn - dayCashOut;
+  const closingDifference =
+    countedBalance === '' ? 0 : Number(countedBalance) - expectedClosingBalance;
+  const existingClosure = db.cashDayClosures.find(
+    (closure) =>
+      closure.schoolYearId === db.currentSchoolYearId &&
+      closure.date === closingDate
+  );
+
+  const handleSaveCashClosing = () => {
+    if (countedBalance === '' || Number.isNaN(Number(countedBalance))) {
+      onShowToast('Saisissez le montant réellement compté en caisse.', 'error');
+      return;
+    }
+
+    const closure = {
+      id: existingClosure?.id || `cash-close-${db.currentSchoolYearId}-${closingDate}`,
+      schoolYearId: db.currentSchoolYearId,
+      date: closingDate,
+      openingBalance: openingCashBalance,
+      expectedBalance: expectedClosingBalance,
+      countedBalance: Number(countedBalance),
+      difference: Number(countedBalance) - expectedClosingBalance,
+      transactionCount: cashOnClosingDate.length,
+      notes: cashClosingNote.trim() || undefined,
+      closedAt: new Date().toISOString(),
+    };
+
+    const closures = existingClosure
+      ? db.cashDayClosures.map((item) => (item.id === existingClosure.id ? closure : item))
+      : [closure, ...db.cashDayClosures];
+
+    const updatedDb: DatabaseSchema = {
+      ...db,
+      cashDayClosures: closures,
+    };
+    StorageService.saveDatabase(updatedDb);
+    onUpdateDb(updatedDb);
+    onShowToast(
+      `Caisse du ${closingDate} clôturée. Écart : ${CalculationService.formatAriary(closure.difference)}.`,
+      closure.difference === 0 ? 'success' : 'info'
+    );
+  };
 
   const metrics = CalculationService.computeFinancialMetrics(db);
   const classMap = new Map(db.classes.map((c) => [c.id, c]));
@@ -435,6 +504,7 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
             ['PAYMENTS_HISTORY', 'Historique'],
             ['PAYROLL', 'Salaires'],
             ['TREASURY', 'Caisse'],
+            ['CASH_CLOSING', 'Clôture de caisse'],
           ].map(([id, label]) => (
             <button
               key={id}
@@ -848,6 +918,180 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'CASH_CLOSING' && (
+        <div className="space-y-4">
+          <div className="page-panel p-4">
+            <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
+              <label>
+                <span className="block mb-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                  Date de clôture
+                </span>
+                <input
+                  type="date"
+                  value={closingDate}
+                  onChange={(event) => {
+                    setClosingDate(event.target.value);
+                    const closure = db.cashDayClosures.find(
+                      (item) =>
+                        item.schoolYearId === db.currentSchoolYearId &&
+                        item.date === event.target.value
+                    );
+                    setCountedBalance(closure ? String(closure.countedBalance) : '');
+                    setCashClosingNote(closure?.notes || '');
+                  }}
+                  className="settings-input"
+                />
+              </label>
+
+              {existingClosure && (
+                <div className="text-[10.5px] text-slate-500">
+                  Déjà clôturée le {new Date(existingClosure.closedAt).toLocaleString('fr-FR')}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="cash-closing-summary">
+            <div>
+              <span>Ouverture</span>
+              <strong>{CalculationService.formatAriary(openingCashBalance)}</strong>
+            </div>
+            <div>
+              <span>Entrées du jour</span>
+              <strong>{CalculationService.formatAriary(dayCashIn)}</strong>
+            </div>
+            <div>
+              <span>Sorties du jour</span>
+              <strong>{CalculationService.formatAriary(dayCashOut)}</strong>
+            </div>
+            <div>
+              <span>Solde théorique</span>
+              <strong>{CalculationService.formatAriary(expectedClosingBalance)}</strong>
+            </div>
+          </div>
+
+          <div className="page-panel">
+            <div className="page-panel__header">
+              <div>
+                <h3 className="page-panel__title">Comptage de caisse</h3>
+                <p className="page-panel__subtitle">
+                  {cashOnClosingDate.length} écriture(s) enregistrée(s) le {closingDate}.
+                </p>
+              </div>
+              <LockKeyhole className="w-4 h-4 text-slate-400" />
+            </div>
+
+            <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <label>
+                <span className="block mb-1.5 text-[10.5px] font-semibold text-slate-600 dark:text-slate-300">
+                  Montant réellement compté
+                </span>
+                <input
+                  type="number"
+                  min="0"
+                  value={countedBalance}
+                  onChange={(event) => setCountedBalance(event.target.value)}
+                  className="settings-input font-mono"
+                  placeholder={String(expectedClosingBalance)}
+                />
+              </label>
+
+              <div className="border border-slate-200 dark:border-slate-700 p-3">
+                <span className="block text-[9px] uppercase tracking-wide font-bold text-slate-500">
+                  Écart
+                </span>
+                <strong
+                  className={`block mt-1 text-lg font-mono ${
+                    countedBalance === ''
+                      ? 'text-slate-500'
+                      : closingDifference === 0
+                      ? 'text-emerald-700 dark:text-emerald-300'
+                      : 'text-rose-700 dark:text-rose-300'
+                  }`}
+                >
+                  {countedBalance === ''
+                    ? '—'
+                    : CalculationService.formatAriary(closingDifference)}
+                </strong>
+              </div>
+
+              <label className="md:col-span-2">
+                <span className="block mb-1.5 text-[10.5px] font-semibold text-slate-600 dark:text-slate-300">
+                  Observation
+                </span>
+                <textarea
+                  rows={3}
+                  value={cashClosingNote}
+                  onChange={(event) => setCashClosingNote(event.target.value)}
+                  placeholder="Ex. monnaie manquante, correction prévue, dépôt bancaire..."
+                  className="settings-input resize-y"
+                />
+              </label>
+
+              <div className="md:col-span-2 flex justify-end">
+                <button type="button" onClick={handleSaveCashClosing} className="button button--primary">
+                  <LockKeyhole className="w-4 h-4" />
+                  {existingClosure ? 'Mettre à jour la clôture' : 'Clôturer la caisse'}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="page-panel overflow-hidden">
+            <div className="page-panel__header">
+              <div>
+                <h3 className="page-panel__title">Historique des clôtures</h3>
+                <p className="page-panel__subtitle">Contrôle quotidien de la caisse locale.</p>
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="erp-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th className="text-right">Théorique</th>
+                    <th className="text-right">Compté</th>
+                    <th className="text-right">Écart</th>
+                    <th>Écritures</th>
+                    <th>Observation</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[...db.cashDayClosures]
+                    .filter((item) => item.schoolYearId === db.currentSchoolYearId)
+                    .sort((a, b) => b.date.localeCompare(a.date))
+                    .map((closure) => (
+                      <tr key={closure.id}>
+                        <td className="font-semibold">{closure.date}</td>
+                        <td className="text-right font-mono">
+                          {CalculationService.formatAriary(closure.expectedBalance)}
+                        </td>
+                        <td className="text-right font-mono">
+                          {CalculationService.formatAriary(closure.countedBalance)}
+                        </td>
+                        <td className="text-right font-mono">
+                          {CalculationService.formatAriary(closure.difference)}
+                        </td>
+                        <td>{closure.transactionCount}</td>
+                        <td className="text-slate-500">{closure.notes || '—'}</td>
+                      </tr>
+                    ))}
+                  {db.cashDayClosures.filter(
+                    (item) => item.schoolYearId === db.currentSchoolYearId
+                  ).length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="py-8 text-center text-slate-500">
+                        Aucune clôture enregistrée.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}

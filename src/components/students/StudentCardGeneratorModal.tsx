@@ -20,7 +20,9 @@ export const StudentCardGeneratorModal: React.FC<StudentCardGeneratorModalProps>
   db,
   onShowToast,
 }) => {
-  const [cardTitle, setCardTitle] = useState("CARTE SCOLAIRE");
+  const [cardTitle, setCardTitle] = useState(
+    db.schoolConfig.studentCardTitle || 'CARTE SCOLAIRE'
+  );
   const [themeColor, setThemeColor] = useState('#243f5a');
   const [showBirthDate, setShowBirthDate] = useState(true);
   const [showEmergency, setShowEmergency] = useState(true);
@@ -37,6 +39,7 @@ export const StudentCardGeneratorModal: React.FC<StudentCardGeneratorModalProps>
     );
     setSelectedStudentId(student?.id || activeYearFallback?.id || '');
     setThemeColor(db.schoolConfig.badgeThemeColor || '#243f5a');
+    setCardTitle(db.schoolConfig.studentCardTitle || 'CARTE SCOLAIRE');
     setPrintMode('SINGLE');
   }, [isOpen, student?.id, db.currentSchoolYearId, db.schoolConfig.badgeThemeColor]);
 

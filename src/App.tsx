@@ -11,6 +11,7 @@ import { StudentListView } from './components/students/StudentListView';
 import { GradesAndReportCardsView } from './components/academics/GradesAndReportCardsView';
 import { FinancesManagerView } from './components/finances/FinancesManagerView';
 import { TimetableView } from './components/schedule/TimetableView';
+import { AttendanceManagerView } from './components/attendance/AttendanceManagerView';
 import { TeachersManagerView } from './components/teachers/TeachersManagerView';
 import { GeneralSettingsView } from './components/settings/GeneralSettingsView';
 
@@ -149,6 +150,9 @@ export function App() {
             )}
             {currentTab === 'schedule' && (
               <TimetableView db={db} onUpdateDb={setDb} onShowToast={showToast} />
+            )}
+            {currentTab === 'attendance' && (
+              <AttendanceManagerView db={db} onUpdateDb={setDb} onShowToast={showToast} />
             )}
             {currentTab === 'teachers' && (
               <TeachersManagerView

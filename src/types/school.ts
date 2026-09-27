@@ -43,6 +43,12 @@ export interface SchoolConfig {
   documentLogoWidthMm?: number;
   certificateTitle?: string;
   certificateTemplate?: string;
+  reportCardTitle?: string;
+  timetableTitle?: string;
+  tuitionReceiptTitle?: string;
+  payslipTitle?: string;
+  studentCardTitle?: string;
+  documentFooterText?: string;
   
   // Customization settings
   passingGrade: number; // e.g. 10.00
@@ -76,6 +82,17 @@ export interface SchoolYear {
   startDate: string;
   endDate: string;
   isCurrent: boolean;
+  status?: 'PLANNED' | 'ACTIVE' | 'CLOSED';
+  closedAt?: string;
+  closureNote?: string;
+  closureStats?: {
+    students: number;
+    promoted: number;
+    repeated: number;
+    dismissed: number;
+    review: number;
+    preparedNextYear: number;
+  };
   terms: {
     id: string;
     code: TermType;
@@ -296,6 +313,19 @@ export interface CashTransaction {
   schoolYearId: string;
 }
 
+export interface CashDayClosure {
+  id: string;
+  schoolYearId: string;
+  date: string;
+  openingBalance: number;
+  expectedBalance: number;
+  countedBalance: number;
+  difference: number;
+  transactionCount: number;
+  notes?: string;
+  closedAt: string;
+}
+
 export interface TimetableSlot {
   id: string;
   dayOfWeek: 1 | 2 | 3 | 4 | 5 | 6;
@@ -312,6 +342,7 @@ export interface AttendanceRecord {
   id: string;
   studentId: string;
   classId: string;
+  schoolYearId?: string;
   date: string;
   type: 'PRESENT' | 'ABSENT_JUSTIFIE' | 'ABSENT_NON_JUSTIFIE' | 'RETARD';
   minutesLate?: number;
@@ -334,6 +365,7 @@ export interface DatabaseSchema {
   tuitionPayments: TuitionPayment[];
   salaryPayments: SalaryPayment[];
   cashTransactions: CashTransaction[];
+  cashDayClosures: CashDayClosure[];
   timetableSlots: TimetableSlot[];
   attendanceRecords: AttendanceRecord[];
 }
