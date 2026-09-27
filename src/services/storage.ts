@@ -1,7 +1,7 @@
 import { DatabaseSchema } from '../types/school';
 import { INITIAL_DATA } from '../data/initialData';
 
-const DB_KEY = 'EDUGASY_PRO_LOCAL_DB_V2';
+const DB_KEY = 'EDUGASY_PRO_LOCAL_DB_V3_SIMULATION';
 
 export class StorageService {
   private static normalizeDatabase(candidate: Partial<DatabaseSchema>): DatabaseSchema {
