@@ -80,10 +80,16 @@ export class CalculationService {
         gradeMap.set(`${g.studentId}_${g.subjectId}`, g);
       });
 
-    // Map of attendance
+    // Map of attendance. AttendanceRecord does not carry a schoolYearId/termCode,
+    // so the active term dates are the source of truth for report-card attendance.
+    const activeYear = db.schoolYears.find(y => y.id === activeYearId);
+    const activeTerm = activeYear?.terms.find(t => t.code === termCode);
     const attendanceMap = new Map<string, { just: number; unjust: number; late: number }>();
     db.attendanceRecords
-      .filter(a => a.classId === classId)
+      .filter(a =>
+        a.classId === classId &&
+        (!activeTerm || (a.date >= activeTerm.startDate && a.date <= activeTerm.endDate))
+      )
       .forEach(a => {
         const cur = attendanceMap.get(a.studentId) || { just: 0, unjust: 0, late: 0 };
         if (a.type === 'ABSENT_JUSTIFIE') cur.just++;
@@ -102,11 +108,17 @@ export class CalculationService {
         if (!sub) return;
 
         const grade = gradeMap.get(`${student.id}_${cs.subjectId}`);
-        const avg = grade ? grade.subjectAverage : 0;
-        const pts = avg * cs.coefficient;
+        const hasRecordedGrade = Boolean(
+          grade && ((grade.evaluations?.length || 0) > 0 || grade.examGrade !== undefined)
+        );
+        const avg = hasRecordedGrade && grade ? grade.subjectAverage : 0;
+        const pts = hasRecordedGrade ? avg * cs.coefficient : 0;
 
-        totalPts += pts;
-        totalCoeff += cs.coefficient;
+        // A subject that has not been graded yet must not lower the student's average.
+        if (hasRecordedGrade) {
+          totalPts += pts;
+          totalCoeff += cs.coefficient;
+        }
 
         subDetails.push({
           subjectId: cs.subjectId,
@@ -159,15 +171,29 @@ export class CalculationService {
     );
 
     const rankMap = new Map<number, number>();
+    let previousGeneralAverage: number | undefined;
+    let previousGeneralRank = 0;
     sortedIndices.forEach((studentIdx, rankIndex) => {
-      rankMap.set(studentIdx, rankIndex + 1);
+      const currentAverage = studentSummaries[studentIdx].generalAverage;
+      const currentRank =
+        previousGeneralAverage !== undefined && currentAverage === previousGeneralAverage
+          ? previousGeneralRank
+          : rankIndex + 1;
+      rankMap.set(studentIdx, currentRank);
+      previousGeneralAverage = currentAverage;
+      previousGeneralRank = currentRank;
     });
 
     // Subject statistics
     targetClass.subjects.forEach(cs => {
-      const subjectScores = studentSummaries.map(s => {
-        const item = s.subjectDetails.find(sd => sd.subjectId === cs.subjectId);
-        return item ? item.average : 0;
+      const studentsWithGrade = [...studentSummaries.keys()].filter((studentIdx) => {
+        const studentId = studentSummaries[studentIdx].student.id;
+        const grade = gradeMap.get(`${studentId}_${cs.subjectId}`);
+        return Boolean(grade && ((grade.evaluations?.length || 0) > 0 || grade.examGrade !== undefined));
+      });
+      const subjectScores = studentsWithGrade.map((studentIdx) => {
+        const item = studentSummaries[studentIdx].subjectDetails.find(sd => sd.subjectId === cs.subjectId);
+        return item?.average ?? 0;
       });
 
       const maxScore = subjectScores.length > 0 ? Math.max(...subjectScores) : 0;
@@ -176,20 +202,40 @@ export class CalculationService {
         ? Math.round((subjectScores.reduce((a, b) => a + b, 0) / subjectScores.length) * 100) / 100
         : 0;
 
-      // Rank per subject
-      const sortedSubIndices = [...studentSummaries.keys()].sort((a, b) => {
-        const scoreA = studentSummaries[a].subjectDetails.find(sd => sd.subjectId === cs.subjectId)?.average || 0;
-        const scoreB = studentSummaries[b].subjectDetails.find(sd => sd.subjectId === cs.subjectId)?.average || 0;
+      // Rank only students who actually have a recorded grade for this subject.
+      const sortedSubIndices = studentsWithGrade.sort((a, b) => {
+        const scoreA = studentSummaries[a].subjectDetails.find(sd => sd.subjectId === cs.subjectId)?.average ?? 0;
+        const scoreB = studentSummaries[b].subjectDetails.find(sd => sd.subjectId === cs.subjectId)?.average ?? 0;
         return scoreB - scoreA;
       });
 
+      let previousSubjectAverage: number | undefined;
+      let previousSubjectRank = 0;
       sortedSubIndices.forEach((sIdx, subRank) => {
         const detail = studentSummaries[sIdx].subjectDetails.find(sd => sd.subjectId === cs.subjectId);
+        if (detail) {
+          const currentRank =
+            previousSubjectAverage !== undefined && detail.average === previousSubjectAverage
+              ? previousSubjectRank
+              : subRank + 1;
+          detail.classMax = maxScore;
+          detail.classMin = minScore;
+          detail.classAvg = avgScore;
+          detail.rankInSubject = currentRank;
+          previousSubjectAverage = detail.average;
+          previousSubjectRank = currentRank;
+        }
+      });
+
+      // Keep statistics meaningful for ungraded students without giving them a fake rank.
+      studentSummaries.forEach((summary, studentIdx) => {
+        if (studentsWithGrade.includes(studentIdx)) return;
+        const detail = summary.subjectDetails.find(sd => sd.subjectId === cs.subjectId);
         if (detail) {
           detail.classMax = maxScore;
           detail.classMin = minScore;
           detail.classAvg = avgScore;
-          detail.rankInSubject = subRank + 1;
+          detail.rankInSubject = 0;
         }
       });
     });
@@ -226,24 +272,38 @@ export class CalculationService {
    * Computes financial overview metrics
    */
   static computeFinancialMetrics(db: DatabaseSchema) {
-    const totalTuitionCollected = db.tuitionPayments.reduce((acc, p) => acc + (p.amount || 0), 0);
-    const totalSalariesPaid = db.salaryPayments.reduce((acc, s) => acc + (s.netSalary || 0), 0);
-    
-    const otherRevenues = db.cashTransactions
-      .filter(t => t.type === 'RECETTE')
+    const activeYearId = db.currentSchoolYearId;
+    const totalTuitionCollected = db.tuitionPayments
+      .filter(p => p.schoolYearId === activeYearId)
+      .reduce((acc, p) => acc + (p.amount || 0), 0);
+    const totalSalariesPaid = db.salaryPayments
+      .filter(s => s.schoolYearId === activeYearId)
+      .reduce((acc, s) => acc + (s.netSalary || 0), 0);
+
+    // Tuition and salary payments are already represented by their dedicated records.
+    // Exclude their generated/legacy cash-book entries so the same money is not counted twice.
+    const tuitionCategories = new Set(['Écolages & Scolarité', 'Inscriptions & Droits']);
+    const salaryCategories = new Set(['Salaires & Vacations']);
+    const activeCashTransactions = db.cashTransactions.filter(t => t.schoolYearId === activeYearId);
+
+    const otherRevenues = activeCashTransactions
+      .filter(t => t.type === 'RECETTE' && !t.relatedReceiptId && !tuitionCategories.has(t.category))
       .reduce((acc, t) => acc + (t.amount || 0), 0);
 
-    const otherExpenses = db.cashTransactions
-      .filter(t => t.type === 'DEPENSE')
+    const otherExpenses = activeCashTransactions
+      .filter(t => t.type === 'DEPENSE' && !t.relatedReceiptId && !salaryCategories.has(t.category))
       .reduce((acc, t) => acc + (t.amount || 0), 0);
 
     const grandTotalRevenues = totalTuitionCollected + otherRevenues;
     const grandTotalExpenses = totalSalariesPaid + otherExpenses;
     const netTreasuryBalance = grandTotalRevenues - grandTotalExpenses;
 
-    // Monthly tuition collection rate
-    const totalActiveStudents = db.students.filter(s => s.status === 'INSCRIT' || s.status === 'REINSCRIT').length;
-    
+    const totalActiveStudents = db.students.filter(
+      s =>
+        s.schoolYearId === activeYearId &&
+        (s.status === 'INSCRIT' || s.status === 'REINSCRIT')
+    ).length;
+
     return {
       totalTuitionCollected,
       totalSalariesPaid,
