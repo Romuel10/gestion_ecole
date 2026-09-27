@@ -1109,7 +1109,7 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
         isOpen={isNewSalaryModalOpen}
         onClose={() => setIsNewSalaryModalOpen(false)}
         title="Émettre une Fiche de Paie Enseignant"
-        subtitle="Calculs automatiques CNaPS 1% et OSTIE 1% selon législation Madagascar"
+        subtitle="Calcul du salaire, retenues et éléments variables"
         maxWidth="2xl"
       >
         <form onSubmit={handleSubmitSalary} className="space-y-4 text-xs">
