@@ -555,6 +555,27 @@ export class CloudSyncService {
     return parseResponse<any>(response);
   }
 
+  static async sendTeacherActivation(db: DatabaseSchema, teacherId: string) {
+    const schoolId = this.getSchoolId();
+    if (!schoolId) throw new Error('Établissement Cloud non lié.');
+
+    const teacher = db.teachers.find((item) => item.id === teacherId);
+    if (!teacher) throw new Error('Enseignant introuvable.');
+
+    const response = await authRequest(
+      '/functions/v1/sekoly-send-teacher-activation',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          schoolId,
+          teacherId: cloudUuid('teacher', teacher.id),
+        }),
+      }
+    );
+
+    return parseResponse<{ sent: boolean }>(response);
+  }
+
   static async pullTeacherChanges(db: DatabaseSchema): Promise<PullResult> {
     const schoolId = this.getSchoolId();
     if (!schoolId || !this.isConnected()) {
