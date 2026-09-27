@@ -432,9 +432,9 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
         <div className="flex flex-wrap items-center gap-1">
           {[
             ['TUITION_GRID', 'Écolages'],
-            ['PAYMENTS_HISTORY', 'Encaissements'],
+            ['PAYMENTS_HISTORY', 'Historique'],
             ['PAYROLL', 'Salaires'],
-            ['TREASURY', 'Livre de caisse'],
+            ['TREASURY', 'Caisse'],
           ].map(([id, label]) => (
             <button
               key={id}
@@ -451,62 +451,63 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
           ))}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setIsNewPaymentModalOpen(true)}
+            className="button button--primary"
+          >
+            <PlusCircle className="w-3.5 h-3.5" />
+            Encaisser un élève
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsNewExpenseModalOpen(true)}
+            className="button button--secondary"
+          >
+            Enregistrer entrée / sortie
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsNewSalaryModalOpen(true)}
+            className="button button--secondary"
+          >
+            Payer un enseignant
+          </button>
           <button
             type="button"
             onClick={() => ExcelExporterService.exportFinances(db)}
             className="button button--secondary"
           >
             <FileSpreadsheet className="w-3.5 h-3.5" />
-            Export Excel
-          </button>
-          <button type="button" onClick={() => setIsNewPaymentModalOpen(true)} className="button button--primary">
-            <PlusCircle className="w-3.5 h-3.5" />
-            Encaisser
+            Excel
           </button>
         </div>
       </div>
 
-      {/* 3 Financial Summary Cards */}
-      <div className="metric-grid">
-        <div className="metric-card">
-          <div className="flex items-center justify-between text-xs text-slate-500">
-            <span>Total Recettes Encaissées</span>
-            <ArrowUpRight className="w-4 h-4 text-emerald-600" />
-          </div>
-          <div className="mt-2 text-xl sm:text-2xl font-extrabold text-emerald-600 dark:text-emerald-400">
-            {CalculationService.formatAriary(metrics.grandTotalRevenues)}
-          </div>
-          <div className="mt-1 text-[11px] text-slate-400">
-            Écolages : {CalculationService.formatAriary(metrics.totalTuitionCollected)}
-          </div>
+      <div className="finance-summary">
+        <div className="finance-summary__item">
+          <span>Entrées</span>
+          <strong>{CalculationService.formatAriary(metrics.grandTotalRevenues)}</strong>
+          <small>Tout l’argent encaissé</small>
         </div>
+        <div className="finance-summary__item">
+          <span>Sorties</span>
+          <strong>{CalculationService.formatAriary(metrics.grandTotalExpenses)}</strong>
+          <small>Dépenses et salaires payés</small>
+        </div>
+        <div className="finance-summary__item finance-summary__item--balance">
+          <span>Solde disponible</span>
+          <strong>{CalculationService.formatAriary(metrics.netTreasuryBalance)}</strong>
+          <small>Entrées moins sorties</small>
+        </div>
+      </div>
 
-        <div className="metric-card">
-          <div className="flex items-center justify-between text-xs text-slate-500">
-            <span>Dépenses & Salaires</span>
-            <ArrowDownRight className="w-4 h-4 text-rose-600" />
-          </div>
-          <div className="mt-2 text-xl sm:text-2xl font-extrabold text-rose-600 dark:text-rose-400">
-            {CalculationService.formatAriary(metrics.grandTotalExpenses)}
-          </div>
-          <div className="mt-1 text-[11px] text-slate-400">
-            Salaires profs : {CalculationService.formatAriary(metrics.totalSalariesPaid)}
-          </div>
-        </div>
-
-        <div className="metric-card">
-          <div className="flex items-center justify-between text-xs text-slate-500">
-            <span>Solde Disponible en Caisse</span>
-            <Wallet className="w-4 h-4 text-blue-600" />
-          </div>
-          <div className="mt-2 text-xl sm:text-2xl font-extrabold text-blue-600 dark:text-blue-400">
-            {CalculationService.formatAriary(metrics.netTreasuryBalance)}
-          </div>
-          <div className="mt-1 text-[11px] text-slate-400">
-            Trésorerie de l'école à jour
-          </div>
-        </div>
+      <div className="finance-help">
+        <strong>Repère simple :</strong>
+        <span>une entrée augmente la caisse</span>
+        <span>une sortie diminue la caisse</span>
+        <span>le solde indique ce qu’il reste</span>
       </div>
 
       {/* TAB 1: GRILLE DE POINTAGE DES 10 MOIS PAR CLASSE */}
@@ -1229,8 +1230,8 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
       <Modal
         isOpen={isNewExpenseModalOpen}
         onClose={() => setIsNewExpenseModalOpen(false)}
-        title="Nouvelle Écriture de Caisse"
-        subtitle="Enregistrement d'une dépense d'exploitation ou d'une recette diverse"
+        title="Enregistrer une entrée ou une sortie"
+        subtitle="Choisissez simplement si l’argent entre dans la caisse ou en sort."
         maxWidth="lg"
       >
         <form onSubmit={handleSubmitTransaction} className="space-y-4 text-xs">
@@ -1247,8 +1248,8 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
                 }
                 className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-bold"
               >
-                <option value="DEPENSE">DÉPENSE (Sortie)</option>
-                <option value="RECETTE">RECETTE (Entrée)</option>
+                <option value="DEPENSE">Sortie d’argent</option>
+                <option value="RECETTE">Entrée d’argent</option>
               </select>
             </div>
 
@@ -1272,12 +1273,24 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
               onChange={(e) => setTxForm({ ...txForm, category: e.target.value })}
               className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
             >
-              <option value="Fournitures scolaires & Pédagogie">Fournitures scolaires & Pédagogie</option>
-              <option value="Électricité & Eau JIRAMA">Électricité & Eau JIRAMA</option>
-              <option value="Internet & Télécommunications">Internet & Télécommunications</option>
-              <option value="Loyer des locaux">Loyer des locaux</option>
-              <option value="Travaux, Entretien & Maintenance">Travaux, Entretien & Maintenance</option>
-              <option value="Diverses dépenses imprévues">Diverses dépenses imprévues</option>
+              {txForm.type === 'DEPENSE' ? (
+                <>
+                  <option value="Fournitures scolaires & Pédagogie">Fournitures / pédagogie</option>
+                  <option value="Électricité & Eau JIRAMA">Électricité / eau</option>
+                  <option value="Internet & Télécommunications">Internet / téléphone</option>
+                  <option value="Loyer des locaux">Loyer</option>
+                  <option value="Travaux, Entretien & Maintenance">Entretien / réparation</option>
+                  <option value="Transport & Déplacement">Transport / déplacement</option>
+                  <option value="Diverses dépenses imprévues">Autre dépense</option>
+                </>
+              ) : (
+                <>
+                  <option value="Dons & Contributions">Don / contribution</option>
+                  <option value="Ventes & Prestations">Vente / prestation</option>
+                  <option value="Subventions">Subvention</option>
+                  <option value="Autres recettes">Autre entrée</option>
+                </>
+              )}
             </select>
           </div>
 
