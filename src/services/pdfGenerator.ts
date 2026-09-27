@@ -493,117 +493,85 @@ export class PdfGeneratorService {
    * Generates and downloads an Official Tuition Fee Payment Receipt (Reçu de Caisse Écolage)
    */
   static generateTuitionReceiptPDF(payment: TuitionPayment, db: DatabaseSchema): void {
-    const doc = new jsPDF({
-      orientation: 'portrait',
-      unit: 'mm',
-      format: [148, 210], // A5 Format
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [148, 210] });
+    const student = db.students.find((item) => item.id === payment.studentId);
+    const schoolClass = db.classes.find((item) => item.id === payment.classId);
+    const { ink, muted, line, soft, accent } = this.BRAND;
+
+    let y = this.drawInstitutionHeader(
+      doc,
+      db,
+      'Reçu de paiement',
+      payment.receiptNumber
+    );
+
+    autoTable(doc, {
+      startY: y,
+      theme: 'grid',
+      body: [
+        ['DATE', payment.paymentDate],
+        ['ÉLÈVE', student ? `${student.lastName.toUpperCase()} ${student.firstName}` : '—'],
+        ['MATRICULE', student?.matricule || '—'],
+        ['CLASSE', schoolClass?.name || '—'],
+        ['OBJET', `${payment.feeType.replaceAll('_', ' ')}${payment.monthTarget ? ` — ${payment.monthTarget}` : ''}`],
+        ['MODE DE PAIEMENT', payment.paymentMethod],
+        ['PAYEUR', payment.payerName || 'Parent / Tuteur'],
+        ['RÉFÉRENCE', payment.referenceNumber || '—'],
+      ],
+      styles: {
+        fontSize: 7.3,
+        textColor: ink,
+        lineColor: line,
+        lineWidth: 0.15,
+        cellPadding: 2.2,
+      },
+      columnStyles: {
+        0: { cellWidth: 37, fillColor: soft, fontStyle: 'bold', textColor: muted },
+        1: { cellWidth: 91 },
+      },
+      margin: { left: 10, right: 10 },
     });
 
-    const cfg = db.schoolConfig;
-    this.addSchoolLogo(doc, db, 4);
-    const student = db.students.find(s => s.id === payment.studentId);
-    const cls = db.classes.find(c => c.id === payment.classId);
+    y = (doc as any).lastAutoTable.finalY + 6;
 
-    // Top Header
+    doc.setDrawColor(...line);
+    doc.setFillColor(...soft);
+    doc.rect(10, y, 128, 18, 'FD');
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9);
-    doc.text(cfg.name.toUpperCase(), 74, 12, { align: 'center' });
-    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...muted);
     doc.setFontSize(7);
-    doc.text(cfg.motto, 74, 16, { align: 'center' });
-    doc.text(`${cfg.address} - ${cfg.city} | Tél: ${cfg.phone}`, 74, 20, { align: 'center' });
-
-    doc.setDrawColor(200, 200, 200);
-    doc.line(10, 23, 138, 23);
-
-    // Title Box
-    doc.setFillColor(30, 58, 138);
-    doc.rect(10, 26, 128, 8, 'F');
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10);
-    doc.setTextColor(255, 255, 255);
-    doc.text(`REÇU DE QUITTANCE N° ${payment.receiptNumber}`, 74, 31.5, { align: 'center' });
-    doc.setTextColor(0, 0, 0);
-
-    // Details Grid
-    doc.setDrawColor(220, 220, 220);
-    doc.setFillColor(250, 250, 250);
-    doc.roundedRect(10, 38, 128, 56, 1.5, 1.5, 'FD');
-
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'bold');
-    doc.text("Date de paiement :", 14, 44);
-    doc.setFont('helvetica', 'normal');
-    doc.text(payment.paymentDate, 50, 44);
-
-    doc.setFont('helvetica', 'bold');
-    doc.text("Matricule Élève :", 14, 50);
-    doc.setFont('helvetica', 'normal');
-    doc.text(student ? student.matricule : 'N/A', 50, 50);
-
-    doc.setFont('helvetica', 'bold');
-    doc.text("Nom & Prénom Élève :", 14, 56);
-    doc.setFont('helvetica', 'normal');
-    doc.text(student ? `${student.lastName} ${student.firstName}` : 'Élève inconnu', 50, 56);
-
-    doc.setFont('helvetica', 'bold');
-    doc.text("Classe :", 14, 62);
-    doc.setFont('helvetica', 'normal');
-    doc.text(cls ? cls.name : 'N/A', 50, 62);
-
-    doc.setFont('helvetica', 'bold');
-    doc.text("Motif du paiement :", 14, 68);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`${payment.feeType.replace('_', ' ')} — ${payment.monthTarget || ''}`, 50, 68);
-
-    doc.setFont('helvetica', 'bold');
-    doc.text("Mode de règlement :", 14, 74);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`${payment.paymentMethod} ${payment.referenceNumber ? `(Réf: ${payment.referenceNumber})` : ''}`, 50, 74);
-
-    doc.setFont('helvetica', 'bold');
-    doc.text("Versé par :", 14, 80);
-    doc.setFont('helvetica', 'normal');
-    doc.text(payment.payerName || 'Parent / Tuteur', 50, 80);
-
-    doc.setFont('helvetica', 'bold');
-    doc.text("Observations :", 14, 86);
-    doc.setFont('helvetica', 'normal');
-    doc.text(payment.notes || 'Paiement régulier validé', 50, 86);
+    doc.text('MONTANT ENCAISSÉ', 14, y + 6);
+    doc.setTextColor(...accent);
+    doc.setFontSize(13);
+    doc.text(CalculationService.formatAriary(payment.amount), 134, y + 12, { align: 'right' });
 
     if (payment.discount > 0) {
-      doc.setFontSize(7.5);
       doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6.8);
+      doc.setTextColor(...muted);
       doc.text(
-        `Montant brut : ${CalculationService.formatAriary(payment.totalDue)}  •  Remise : -${CalculationService.formatAriary(payment.discount)}`,
+        `Montant dû : ${CalculationService.formatAriary(payment.totalDue)} • Remise : ${CalculationService.formatAriary(payment.discount)}`,
         14,
-        93
+        y + 12
       );
     }
 
-    // Total Banner
-    doc.setFillColor(236, 253, 245);
-    doc.setDrawColor(16, 185, 129);
-    doc.roundedRect(10, 98, 128, 14, 2, 2, 'FD');
-
+    const signY = y + 32;
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10);
-    doc.setTextColor(4, 120, 87);
-    doc.text("MONTANT TOTAL PERÇU :", 16, 107);
-    doc.setFontSize(12);
-    doc.text(CalculationService.formatAriary(payment.amount), 132, 107, { align: 'right' });
-    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(7.2);
+    doc.setTextColor(...ink);
+    doc.text('Payeur', 32, signY, { align: 'center' });
+    doc.text('Caisse / Direction', 106, signY, { align: 'center' });
+    doc.setDrawColor(...line);
+    doc.line(16, signY + 17, 48, signY + 17);
+    doc.line(88, signY + 17, 124, signY + 17);
 
-    // Signatures
-    doc.setFontSize(7.5);
-    doc.setFont('helvetica', 'bold');
-    doc.text("Signature du Payeur", 25, 122);
-    doc.text("Cachet & Signature Caisse LPSM", 90, 122);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6.4);
+    doc.setTextColor(...muted);
+    doc.text(`Émis par ${payment.cashierName}`, 106, signY + 22, { align: 'center' });
 
-    doc.setFont('helvetica', 'italic');
-    doc.setFontSize(6.5);
-    doc.text(`Émis le ${payment.paymentDate} par ${payment.cashierName}`, 90, 136);
-
+    this.drawDocumentFooter(doc, db, 'Reçu de paiement — original à conserver');
     doc.save(`RECU_${payment.receiptNumber}.pdf`);
   }
 
@@ -611,101 +579,81 @@ export class PdfGeneratorService {
    * Generates and downloads a Teacher / Staff Payslip (Fiche de Paie / Bulletin de Salaire)
    */
   static generateSalaryPayslipPDF(salary: SalaryPayment, db: DatabaseSchema): void {
-    const doc = new jsPDF({
-      orientation: 'portrait',
-      unit: 'mm',
-      format: 'a4',
-    });
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const teacher = db.teachers.find((item) => item.id === salary.teacherId);
+    const { ink, muted, line, soft, accent } = this.BRAND;
 
-    const cfg = db.schoolConfig;
-    this.addSchoolLogo(doc, db, 4);
-    const teacher = db.teachers.find(t => t.id === salary.teacherId);
-
-    // Top Header
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10);
-    doc.text(cfg.name.toUpperCase(), 14, 15);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
-    doc.text(`${cfg.address} - ${cfg.city}`, 14, 20);
-    doc.text(`N° Employeur / Code MEN : ${cfg.menCode}`, 14, 25);
-
-    // Title
-    doc.setFillColor(30, 58, 138);
-    doc.rect(14, 32, 182, 8, 'F');
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(11);
-    doc.setTextColor(255, 255, 255);
-    doc.text(`BULLETIN DE PAIE — MOIS DE ${salary.month.toUpperCase()}`, 105, 37.5, { align: 'center' });
-    doc.setTextColor(0, 0, 0);
-
-    // Employee & School Info
-    doc.setDrawColor(203, 213, 225);
-    doc.setFillColor(248, 250, 252);
-    doc.roundedRect(14, 44, 182, 28, 2, 2, 'FD');
-
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'bold');
-    doc.text("Nom & Prénoms :", 18, 50);
-    doc.setFont('helvetica', 'normal');
-    doc.text(teacher ? `${teacher.lastName.toUpperCase()} ${teacher.firstName}` : 'Enseignant', 50, 50);
-
-    doc.setFont('helvetica', 'bold');
-    doc.text("Matricule Enseignant :", 18, 56);
-    doc.setFont('helvetica', 'normal');
-    doc.text(teacher ? teacher.matricule : 'N/A', 50, 56);
-
-    doc.setFont('helvetica', 'bold');
-    doc.text("Statut Contractuel :", 18, 62);
-    doc.setFont('helvetica', 'normal');
-    doc.text(salary.contractType, 50, 62);
-
-    doc.setFont('helvetica', 'bold');
-    doc.text("N° CIN :", 18, 68);
-    doc.setFont('helvetica', 'normal');
-    doc.text(teacher?.cinNumber || 'N/A', 50, 68);
-
-    doc.setFont('helvetica', 'bold');
-    doc.text("Période :", 125, 50);
-    doc.setFont('helvetica', 'normal');
-    doc.text(salary.month, 150, 50);
-
-    doc.setFont('helvetica', 'bold');
-    doc.text("Date de paiement :", 125, 56);
-    doc.setFont('helvetica', 'normal');
-    doc.text(salary.paymentDate, 155, 56);
-
-    doc.setFont('helvetica', 'bold');
-    doc.text("Mode de règlement :", 125, 62);
-    doc.setFont('helvetica', 'normal');
-    doc.text(salary.paymentMethod, 155, 62);
-
-    // Salary Calculation Table
-    const salaryRows = [
-      [
-        salary.contractType === 'TITULAIRE' ? 'Salaire de Base Mensuel' : `Vacations Enseignement (${salary.hoursWorked} heures × ${CalculationService.formatAriary(salary.baseSalaryOrRate)})`,
-        CalculationService.formatAriary(salary.grossSalary),
-        '-',
-      ],
-      ['Primes & Indemnités d\'ancienneté / assiduité', CalculationService.formatAriary(salary.bonuses), '-'],
-      ['Avance sur salaire (Acompte quinzaine)', '-', CalculationService.formatAriary(salary.advances)],
-      ['Cotisation CNaPS (Caisse Nationale de Prévoyance Sociale - 1%)', '-', CalculationService.formatAriary(salary.cnapsDeduction)],
-      ['Cotisation Sanitaire OSTIE / FUNHRE (1%)', '-', CalculationService.formatAriary(salary.ostieDeduction)],
-      ['Autres retenues diverses', '-', CalculationService.formatAriary(salary.otherDeductions)],
-    ];
+    let y = this.drawInstitutionHeader(
+      doc,
+      db,
+      'Bulletin de paie',
+      salary.month
+    );
 
     autoTable(doc, {
-      startY: 76,
-      head: [['DÉSIGNATION DES RUBRIQUES SALARIALES', 'GAINS (BRUT)', 'RETENUES / DÉDUCTIONS']],
-      body: salaryRows,
+      startY: y,
+      theme: 'grid',
+      body: [
+        ['SALARIÉ', teacher ? `${teacher.lastName.toUpperCase()} ${teacher.firstName}` : 'Enseignant', 'MATRICULE', teacher?.matricule || '—'],
+        ['CONTRAT', salary.contractType, 'DATE DE PAIEMENT', salary.paymentDate],
+        ['CIN', teacher?.cinNumber || '—', 'MODE DE PAIEMENT', salary.paymentMethod],
+      ],
+      styles: {
+        fontSize: 7.4,
+        textColor: ink,
+        lineColor: line,
+        lineWidth: 0.15,
+        cellPadding: 2.2,
+      },
+      columnStyles: {
+        0: { cellWidth: 29, fillColor: soft, fontStyle: 'bold', textColor: muted },
+        1: { cellWidth: 62 },
+        2: { cellWidth: 31, fillColor: soft, fontStyle: 'bold', textColor: muted },
+        3: { cellWidth: 60 },
+      },
+      margin: { left: 14, right: 14 },
+    });
+
+    y = (doc as any).lastAutoTable.finalY + 5;
+
+    const rows = [
+      [
+        salary.contractType === 'VACATAIRE'
+          ? `Vacations (${salary.hoursWorked} h)`
+          : 'Salaire de base',
+        salary.grossSalary,
+        0,
+      ],
+      ['Primes et indemnités', salary.bonuses, 0],
+      ['Avances sur salaire', 0, salary.advances],
+      ['Cotisation CNaPS', 0, salary.cnapsDeduction],
+      ['Cotisation sanitaire', 0, salary.ostieDeduction],
+      ['Autres retenues', 0, salary.otherDeductions],
+    ].map(([label, gain, deduction]) => [
+      label,
+      Number(gain) ? CalculationService.formatAriary(Number(gain)) : '—',
+      Number(deduction) ? CalculationService.formatAriary(Number(deduction)) : '—',
+    ]);
+
+    autoTable(doc, {
+      startY: y,
+      head: [['RUBRIQUE', 'GAINS', 'RETENUES']],
+      body: rows,
       theme: 'grid',
       headStyles: {
-        fillColor: [30, 58, 138],
-        textColor: 255,
-        fontSize: 8,
+        fillColor: [239, 242, 246],
+        textColor: ink,
         fontStyle: 'bold',
+        fontSize: 7,
+        halign: 'center',
       },
-      bodyStyles: { fontSize: 8 },
+      bodyStyles: {
+        fontSize: 7.5,
+        textColor: ink,
+        lineColor: line,
+        lineWidth: 0.15,
+        cellPadding: 2.4,
+      },
       columnStyles: {
         0: { cellWidth: 100 },
         1: { cellWidth: 41, halign: 'right' },
@@ -714,28 +662,29 @@ export class PdfGeneratorService {
       margin: { left: 14, right: 14 },
     });
 
-    const finalY = (doc as any).lastAutoTable.finalY + 6;
-
-    // Net to Pay Box
-    doc.setFillColor(236, 253, 245);
-    doc.setDrawColor(16, 185, 129);
-    doc.roundedRect(14, finalY, 182, 16, 2, 2, 'FD');
-
-    doc.setFontSize(10);
+    y = (doc as any).lastAutoTable.finalY + 6;
+    doc.setDrawColor(...line);
+    doc.setFillColor(...soft);
+    doc.rect(14, y, 182, 18, 'FD');
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(4, 120, 87);
-    doc.text("NET À PAYER EN ARIARY :", 20, finalY + 10.5);
+    doc.setTextColor(...muted);
+    doc.setFontSize(7);
+    doc.text('NET À PAYER', 19, y + 7);
+    doc.setTextColor(...accent);
     doc.setFontSize(13);
-    doc.text(CalculationService.formatAriary(salary.netSalary), 190, 10.5, { align: 'right' });
-    doc.setTextColor(0, 0, 0);
+    doc.text(CalculationService.formatAriary(salary.netSalary), 190, y + 12, { align: 'right' });
 
-    // Signatures
-    const sY = finalY + 30;
-    doc.setFontSize(8);
+    const signY = y + 36;
+    doc.setTextColor(...ink);
     doc.setFont('helvetica', 'bold');
-    doc.text("Signature du Salarié", 35, sY);
-    doc.text("Pour l'Établissement (Direction & Caisse)", 130, sY);
+    doc.setFontSize(7.5);
+    doc.text('Salarié', 52, signY, { align: 'center' });
+    doc.text('Direction / Administration', 158, signY, { align: 'center' });
+    doc.setDrawColor(...line);
+    doc.line(30, signY + 18, 74, signY + 18);
+    doc.line(132, signY + 18, 184, signY + 18);
 
+    this.drawDocumentFooter(doc, db, `Bulletin de paie • ${salary.month}`);
     doc.save(`FICHE_PAIE_${salary.voucherNumber}.pdf`);
   }
 
@@ -743,111 +692,79 @@ export class PdfGeneratorService {
    * Generates and downloads an Official Certificate of Enrollment (Certificat de Scolarité)
    */
   static generateEnrollmentCertificatePDF(student: Student, db: DatabaseSchema): void {
-    const doc = new jsPDF({
-      orientation: 'portrait',
-      unit: 'mm',
-      format: 'a4',
-    });
-
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
     const cfg = db.schoolConfig;
-    this.addSchoolLogo(doc, db);
-    const studentYear = db.schoolYears.find(y => y.id === student.schoolYearId);
-    const currentYear = studentYear?.label || 'Année scolaire';
-    const certificateYear = studentYear?.startDate.slice(0, 4) || new Date().getFullYear().toString();
-    const cls = db.classes.find(c => c.id === student.classId);
+    const schoolYear = db.schoolYears.find((item) => item.id === student.schoolYearId);
+    const schoolClass = db.classes.find((item) => item.id === student.classId);
+    const yearLabel = schoolYear?.label || 'Année scolaire';
+    const referenceYear = schoolYear?.startDate.slice(0, 4) || new Date().getFullYear().toString();
+    const { ink, muted, line } = this.BRAND;
 
-    // Official Madagascar Top Header
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9);
-    doc.text("REPOBLIKAN'I MADAGASIKARA", 105, 15, { align: 'center' });
-    doc.setFont('helvetica', 'italic');
-    doc.setFontSize(8);
-    doc.text("Fitiavana - Tanindrazana - Fandrosoana", 105, 20, { align: 'center' });
+    let y = this.drawInstitutionHeader(
+      doc,
+      db,
+      cfg.certificateTitle || 'Certificat de scolarité',
+      `Réf. CERT/${student.matricule}/${referenceYear}`
+    );
 
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
-    doc.text("MINISTÈRE DE L'ÉDUCATION NATIONALE", 14, 28);
-    doc.text(cfg.dren || 'DREN ANALAMANGA', 14, 33);
-    doc.text(cfg.cisco || 'CISCO ANTANANARIVO RENIVOHITRA', 14, 38);
-
-    doc.setFont('helvetica', 'bold');
-    doc.text(cfg.name.toUpperCase(), 196, 28, { align: 'right' });
-    doc.setFont('helvetica', 'normal');
-    doc.text(cfg.menCode || '', 196, 33, { align: 'right' });
-    doc.text(cfg.address || '', 196, 38, { align: 'right' });
-
-    doc.setDrawColor(30, 64, 175);
-    doc.setLineWidth(0.8);
-    doc.line(14, 43, 196, 43);
-
-    // Document Title
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(16);
-    doc.text(cfg.certificateTitle || "CERTIFICAT DE SCOLARITÉ", 105, 60, { align: 'center' });
-
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
-    doc.text(`N° Réf : CERT/${student.matricule}/${certificateYear}`, 105, 68, { align: 'center' });
-
-    // Certificate Body Text
-    const bodyY = 85;
-    doc.setFontSize(11);
-    doc.setLineHeightFactor(1.6);
-    
     const defaultTemplate =
       "Je soussigné(e), {DIRECTEUR}, {FONCTION} de l'établissement {ETABLISSEMENT}, certifie que l'élève {NOM_ET_PRENOMS}, né(e) le {DATE_NAISSANCE} à {LIEU_NAISSANCE}, titulaire du matricule {MATRICULE}, est régulièrement inscrit(e) et fréquente les cours en classe de {CLASSE} au titre de l'année scolaire {ANNEE_SCOLAIRE}.\n\nEn foi de quoi, le présent certificat lui est délivré pour servir et valoir ce que de droit.";
 
-    const textBody = this.fillCertificateTemplate(
+    const body = this.fillCertificateTemplate(
       cfg.certificateTemplate || defaultTemplate,
       student,
       db,
-      cls?.name || 'Non assignée',
-      currentYear
+      schoolClass?.name || 'Non assignée',
+      yearLabel
     );
 
-    const splitText = doc.splitTextToSize(textBody, 170);
-    doc.setDrawColor(190, 198, 208);
-    doc.setLineWidth(0.3);
-    doc.rect(15, 78, 180, Math.min(118, Math.max(70, splitText.length * 7 + 20)));
-    doc.text(splitText, 20, bodyY);
+    y += 12;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(11);
+    doc.setTextColor(...ink);
+    doc.setLineHeightFactor(1.55);
+    const bodyLines = doc.splitTextToSize(body, 164);
+    doc.text(bodyLines, 23, y);
 
-    // Bottom Date & Official Seal
-    const calculatedDateY = bodyY + splitText.length * 7 + 22;
-    const dateY = Math.min(232, Math.max(175, calculatedDateY));
-    const signatureX = 126;
-    const signatureWidth = 66;
-    const dateText = `Fait à ${cfg.city}, le ${new Date().toLocaleDateString('fr-FR')}`;
-    const dateLines = doc.splitTextToSize(dateText, signatureWidth);
+    const bodyHeight = bodyLines.length * 7.1;
+    const infoY = y + bodyHeight + 14;
+
+    doc.setDrawColor(...line);
+    doc.setLineWidth(0.2);
+    doc.line(23, infoY, 187, infoY);
 
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9.5);
-    doc.text(dateLines, signatureX, dateY);
+    doc.setFontSize(9);
+    doc.setTextColor(...muted);
+    const dateText = `Fait à ${cfg.city}, le ${new Date().toLocaleDateString('fr-FR')}`;
+    const dateLines = doc.splitTextToSize(dateText, 60);
+    doc.text(dateLines, 128, infoY + 10);
 
-    const dateBlockHeight = Math.max(6, dateLines.length * 5);
-    const titleY = dateY + dateBlockHeight + 4;
-
+    const signatureY = infoY + 10 + dateLines.length * 5 + 4;
+    doc.setTextColor(...ink);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9.5);
-    const titleLines = doc.splitTextToSize(cfg.directorTitle, signatureWidth);
-    doc.text(titleLines, signatureX, titleY);
+    doc.setFontSize(9);
+    const titleLines = doc.splitTextToSize(cfg.directorTitle, 60);
+    doc.text(titleLines, 128, signatureY);
 
-    const titleBlockHeight = Math.max(6, titleLines.length * 5);
-    const nameY = titleY + titleBlockHeight + 14;
+    const nameY = signatureY + titleLines.length * 5 + 18;
+    doc.setFontSize(9);
+    doc.text(cfg.directorName, 128, nameY, { maxWidth: 60 });
 
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9.5);
-    const directorLines = doc.splitTextToSize(cfg.directorName, signatureWidth);
-    doc.text(directorLines, signatureX, nameY);
+    doc.setDrawColor(...line);
+    doc.line(128, nameY + 9, 188, nameY + 9);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6.8);
+    doc.setTextColor(...muted);
+    doc.text('Cachet et signature', 158, nameY + 14, { align: 'center' });
 
-    const directorBlockHeight = Math.max(5, directorLines.length * 5);
-    doc.setFont('helvetica', 'italic');
-    doc.setFontSize(8);
-    doc.text("(Cachet officiel et signature)", signatureX, nameY + directorBlockHeight + 3);
-
-    doc.setDrawColor(30, 64, 175);
-    doc.setLineWidth(0.6);
-    doc.rect(8, 8, 194, 281);
+    this.drawDocumentFooter(
+      doc,
+      db,
+      'Certificat de scolarité — délivré à la demande de la famille'
+    );
 
     doc.save(`CERTIFICAT_SCOLARITE_${student.matricule}.pdf`);
   }
+
 }
