@@ -129,6 +129,32 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
     }
   }, [initialPaymentId, activeYearPayments]);
 
+  useEffect(() => {
+    const firstStudent = db.students.find(
+      (student) => student.schoolYearId === db.currentSchoolYearId
+    );
+    const firstStudentClass = firstStudent ? classMap.get(firstStudent.classId) : undefined;
+
+    setSelectedClassId(firstStudent?.classId || db.classes[0]?.id || '');
+    setTuitionForm((current) => ({
+      ...current,
+      studentId: firstStudent?.id || '',
+      monthTarget: defaultTuitionMonth,
+      amount: firstStudentClass?.monthlyTuitionFee || 90000,
+      discount: 0,
+      payerName: firstStudent
+        ? firstStudent.fatherName || firstStudent.motherName || 'Parent'
+        : '',
+      referenceNumber: '',
+    }));
+    setSalaryForm((current) => ({
+      ...current,
+      month: defaultSalaryMonth,
+      referenceNumber: '',
+    }));
+    setSelectedStudentForReminder(null);
+  }, [db.currentSchoolYearId]);
+
   const schoolMonths = db.schoolConfig.schoolMonths || [
     'Septembre',
     'Octobre',
