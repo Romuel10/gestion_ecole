@@ -41,6 +41,12 @@ export const BASE_INITIAL_DATA: DatabaseSchema = {
     documentLogoPosition: 'LEFT',
     documentLogoWidthMm: 18,
     certificateTitle: 'CERTIFICAT DE SCOLARITÉ',
+    reportCardTitle: 'BULLETIN SCOLAIRE',
+    timetableTitle: 'EMPLOI DU TEMPS',
+    tuitionReceiptTitle: 'REÇU DE PAIEMENT',
+    payslipTitle: 'BULLETIN DE PAIE',
+    studentCardTitle: 'CARTE SCOLAIRE',
+    documentFooterText: 'Document officiel de l’établissement — à conserver',
     certificateTemplate:
       "Je soussigné(e), {DIRECTEUR}, {FONCTION} de l'établissement {ETABLISSEMENT}, certifie que l'élève {NOM_ET_PRENOMS}, né(e) le {DATE_NAISSANCE} à {LIEU_NAISSANCE}, titulaire du matricule {MATRICULE}, est régulièrement inscrit(e) et fréquente les cours en classe de {CLASSE} au titre de l'année scolaire {ANNEE_SCOLAIRE}.\n\nEn foi de quoi, le présent certificat lui est délivré pour servir et valoir ce que de droit.",
     requireAllPeriodsForAnnualDecision: true,
