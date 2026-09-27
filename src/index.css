@@ -395,6 +395,29 @@
   color: var(--text);
 }
 
+.settings-input {
+  width: 100%;
+  min-height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 7px 9px;
+  background: var(--surface);
+  color: var(--text);
+  outline: none;
+  transition: border-color .14s ease, box-shadow .14s ease;
+}
+
+.settings-input:focus {
+  border-color: var(--primary) !important;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 14%, transparent);
+}
+
+.settings-input:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+  background: var(--surface-muted);
+}
+
 .page-panel {
   background: var(--surface);
   border: 1px solid var(--border);
