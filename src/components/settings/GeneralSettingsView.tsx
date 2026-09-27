@@ -15,6 +15,8 @@ import {
   RotateCcw,
   X,
   ListChecks,
+  Archive,
+  FileCog,
 } from 'lucide-react';
 import {
   AnnualDecisionRule,
@@ -30,6 +32,7 @@ import {
 import { StorageService } from '../../services/storage';
 import { MatriculeService } from '../../services/matricule';
 import { CalculationService } from '../../services/calculations';
+import { SchoolYearClosureService } from '../../services/schoolYearClosure';
 import { Modal } from '../common/Modal';
 
 interface GeneralSettingsViewProps {
@@ -41,7 +44,9 @@ interface GeneralSettingsViewProps {
 type SettingsTab =
   | 'SCHOOL'
   | 'ACADEMIC'
+  | 'CLOSURE'
   | 'DECISIONS'
+  | 'DOCUMENTS'
   | 'CLASSES'
   | 'SUBJECTS'
   | 'MATRICULE'
@@ -88,6 +93,8 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
   } | null>(null);
 
   const [newSchoolMonth, setNewSchoolMonth] = useState('');
+  const [allowClosureWithReview, setAllowClosureWithReview] = useState(false);
+  const [closureNote, setClosureNote] = useState('');
 
   const activeSchoolYear = db.schoolYears.find((year) => year.id === db.currentSchoolYearId);
   const activeSchoolYearStart = activeSchoolYear?.startDate.slice(0, 4);
@@ -97,6 +104,58 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
     StorageService.saveDatabase(updated);
     onUpdateDb(updated);
     onShowToast(message, 'success');
+  };
+
+  const closurePreview = (() => {
+    try {
+      return SchoolYearClosureService.preview(db);
+    } catch {
+      return null;
+    }
+  })();
+
+  const handleCloseSchoolYear = () => {
+    if (!closurePreview) {
+      onShowToast('Impossible de préparer la clôture de cette année.', 'error');
+      return;
+    }
+    if (!closurePreview.nextYear) {
+      onShowToast('Créez d’abord l’année scolaire suivante.', 'error');
+      return;
+    }
+
+    const warning = [
+      `Clôturer définitivement ${closurePreview.year.label} ?`,
+      '',
+      'Cette action va :',
+      '- verrouiller toutes les périodes ;',
+      '- enregistrer les décisions annuelles ;',
+      '- préparer les dossiers admis/redoublants pour l’année suivante ;',
+      `- activer ${closurePreview.nextYear.label}.`,
+      '',
+      'Les notes et paiements de l’année clôturée resteront archivés.',
+    ].join('\n');
+
+    if (!window.confirm(warning)) return;
+
+    try {
+      const result = SchoolYearClosureService.close(db, db.currentSchoolYearId, {
+        allowReview: allowClosureWithReview,
+        closureNote,
+      });
+      StorageService.saveDatabase(result.db);
+      onUpdateDb(result.db);
+      setClosureNote('');
+      onShowToast(
+        `Année clôturée. ${result.report.preparedNextYear} dossier(s) préparé(s) pour la rentrée suivante.`,
+        'success'
+      );
+    } catch (error) {
+      onShowToast(
+        error instanceof Error ? error.message : 'Erreur pendant la clôture.',
+        'error'
+      );
+    }
   };
 
   const handleSaveSchool = (event: React.FormEvent) => {
@@ -657,7 +716,9 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
   const tabs = [
     { id: 'SCHOOL' as const, label: 'Établissement', icon: Building2 },
     { id: 'ACADEMIC' as const, label: 'Années et périodes', icon: CalendarRange },
+    { id: 'CLOSURE' as const, label: 'Clôture annuelle', icon: Archive },
     { id: 'DECISIONS' as const, label: 'Décisions annuelles', icon: ListChecks },
+    { id: 'DOCUMENTS' as const, label: 'Documents', icon: FileCog },
     { id: 'CLASSES' as const, label: 'Classes', icon: School },
     { id: 'SUBJECTS' as const, label: 'Matières', icon: BookOpen },
     { id: 'MATRICULE' as const, label: 'Matricules', icon: Hash },
@@ -872,6 +933,237 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
               </div>
             </div>
           </form>
+        )}
+
+        {activeTab === 'DOCUMENTS' && (
+          <form onSubmit={handleSaveSchool} className="page-panel">
+            <div className="page-panel__header">
+              <div>
+                <h2 className="page-panel__title">Documents scolaires</h2>
+                <p className="page-panel__subtitle">
+                  Titres, pied de page et identité commune des PDF/impressions.
+                </p>
+              </div>
+              <button type="submit" className="button button--primary">
+                <Save className="w-4 h-4" />
+                Enregistrer
+              </button>
+            </div>
+
+            <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+              <Field label="Titre du bulletin scolaire">
+                <input
+                  value={schoolConfig.reportCardTitle || 'BULLETIN SCOLAIRE'}
+                  onChange={(event) =>
+                    setSchoolConfig({ ...schoolConfig, reportCardTitle: event.target.value })
+                  }
+                  className="settings-input"
+                />
+              </Field>
+              <Field label="Titre de l’emploi du temps">
+                <input
+                  value={schoolConfig.timetableTitle || 'EMPLOI DU TEMPS'}
+                  onChange={(event) =>
+                    setSchoolConfig({ ...schoolConfig, timetableTitle: event.target.value })
+                  }
+                  className="settings-input"
+                />
+              </Field>
+              <Field label="Titre du reçu de paiement">
+                <input
+                  value={schoolConfig.tuitionReceiptTitle || 'REÇU DE PAIEMENT'}
+                  onChange={(event) =>
+                    setSchoolConfig({ ...schoolConfig, tuitionReceiptTitle: event.target.value })
+                  }
+                  className="settings-input"
+                />
+              </Field>
+              <Field label="Titre du bulletin de paie">
+                <input
+                  value={schoolConfig.payslipTitle || 'BULLETIN DE PAIE'}
+                  onChange={(event) =>
+                    setSchoolConfig({ ...schoolConfig, payslipTitle: event.target.value })
+                  }
+                  className="settings-input"
+                />
+              </Field>
+              <Field label="Titre de la carte scolaire">
+                <input
+                  value={schoolConfig.studentCardTitle || 'CARTE SCOLAIRE'}
+                  onChange={(event) =>
+                    setSchoolConfig({ ...schoolConfig, studentCardTitle: event.target.value })
+                  }
+                  className="settings-input"
+                />
+              </Field>
+              <Field label="Titre du certificat">
+                <input
+                  value={schoolConfig.certificateTitle || 'CERTIFICAT DE SCOLARITÉ'}
+                  onChange={(event) =>
+                    setSchoolConfig({ ...schoolConfig, certificateTitle: event.target.value })
+                  }
+                  className="settings-input"
+                />
+              </Field>
+              <div className="md:col-span-2">
+                <Field label="Pied de page commun des documents">
+                  <input
+                    value={schoolConfig.documentFooterText || ''}
+                    onChange={(event) =>
+                      setSchoolConfig({ ...schoolConfig, documentFooterText: event.target.value })
+                    }
+                    placeholder="Ex. Document officiel de l’établissement — à conserver"
+                    className="settings-input"
+                  />
+                </Field>
+              </div>
+
+              <div className="md:col-span-2 border-t border-slate-200 dark:border-slate-800 pt-4">
+                <Field label="Contenu du certificat de scolarité">
+                  <textarea
+                    rows={8}
+                    value={schoolConfig.certificateTemplate || ''}
+                    onChange={(event) =>
+                      setSchoolConfig({ ...schoolConfig, certificateTemplate: event.target.value })
+                    }
+                    className="settings-input resize-y"
+                  />
+                </Field>
+                <div className="mt-2 text-[10px] text-slate-500">
+                  Variables : {'{NOM_ET_PRENOMS}'}, {'{MATRICULE}'}, {'{DATE_NAISSANCE}'},
+                  {'{LIEU_NAISSANCE}'}, {'{CLASSE}'}, {'{ANNEE_SCOLAIRE}'},
+                  {'{DIRECTEUR}'}, {'{FONCTION}'}, {'{ETABLISSEMENT}'}, {'{VILLE}'}.
+                </div>
+              </div>
+            </div>
+          </form>
+        )}
+
+        {activeTab === 'CLOSURE' && (
+          <div className="page-panel overflow-hidden">
+            <div className="page-panel__header">
+              <div>
+                <h2 className="page-panel__title">Clôture de l’année scolaire</h2>
+                <p className="page-panel__subtitle">
+                  Verrouillage des résultats, archivage et préparation de la rentrée suivante.
+                </p>
+              </div>
+            </div>
+
+            {!closurePreview ? (
+              <div className="p-6 text-sm text-slate-500">
+                Impossible de calculer l’état de clôture.
+              </div>
+            ) : (
+              <div className="p-5 space-y-5">
+                <div className="year-closure-summary">
+                  <div>
+                    <span>Année à clôturer</span>
+                    <strong>{closurePreview.year.label}</strong>
+                  </div>
+                  <div>
+                    <span>Élèves</span>
+                    <strong>{closurePreview.counts.students}</strong>
+                  </div>
+                  <div>
+                    <span>Admis</span>
+                    <strong>{closurePreview.counts.promoted}</strong>
+                  </div>
+                  <div>
+                    <span>Redoublants</span>
+                    <strong>{closurePreview.counts.repeated}</strong>
+                  </div>
+                  <div>
+                    <span>Remis à la famille</span>
+                    <strong>{closurePreview.counts.dismissed}</strong>
+                  </div>
+                  <div>
+                    <span>À examiner</span>
+                    <strong>{closurePreview.counts.review}</strong>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <div className="border border-slate-200 dark:border-slate-700 p-4">
+                    <div className="text-[10px] uppercase tracking-wide font-bold text-slate-500">
+                      Année suivante
+                    </div>
+                    <div className="mt-1 text-sm font-semibold">
+                      {closurePreview.nextYear?.label || 'Non configurée'}
+                    </div>
+                    <p className="mt-2 text-[10.5px] text-slate-500">
+                      Les admis seront placés dans leur classe suivante configurée. Les redoublants
+                      resteront dans leur classe actuelle. Les dossiers seront créés avec le statut
+                      « En attente ».
+                    </p>
+                  </div>
+
+                  <div className="border border-slate-200 dark:border-slate-700 p-4">
+                    <div className="text-[10px] uppercase tracking-wide font-bold text-slate-500">
+                      Contrôle avant clôture
+                    </div>
+                    <div className="mt-2 space-y-2 text-[11px]">
+                      <div className="flex justify-between gap-3">
+                        <span>Périodes configurées</span>
+                        <strong>{closurePreview.year.terms.length}</strong>
+                      </div>
+                      <div className="flex justify-between gap-3">
+                        <span>Dossiers à examiner</span>
+                        <strong>{closurePreview.counts.review}</strong>
+                      </div>
+                      <div className="flex justify-between gap-3">
+                        <span>Classe suivante disponible</span>
+                        <strong>{closurePreview.nextYear ? 'Oui' : 'Non'}</strong>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <label className="block">
+                  <span className="block mb-1.5 text-[10.5px] font-semibold text-slate-600 dark:text-slate-300">
+                    Note de clôture
+                  </span>
+                  <textarea
+                    value={closureNote}
+                    onChange={(event) => setClosureNote(event.target.value)}
+                    rows={3}
+                    placeholder="Ex. Année clôturée après conseil de classe du 28 juin."
+                    className="settings-input resize-y"
+                  />
+                </label>
+
+                {closurePreview.counts.review > 0 && (
+                  <label className="flex items-start gap-2 p-3 border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/20">
+                    <input
+                      type="checkbox"
+                      checked={allowClosureWithReview}
+                      onChange={(event) => setAllowClosureWithReview(event.target.checked)}
+                      className="mt-0.5"
+                    />
+                    <span className="text-[10.5px] text-amber-900 dark:text-amber-200">
+                      Autoriser la clôture malgré {closurePreview.counts.review} dossier(s)
+                      « À examiner ». Ces élèves ne seront pas préparés automatiquement pour
+                      l’année suivante.
+                    </span>
+                  </label>
+                )}
+
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={handleCloseSchoolYear}
+                    disabled={!closurePreview.nextYear || closurePreview.year.status === 'CLOSED'}
+                    className="button button--primary disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Archive className="w-4 h-4" />
+                    {closurePreview.year.status === 'CLOSED'
+                      ? 'Année déjà clôturée'
+                      : 'Clôturer et préparer la rentrée'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         )}
 
         {activeTab === 'DECISIONS' && (
