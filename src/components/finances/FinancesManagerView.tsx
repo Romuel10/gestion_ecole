@@ -586,7 +586,7 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
                             ) : (
                               <button
                                 onClick={() => {
-                                  handleStudentSelectInModal(student.id, `${m} 2025`);
+                                  handleStudentSelectInModal(student.id, getSchoolMonthTarget(m));
                                   setIsNewPaymentModalOpen(true);
                                 }}
                                 className="w-7 h-7 mx-auto rounded-lg bg-rose-50 dark:bg-rose-950/40 text-rose-500 hover:bg-rose-100 hover:text-rose-700 flex items-center justify-center text-[10px] font-bold border border-rose-200 dark:border-rose-900/60 transition"
@@ -1218,7 +1218,12 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
               <label className="block font-semibold mb-1">Type d'opération</label>
               <select
                 value={txForm.type}
-                onChange={(e) => setTxForm({ ...txForm, type: e.target.value as any })}
+                onChange={(e) =>
+                  setTxForm({
+                    ...txForm,
+                    type: e.target.value as 'RECETTE' | 'DEPENSE',
+                  })
+                }
                 className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-bold"
               >
                 <option value="DEPENSE">DÉPENSE (Sortie)</option>
