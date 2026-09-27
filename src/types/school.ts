@@ -49,6 +49,9 @@ export interface SchoolConfig {
   // Annual decisions / promotion
   annualDecisionRules?: AnnualDecisionRule[];
   requireAllPeriodsForAnnualDecision?: boolean;
+  requireAllSubjectsForAnnualDecision?: boolean;
+  continuousAssessmentWeight?: number;
+  examWeight?: number;
 }
 
 export interface MatriculeConfig {
