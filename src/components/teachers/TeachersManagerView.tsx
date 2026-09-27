@@ -141,6 +141,20 @@ export const TeachersManagerView: React.FC<TeachersManagerViewProps> = ({
   };
 
   const handleDeleteTeacher = (id: string, name: string) => {
+    const isAssignedToClass = db.classes.some(
+      (cls) => cls.mainTeacherId === id || cls.subjects.some((subject) => subject.teacherId === id)
+    );
+    const hasTimetable = db.timetableSlots.some((slot) => slot.teacherId === id);
+    const hasSalaryHistory = db.salaryPayments.some((payment) => payment.teacherId === id);
+
+    if (isAssignedToClass || hasTimetable || hasSalaryHistory) {
+      onShowToast(
+        `Impossible de supprimer ${name} : cet enseignant est encore lié à une classe, un emploi du temps ou un historique de salaire.`,
+        'error'
+      );
+      return;
+    }
+
     if (window.confirm(`Supprimer l'enseignant ${name} ?`)) {
       const updated = db.teachers.filter((t) => t.id !== id);
       const updatedDb: DatabaseSchema = { ...db, teachers: updated };
