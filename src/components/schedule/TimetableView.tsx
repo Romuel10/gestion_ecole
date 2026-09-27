@@ -5,9 +5,11 @@ import {
   Trash2,
   Printer,
   AlertTriangle,
+  FileDown,
 } from 'lucide-react';
 import { DatabaseSchema, TimetableSlot } from '../../types/school';
 import { StorageService } from '../../services/storage';
+import { PdfGeneratorService } from '../../services/pdfGenerator';
 import { Modal } from '../common/Modal';
 
 interface TimetableViewProps {
@@ -349,6 +351,14 @@ export const TimetableView: React.FC<TimetableViewProps> = ({
           )}
           <button
             type="button"
+            onClick={() => PdfGeneratorService.generateTimetablePDF(db, viewType, selectedEntityId)}
+            className="button button--secondary"
+          >
+            <FileDown className="w-3.5 h-3.5" />
+            PDF
+          </button>
+          <button
+            type="button"
             onClick={() => window.print()}
             className="button button--secondary"
           >
@@ -433,53 +443,50 @@ export const TimetableView: React.FC<TimetableViewProps> = ({
                     >
                       {match ? (
                         <div
-                          className="h-full p-2.5 rounded-xl text-white shadow-sm flex flex-col justify-between group relative transition-transform hover:scale-[1.02]"
-                          style={{ backgroundColor: match.color || '#3b82f6' }}
+                          className="timetable-course group relative"
+                          style={{ '--course-accent': match.color || '#64748b' } as React.CSSProperties}
                         >
-                          <div>
-                            <div className="font-extrabold text-xs truncate">
-                              {sub?.name || 'Matière'}
-                            </div>
-                            <div className="text-[10px] text-white/90 truncate font-medium">
-                              {viewType === 'CLASS'
-                                ? `${tea?.lastName || 'Prof'}`
-                                : viewType === 'TEACHER'
-                                ? `${cls?.name || 'Classe'}`
-                                : `${cls?.name} • ${tea?.lastName}`}
-                            </div>
+                          <div className="timetable-course__subject">
+                            {sub?.name || 'Matière'}
                           </div>
-
-                          <div className="flex items-center justify-between text-[9px] text-white/80 font-mono pt-1">
-                            <span>{match.room}</span>
-                            <div className="opacity-0 group-hover:opacity-100 flex items-center space-x-1 transition">
-                              <button
-                                onClick={() => {
-                                  setEditingSlot(match);
-                                  setSlotForm({
-                                    dayOfWeek: match.dayOfWeek,
-                                    startTime: match.startTime,
-                                    endTime: match.endTime,
-                                    classId: match.classId,
-                                    subjectId: match.subjectId,
-                                    teacherId: match.teacherId,
-                                    room: match.room,
-                                    color: match.color || '#3b82f6',
-                                  });
-                                  setIsSlotModalOpen(true);
-                                }}
-                                className="p-0.5 rounded bg-black/30 hover:bg-black/50 text-white"
-                                title="Modifier ce créneau"
-                              >
-                                <Edit2 className="w-3 h-3" />
-                              </button>
-                              <button
-                                onClick={() => handleDeleteSlot(match.id)}
-                                className="p-0.5 rounded bg-black/30 hover:bg-black/50 text-white"
-                                title="Supprimer ce créneau"
-                              >
-                                <Trash2 className="w-3 h-3" />
-                              </button>
-                            </div>
+                          <div className="timetable-course__meta">
+                            {viewType === 'CLASS'
+                              ? tea
+                                ? `${tea.lastName} ${tea.firstName}`
+                                : 'Enseignant'
+                              : viewType === 'TEACHER'
+                              ? cls?.name || 'Classe'
+                              : `${cls?.name || ''} · ${tea?.lastName || ''}`}
+                          </div>
+                          <div className="timetable-course__room">{match.room}</div>
+                          <div className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 flex items-center gap-1 no-print">
+                            <button
+                              onClick={() => {
+                                setEditingSlot(match);
+                                setSlotForm({
+                                  dayOfWeek: match.dayOfWeek,
+                                  startTime: match.startTime,
+                                  endTime: match.endTime,
+                                  classId: match.classId,
+                                  subjectId: match.subjectId,
+                                  teacherId: match.teacherId,
+                                  room: match.room,
+                                  color: match.color || '#64748b',
+                                });
+                                setIsSlotModalOpen(true);
+                              }}
+                              className="p-1 border border-slate-300 bg-white text-slate-600"
+                              title="Modifier"
+                            >
+                              <Edit2 className="w-3 h-3" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteSlot(match.id)}
+                              className="p-1 border border-slate-300 bg-white text-rose-700"
+                              title="Supprimer"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
                           </div>
                         </div>
                       ) : (
@@ -490,7 +497,7 @@ export const TimetableView: React.FC<TimetableViewProps> = ({
                               setSlotForm(buildSlotDefaults(day.id, ts.start, ts.end));
                               setIsSlotModalOpen(true);
                             }}
-                            className="p-1.5 rounded-lg bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 hover:bg-blue-100 text-[10px] font-bold"
+                            className="p-1.5 border border-slate-300 text-slate-500 hover:text-slate-900 text-[10px] font-semibold no-print"
                           >
                             + Cours
                           </button>
