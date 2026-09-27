@@ -61,6 +61,28 @@ const uuid = () =>
     return normalized.toString(16);
   });
 
+const stableUuid = (input: string) => {
+  const seeds = [2166136261, 2246822519, 3266489917, 668265263];
+  const hex = seeds
+    .map((seed) => {
+      let hash = seed >>> 0;
+      for (let i = 0; i < input.length; i += 1) {
+        hash ^= input.charCodeAt(i);
+        hash = Math.imul(hash, 16777619);
+      }
+      return (hash >>> 0).toString(16).padStart(8, '0');
+    })
+    .join('')
+    .split('');
+  hex[12] = '4';
+  hex[16] = ((parseInt(hex[16] || '0', 16) & 0x3) | 0x8).toString(16);
+  const value = hex.join('');
+  return `${value.slice(0, 8)}-${value.slice(8, 12)}-${value.slice(
+    12,
+    16
+  )}-${value.slice(16, 20)}-${value.slice(20, 32)}`;
+};
+
 async function executeMutation(
   tableName: string,
   operation: QueuedMutation['operation'],
@@ -256,7 +278,9 @@ export const teacherApi = {
       reason?: string;
     }>;
   }) {
-    const sessionId = uuid();
+    const sessionId = stableUuid(
+      `attendance:${args.context.schoolId}:${args.context.schoolYearId}:${args.assignment.class_id}:${args.assignment.subject_id}:${args.sessionDate}:${args.startTime ?? 'daily'}`
+    );
     const session = {
       id: sessionId,
       school_id: args.context.schoolId,
@@ -288,7 +312,7 @@ export const teacherApi = {
         'sekoly_attendance_sessions',
         'upsert',
         session,
-        'class_id,subject_id,teacher_id,session_date,start_time'
+        'id'
       );
       await executeMutation(
         'sekoly_attendance_entries',
@@ -302,7 +326,7 @@ export const teacherApi = {
         'sekoly_attendance_sessions',
         'upsert',
         session,
-        'class_id,subject_id,teacher_id,session_date,start_time'
+        'id'
       );
       offlineStore.enqueue(
         'sekoly_attendance_entries',
@@ -384,10 +408,10 @@ export const teacherApi = {
     };
 
     try {
-      await executeMutation('sekoly_assessments', 'insert', assessment);
+      await executeMutation('sekoly_assessments', 'upsert', assessment, 'id');
       return assessment;
     } catch {
-      offlineStore.enqueue('sekoly_assessments', 'insert', assessment);
+      offlineStore.enqueue('sekoly_assessments', 'upsert', assessment, 'id');
       return assessment;
     }
   },
