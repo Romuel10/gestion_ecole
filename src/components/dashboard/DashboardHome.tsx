@@ -54,7 +54,8 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
   const allSummaries = db.classes.flatMap((c) =>
     CalculationService.generateClassReportCards(db, c.id, db.currentTermCode, db.currentSchoolYearId)
   );
-  const topStudents = [...allSummaries]
+  const topStudents = allSummaries
+    .filter((summary) => summary.totalCoefficients > 0)
     .sort((a, b) => b.generalAverage - a.generalAverage)
     .slice(0, 5);
 
