@@ -288,7 +288,7 @@ export class CalculationService {
         absencesUnjustified: s.absencesUnjustified,
         latenessCount: s.latenessCount,
         conductGrade: s.conductGrade,
-        councilDecision: s.generalAverage >= 10 ? 'Admis en classe supérieure' : 'Résultats insuffisants / En attente',
+        councilDecision: s.student.councilDecision,
       };
     }).sort((a, b) => a.rank - b.rank);
   }
