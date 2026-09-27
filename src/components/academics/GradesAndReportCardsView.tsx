@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   FileSpreadsheet,
   Calculator,
@@ -118,6 +118,11 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
     });
     setMatrixGrades(newMatrix);
   };
+
+  useEffect(() => {
+    handleSelectSubjectOrClass(selectedClassId, selectedSubjectId, db.currentTermCode);
+    setInspectSummary(null);
+  }, [db.currentSchoolYearId, db.currentTermCode]);
 
   const handleSaveGradesMatrix = () => {
     const activeYear = db.schoolYears.find((y) => y.id === db.currentSchoolYearId);
