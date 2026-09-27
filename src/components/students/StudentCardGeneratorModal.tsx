@@ -41,8 +41,9 @@ export const StudentCardGeneratorModal: React.FC<StudentCardGeneratorModalProps>
       (candidate) => candidate.schoolYearId === db.currentSchoolYearId
     );
     setSelectedStudentId(student?.id || activeYearFallback?.id || '');
+    setThemeColor(db.schoolConfig.badgeThemeColor || '#243f5a');
     setPrintMode('SINGLE');
-  }, [isOpen, student?.id, db.currentSchoolYearId]);
+  }, [isOpen, student?.id, db.currentSchoolYearId, db.schoolConfig.badgeThemeColor]);
 
   if (!isOpen) return null;
 
@@ -81,8 +82,8 @@ export const StudentCardGeneratorModal: React.FC<StudentCardGeneratorModalProps>
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Générateur de Cartes Scolaires Personnalisables"
-      subtitle="Personnalisation des couleurs, mentions, code QR et impression individuelle ou par planche"
+      title="Cartes scolaires"
+      subtitle="Mise en page, informations visibles et impression."
       maxWidth="5xl"
       actions={
         <div className="flex items-center space-x-2">
