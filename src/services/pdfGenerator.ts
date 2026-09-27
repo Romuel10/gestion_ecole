@@ -57,20 +57,24 @@ export class PdfGeneratorService {
   ): number {
     const cfg = db.schoolConfig;
     const { ink, muted, line, accent } = this.BRAND;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const left = 14;
+    const right = pageWidth - 14;
+    const center = pageWidth / 2;
 
     this.addSchoolLogo(doc, db, 8, 15);
 
     doc.setTextColor(...ink);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10.5);
-    doc.text(cfg.name.toUpperCase(), 105, 12, { align: 'center' });
+    doc.text(cfg.name.toUpperCase(), center, 12, { align: 'center' });
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(6.8);
     doc.setTextColor(...muted);
     doc.text(
       [cfg.dren, cfg.cisco].filter(Boolean).join(' • '),
-      105,
+      center,
       16.5,
       { align: 'center' }
     );
@@ -78,25 +82,25 @@ export class PdfGeneratorService {
       [cfg.address, cfg.city, cfg.phone ? `Tél. ${cfg.phone}` : '']
         .filter(Boolean)
         .join(' • '),
-      105,
+      center,
       20.5,
       { align: 'center', maxWidth: 150 }
     );
 
     doc.setDrawColor(...line);
     doc.setLineWidth(0.25);
-    doc.line(14, 25, 196, 25);
+    doc.line(left, 25, right, 25);
 
     doc.setTextColor(...accent);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(12.5);
-    doc.text(documentTitle.toUpperCase(), 14, 33);
+    doc.text(documentTitle.toUpperCase(), left, 33);
 
     if (metaLine) {
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(7.5);
       doc.setTextColor(...muted);
-      doc.text(metaLine, 196, 33, { align: 'right' });
+      doc.text(metaLine, right, 33, { align: 'right' });
     }
 
     doc.setTextColor(...ink);
@@ -107,22 +111,25 @@ export class PdfGeneratorService {
     const cfg = db.schoolConfig;
     const { muted, line } = this.BRAND;
     const pageHeight = doc.internal.pageSize.getHeight();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const left = 14;
+    const right = pageWidth - 14;
 
     doc.setDrawColor(...line);
     doc.setLineWidth(0.2);
-    doc.line(14, pageHeight - 14, 196, pageHeight - 14);
+    doc.line(left, pageHeight - 14, right, pageHeight - 14);
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(6.5);
     doc.setTextColor(...muted);
     doc.text(
       note || `${cfg.acronym} • ${cfg.email || cfg.phone || ''}`,
-      14,
+      left,
       pageHeight - 9
     );
     doc.text(
       `Document généré le ${new Date().toLocaleDateString('fr-FR')}`,
-      196,
+      right,
       pageHeight - 9,
       { align: 'right' }
     );
