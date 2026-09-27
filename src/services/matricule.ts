@@ -13,8 +13,21 @@ export class MatriculeService {
     const yearFull = (options?.year || String(currentYear));
     const yearShort = yearFull.slice(-2);
     
-    // Find highest existing counter or use config.currentCounter + 1
+    // If requested, restart numbering for each target school year by looking at
+    // matricules already created for that year instead of carrying the prior year's counter.
     let nextCounter = config.currentCounter + 1;
+    if (config.resetEveryYear) {
+      const yearToken = config.yearFormat === 'YY' ? yearShort : yearFull;
+      const countersForYear = existingStudents
+        .filter((student) => student.matricule.includes(yearToken))
+        .map((student) => {
+          const numericGroups = student.matricule.match(/\d+/g) || [];
+          const likelyCounter = numericGroups[numericGroups.length - 1];
+          return likelyCounter ? Number(likelyCounter) : 0;
+        })
+        .filter((value) => Number.isFinite(value));
+      nextCounter = (countersForYear.length > 0 ? Math.max(...countersForYear) : 0) + 1;
+    }
 
     // Pattern placeholders replacement
     const numDigits = config.numDigits || 4;
@@ -57,10 +70,10 @@ export class MatriculeService {
   /**
    * Generates a sample preview of how the matricule will look with current configuration
    */
-  static previewPattern(config: MatriculeConfig): string {
-    const yearFull = String(new Date().getFullYear());
+  static previewPattern(config: MatriculeConfig, year?: string): string {
+    const yearFull = year || String(new Date().getFullYear());
     const yearShort = yearFull.slice(-2);
-    const formattedNum = String(config.currentCounter || 1).padStart(config.numDigits || 4, '0');
+    const formattedNum = String((config.currentCounter || 0) + 1).padStart(config.numDigits || 4, '0');
     
     let matricule = config.pattern || '{PREFIX}-{YYYY}-{NUM4}';
     matricule = matricule.replace('{PREFIX}', config.prefix || 'EDG');
