@@ -690,7 +690,7 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
                     {generatedMatriculePreview}
                   </div>
                   <div className="text-[10px] text-slate-400">
-                    Généré et incrémenté automatiquement selon vos règles de configuration
+                    Format défini dans les paramètres de matricule
                   </div>
                 </div>
 
@@ -943,7 +943,7 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
         <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-              Registre Matricule Officiel des Élèves Inscrits
+              Registre des élèves inscrits
             </h3>
             <button
               onClick={() =>
