@@ -315,6 +315,21 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
     }
   };
 
+  const handleSendTeacherActivation = async (teacherId: string) => {
+    setInvitingTeacherId(teacherId);
+    try {
+      await CloudSyncService.sendTeacherActivation(db, teacherId);
+      onShowToast('Lien d’activation Sekoly envoyé par email.', 'success');
+    } catch (error) {
+      onShowToast(
+        error instanceof Error ? error.message : 'Envoi du lien d’activation impossible.',
+        'error'
+      );
+    } finally {
+      setInvitingTeacherId(null);
+    }
+  };
+
   const handleInviteCloudTeacher = async (teacherId: string) => {
     setInvitingTeacherId(teacherId);
     try {
@@ -2132,11 +2147,23 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
                                           !teacher.email ||
                                           invitingTeacherId === teacher.id
                                         }
+                                        onClick={() => handleSendTeacherActivation(teacher.id)}
+                                        className="button button--secondary disabled:opacity-40"
+                                        title="Envoie un lien d’activation sécurisé via Resend lorsque le domaine et les secrets sont configurés."
+                                      >
+                                        Lien Resend
+                                      </button>
+                                      <button
+                                        type="button"
+                                        disabled={
+                                          !teacher.email ||
+                                          invitingTeacherId === teacher.id
+                                        }
                                         onClick={() => handleInviteCloudTeacher(teacher.id)}
                                         className="button button--secondary disabled:opacity-40"
                                         title="Utilise l’invitation email Supabase lorsque le SMTP de production est configuré."
                                       >
-                                        Invitation email
+                                        Invitation Supabase
                                       </button>
                                     </div>
                                   </td>
