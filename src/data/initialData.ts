@@ -38,6 +38,30 @@ export const INITIAL_DATA: DatabaseSchema = {
     reminderTemplate:
       "Chers Parents de l'élève {NOM} ({CLASSE}), sauf erreur de notre part, l'écolage du/des mois de {MOIS_IMPAYES} d'un montant total de {MONTANT} reste en attente de règlement à la caisse de l'établissement. Nous vous prions de bien vouloir régulariser cette situation dans les meilleurs délais. Merci de votre confiance.",
     badgeThemeColor: '#1e40af',
+    requireAllPeriodsForAnnualDecision: true,
+    annualDecisionRules: [
+      {
+        id: 'rule-promote',
+        label: 'Admis',
+        outcome: 'PROMOTE',
+        minAverage: 10,
+        maxAverage: 20,
+      },
+      {
+        id: 'rule-repeat',
+        label: 'Redoublant',
+        outcome: 'REPEAT',
+        minAverage: 7,
+        maxAverage: 9.99,
+      },
+      {
+        id: 'rule-dismiss',
+        label: 'Remis à la famille',
+        outcome: 'DISMISS',
+        minAverage: 0,
+        maxAverage: 6.99,
+      },
+    ],
   },
 
   matriculeConfig: {
