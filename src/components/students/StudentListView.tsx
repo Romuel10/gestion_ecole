@@ -10,15 +10,22 @@ import {
   CreditCard,
   Users,
   X,
+  Upload,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { DatabaseSchema, Student } from '../../types/school';
 import { StorageService } from '../../services/storage';
 import { ExcelExporterService } from '../../services/excelExporter';
+import {
+  ExcelImportService,
+  StudentImportPreview,
+} from '../../services/excelImporter';
 import { PdfGeneratorService } from '../../services/pdfGenerator';
 import { StudentDetailModal } from './StudentDetailModal';
 import { StudentFormModal } from './StudentFormModal';
 import { StudentCardGeneratorModal } from './StudentCardGeneratorModal';
 import { ConfirmDialog } from '../common/ConfirmDialog';
+import { ExcelImportModal } from '../common/ExcelImportModal';
 
 interface StudentListViewProps {
   db: DatabaseSchema;
@@ -51,6 +58,10 @@ export const StudentListView: React.FC<StudentListViewProps> = ({
   const [isCardModalOpen, setIsCardModalOpen] = useState(false);
   const [studentToDelete, setStudentToDelete] = useState<Student | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const importFileRef = useRef<HTMLInputElement>(null);
+  const [studentImportPreview, setStudentImportPreview] =
+    useState<StudentImportPreview | null>(null);
+  const [studentImportFileName, setStudentImportFileName] = useState('');
 
   // Focus automatique sur la recherche à l'ouverture de la vue
   useEffect(() => {
@@ -90,6 +101,55 @@ export const StudentListView: React.FC<StudentListViewProps> = ({
   const classMap = new Map(db.classes.map((c) => [c.id, c.name]));
   const currentSelectedClassObj = db.classes.find((c) => c.id === selectedClassId) || null;
 
+  const handleStudentExcelFile = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    if (db.classes.length === 0) {
+      onShowToast(
+        'Configurez d’abord les classes dans Paramètres > Classes avant d’importer les élèves.',
+        'error'
+      );
+      return;
+    }
+
+    try {
+      const preview = await ExcelImportService.parseStudents(file, db);
+      setStudentImportPreview(preview);
+      setStudentImportFileName(file.name);
+    } catch (error) {
+      onShowToast(
+        error instanceof Error ? error.message : 'Impossible de lire ce fichier Excel.',
+        'error'
+      );
+    }
+  };
+
+  const confirmStudentImport = () => {
+    if (!studentImportPreview || studentImportPreview.issues.length > 0) return;
+
+    const updatedDb: DatabaseSchema = {
+      ...db,
+      students: [...db.students, ...studentImportPreview.students],
+      matriculeConfig: {
+        ...db.matriculeConfig,
+        currentCounter: studentImportPreview.nextCounter,
+      },
+    };
+
+    StorageService.saveDatabase(updatedDb);
+    onUpdateDb(updatedDb);
+    onShowToast(
+      `${studentImportPreview.students.length} élève(s) importé(s) depuis Excel.`,
+      'success'
+    );
+    setStudentImportPreview(null);
+    setStudentImportFileName('');
+  };
+
   const handleDeleteStudent = (student: Student) => {
     const hasAcademicHistory = db.grades.some((g) => g.studentId === student.id);
     const hasAttendanceHistory = db.attendanceRecords.some((a) => a.studentId === student.id);
@@ -118,7 +178,30 @@ export const StudentListView: React.FC<StudentListViewProps> = ({
   return (
     <div className="space-y-6">
       {/* Top Banner & Fast Actions */}
+      <input
+        ref={importFileRef}
+        type="file"
+        accept=".xlsx,.xls"
+        onChange={handleStudentExcelFile}
+        className="hidden"
+      />
       <div className="flex flex-wrap justify-end gap-2">
+        <button
+          type="button"
+          onClick={() => ExcelImportService.downloadStudentsTemplate(db)}
+          className="button button--secondary"
+        >
+          <FileSpreadsheet className="w-3.5 h-3.5" />
+          Modèle Excel
+        </button>
+        <button
+          type="button"
+          onClick={() => importFileRef.current?.click()}
+          className="button button--secondary"
+        >
+          <Upload className="w-3.5 h-3.5" />
+          Importer Excel
+        </button>
         <button
           type="button"
           onClick={() => {
@@ -368,6 +451,21 @@ export const StudentListView: React.FC<StudentListViewProps> = ({
           )}
         </div>
       )}
+
+      <ExcelImportModal
+        isOpen={!!studentImportPreview}
+        onClose={() => {
+          setStudentImportPreview(null);
+          setStudentImportFileName('');
+        }}
+        title="Importer des élèves depuis Excel"
+        fileName={studentImportFileName}
+        validCount={studentImportPreview?.students.length || 0}
+        validLabel="élève(s)"
+        issues={studentImportPreview?.issues || []}
+        warnings={studentImportPreview?.warnings || []}
+        onConfirm={confirmStudentImport}
+      />
 
       {/* Confirmation de suppression */}
       <ConfirmDialog
