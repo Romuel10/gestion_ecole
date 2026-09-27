@@ -1309,3 +1309,107 @@ textarea {
     border-bottom: 1px solid var(--border);
   }
 }
+
+
+.attendance-summary,
+.year-closure-summary,
+.cash-closing-summary {
+  display: grid;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.attendance-summary {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.year-closure-summary {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.cash-closing-summary {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.attendance-summary > div,
+.year-closure-summary > div,
+.cash-closing-summary > div {
+  min-height: 64px;
+  padding: 11px 13px;
+  border-right: 1px solid var(--border);
+}
+
+.attendance-summary > div:last-child,
+.year-closure-summary > div:last-child,
+.cash-closing-summary > div:last-child {
+  border-right: 0;
+}
+
+.attendance-summary span,
+.year-closure-summary span,
+.cash-closing-summary span {
+  display: block;
+  color: var(--text-muted);
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .055em;
+}
+
+.attendance-summary strong,
+.year-closure-summary strong,
+.cash-closing-summary strong {
+  display: block;
+  margin-top: 6px;
+  color: var(--text);
+  font-size: 18px;
+  line-height: 1;
+  font-weight: 700;
+}
+
+@media (max-width: 1100px) {
+  .year-closure-summary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .year-closure-summary > div:nth-child(3n) {
+    border-right: 0;
+  }
+
+  .year-closure-summary > div:nth-child(-n+3) {
+    border-bottom: 1px solid var(--border);
+  }
+}
+
+@media (max-width: 760px) {
+  .attendance-summary,
+  .cash-closing-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .attendance-summary > div:nth-child(2n),
+  .cash-closing-summary > div:nth-child(2n) {
+    border-right: 0;
+  }
+
+  .attendance-summary > div:nth-child(-n+2),
+  .cash-closing-summary > div:nth-child(-n+2) {
+    border-bottom: 1px solid var(--border);
+  }
+
+  .year-closure-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .year-closure-summary > div {
+    border-bottom: 1px solid var(--border);
+  }
+
+  .year-closure-summary > div:nth-child(2n) {
+    border-right: 0;
+  }
+
+  .year-closure-summary > div:nth-last-child(-n+2) {
+    border-bottom: 0;
+  }
+}
