@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { DatabaseSchema } from './types/school';
 import { StorageService } from './services/storage';
 import { Sidebar, NavTab } from './components/layout/Sidebar';
@@ -14,6 +14,7 @@ import { TimetableView } from './components/schedule/TimetableView';
 import { AttendanceManagerView } from './components/attendance/AttendanceManagerView';
 import { TeachersManagerView } from './components/teachers/TeachersManagerView';
 import { GeneralSettingsView } from './components/settings/GeneralSettingsView';
+import { CloudSyncService } from './services/cloudSync';
 
 export function App() {
   const [db, setDb] = useState<DatabaseSchema>(() => StorageService.loadDatabase());
@@ -23,6 +24,11 @@ export function App() {
   const [selectedEntityId, setSelectedEntityId] = useState<string | undefined>();
   const [pendingFinanceAction, setPendingFinanceAction] = useState<'NEW_PAYMENT' | null>(null);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const dbRef = useRef(db);
+
+  useEffect(() => {
+    dbRef.current = db;
+  }, [db]);
 
   const [isDark, setIsDark] = useState<boolean>(() => {
     const stored = localStorage.getItem('SEKOLY_THEME');
@@ -47,6 +53,49 @@ export function App() {
     document.documentElement.classList.toggle('dark', isDark);
     localStorage.setItem('SEKOLY_THEME', isDark ? 'dark' : 'light');
   }, [isDark]);
+
+  useEffect(() => {
+    if (!CloudSyncService.isConnected() || !CloudSyncService.getSchoolId()) {
+      return;
+    }
+
+    let cancelled = false;
+    let running = false;
+
+    const pull = async () => {
+      if (running || cancelled) return;
+      running = true;
+      try {
+        const result = await CloudSyncService.pullTeacherChanges(dbRef.current);
+        if (
+          !cancelled &&
+          (result.attendanceAdded > 0 || result.gradesChanged > 0)
+        ) {
+          StorageService.saveDatabase(result.db);
+          dbRef.current = result.db;
+          setDb(result.db);
+          showToast(
+            `Cloud : ${result.attendanceAdded} présence(s), ${result.gradesChanged} fiche(s) de notes mise(s) à jour.`,
+            'success'
+          );
+        }
+      } catch (error) {
+        console.warn('Sekoly Cloud sync:', error);
+      } finally {
+        running = false;
+      }
+    };
+
+    void pull();
+    const timer = window.setInterval(pull, 10000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, []);
+
+
 
   const showToast = (text: string, type: 'success' | 'error' | 'info' = 'info') => {
     setToasts((current) => [
