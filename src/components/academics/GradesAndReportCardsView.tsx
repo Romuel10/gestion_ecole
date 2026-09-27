@@ -841,7 +841,7 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
                 className="px-4 py-1.5 text-xs font-bold rounded-lg bg-blue-600 hover:bg-blue-700 text-white flex items-center space-x-1.5 shadow"
               >
                 <Printer className="w-4 h-4" />
-                <span>Télécharger le PDF Officiel</span>
+                <span>Télécharger le PDF</span>
               </button>
             </div>
           }
