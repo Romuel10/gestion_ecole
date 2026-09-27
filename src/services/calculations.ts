@@ -323,10 +323,10 @@ export class CalculationService {
           .map((grade) => grade.subjectId)
       );
       const hasGrades = gradedSubjectIds.size > 0;
-      const isComplete =
-        Boolean(schoolClass) &&
-        schoolClass.subjects.length > 0 &&
-        schoolClass.subjects.every((subject) => gradedSubjectIds.has(subject.subjectId));
+      const isComplete = schoolClass
+        ? schoolClass.subjects.length > 0 &&
+          schoolClass.subjects.every((subject) => gradedSubjectIds.has(subject.subjectId))
+        : false;
 
       return {
         code: term.code,
