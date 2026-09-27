@@ -65,6 +65,8 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
   const [editingSubjectId, setEditingSubjectId] = useState<string | null>(null);
 
   const [yearDraft, setYearDraft] = useState<SchoolYear | null>(null);
+  const [editingYearId, setEditingYearId] = useState<string | null>(null);
+  const [editingTermId, setEditingTermId] = useState<string | null>(null);
   const [termDraft, setTermDraft] = useState<{
     schoolYearId: string;
     id: string;
@@ -108,7 +110,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
 
   const saveMonths = (months: string[]) => {
     const cleaned = months.map((month) => month.trim()).filter(Boolean);
-    const updatedConfig = { ...db.schoolConfig, schoolMonths: Array.from(new Set(cleaned)) };
+    const updatedConfig = { ...schoolConfig, schoolMonths: Array.from(new Set(cleaned)) };
     setSchoolConfig(updatedConfig);
     updateDatabase({ ...db, schoolConfig: updatedConfig }, 'Calendrier d’écolage mis à jour.');
   };
@@ -295,6 +297,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
   };
 
   const openNewYear = () => {
+    setEditingYearId(null);
     const latest = [...db.schoolYears].sort((a, b) => b.startDate.localeCompare(a.startDate))[0];
     const startYear = latest ? Number(latest.startDate.slice(0, 4)) + 1 : new Date().getFullYear();
     setYearDraft({
@@ -318,11 +321,40 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
       return;
     }
 
+    const schoolYears = editingYearId
+      ? db.schoolYears.map((year) =>
+          year.id === editingYearId ? { ...yearDraft, id: editingYearId } : year
+        )
+      : [...db.schoolYears, yearDraft];
+
     updateDatabase(
-      { ...db, schoolYears: [...db.schoolYears, yearDraft] },
-      'Année scolaire ajoutée.'
+      { ...db, schoolYears },
+      editingYearId ? 'Année scolaire modifiée.' : 'Année scolaire ajoutée.'
     );
     setYearDraft(null);
+    setEditingYearId(null);
+  };
+
+  const deleteYear = (schoolYear: SchoolYear) => {
+    if (schoolYear.id === db.currentSchoolYearId) {
+      onShowToast('L’année scolaire active ne peut pas être supprimée.', 'error');
+      return;
+    }
+    const hasHistory =
+      db.students.some((student) => student.schoolYearId === schoolYear.id) ||
+      db.grades.some((grade) => grade.schoolYearId === schoolYear.id) ||
+      db.tuitionPayments.some((payment) => payment.schoolYearId === schoolYear.id) ||
+      db.salaryPayments.some((payment) => payment.schoolYearId === schoolYear.id) ||
+      db.cashTransactions.some((transaction) => transaction.schoolYearId === schoolYear.id);
+    if (hasHistory) {
+      onShowToast('Cette année possède un historique et ne peut pas être supprimée.', 'error');
+      return;
+    }
+    if (!window.confirm(`Supprimer l’année scolaire « ${schoolYear.label} » ?`)) return;
+    updateDatabase(
+      { ...db, schoolYears: db.schoolYears.filter((year) => year.id !== schoolYear.id) },
+      'Année scolaire supprimée.'
+    );
   };
 
   const activateYear = (schoolYear: SchoolYear) => {
@@ -342,6 +374,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
   };
 
   const openNewTerm = (schoolYear: SchoolYear) => {
+    setEditingTermId(null);
     const sequence = schoolYear.terms.length + 1;
     setTermDraft({
       schoolYearId: schoolYear.id,
@@ -369,27 +402,28 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
       onShowToast('La date de fin doit être postérieure à la date de début.', 'error');
       return;
     }
-    if (year.terms.some((term) => term.code === code)) {
+    if (year.terms.some((term) => term.id !== editingTermId && term.code === code)) {
       onShowToast('Ce code de période existe déjà pour cette année.', 'error');
       return;
     }
+
+    const normalizedTerm = {
+      id: editingTermId || termDraft.id,
+      code,
+      label: termDraft.label.trim(),
+      startDate: termDraft.startDate,
+      endDate: termDraft.endDate,
+      weight: Math.max(0.1, Number(termDraft.weight) || 1),
+      isLocked: termDraft.isLocked,
+    };
 
     const schoolYears = db.schoolYears.map((item) =>
       item.id === year.id
         ? {
             ...item,
-            terms: [
-              ...item.terms,
-              {
-                id: termDraft.id,
-                code,
-                label: termDraft.label.trim(),
-                startDate: termDraft.startDate,
-                endDate: termDraft.endDate,
-                weight: Math.max(0.1, Number(termDraft.weight) || 1),
-                isLocked: termDraft.isLocked,
-              },
-            ],
+            terms: editingTermId
+              ? item.terms.map((term) => (term.id === editingTermId ? normalizedTerm : term))
+              : [...item.terms, normalizedTerm],
           }
         : item
     );
@@ -397,8 +431,22 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
     const currentTermCode =
       db.currentSchoolYearId === year.id && year.terms.length === 0 ? code : db.currentTermCode;
 
-    updateDatabase({ ...db, schoolYears, currentTermCode }, 'Période académique ajoutée.');
+    const previousCode = year.terms.find((term) => term.id === editingTermId)?.code;
+    updateDatabase(
+      {
+        ...db,
+        schoolYears,
+        currentTermCode:
+          editingTermId &&
+          db.currentSchoolYearId === year.id &&
+          db.currentTermCode === previousCode
+            ? code
+            : currentTermCode,
+      },
+      editingTermId ? 'Période académique modifiée.' : 'Période académique ajoutée.'
+    );
     setTermDraft(null);
+    setEditingTermId(null);
   };
 
   const toggleTermLock = (schoolYearId: string, termId: string) => {
@@ -643,6 +691,25 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
                             Activer
                           </button>
                         )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingYearId(year.id);
+                            setYearDraft(JSON.parse(JSON.stringify(year)));
+                          }}
+                          className="icon-button"
+                          title="Modifier l’année"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => deleteYear(year)}
+                          className="icon-button hover:text-rose-600"
+                          title="Supprimer l’année"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
                         <button type="button" onClick={() => openNewTerm(year)} className="button button--secondary">
                           <Plus className="w-3.5 h-3.5" />
                           Ajouter une période
@@ -681,7 +748,27 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
                                     {term.isLocked ? 'Verrouillée' : 'Ouverte'}
                                   </button>
                                 </td>
-                                <td className="text-right">
+                                <td className="text-right whitespace-nowrap">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setEditingTermId(term.id);
+                                      setTermDraft({
+                                        schoolYearId: year.id,
+                                        id: term.id,
+                                        code: term.code,
+                                        label: term.label,
+                                        startDate: term.startDate,
+                                        endDate: term.endDate,
+                                        weight: term.weight,
+                                        isLocked: term.isLocked,
+                                      });
+                                    }}
+                                    className="p-1.5 text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                                    title="Modifier"
+                                  >
+                                    <Pencil className="w-3.5 h-3.5" />
+                                  </button>
                                   <button type="button" onClick={() => deleteTerm(year, term.id)} className="p-1.5 text-slate-400 hover:text-rose-600" title="Supprimer">
                                     <Trash2 className="w-3.5 h-3.5" />
                                   </button>
@@ -1010,13 +1097,13 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
 
       <Modal
         isOpen={!!yearDraft}
-        onClose={() => setYearDraft(null)}
-        title="Ajouter une année scolaire"
+        onClose={() => { setYearDraft(null); setEditingYearId(null); }}
+        title={editingYearId ? 'Modifier l’année scolaire' : 'Ajouter une année scolaire'}
         maxWidth="lg"
         actions={
           <>
-            <button type="button" onClick={() => setYearDraft(null)} className="button button--secondary">Annuler</button>
-            <button type="button" onClick={saveYear} className="button button--primary">Créer</button>
+            <button type="button" onClick={() => { setYearDraft(null); setEditingYearId(null); }} className="button button--secondary">Annuler</button>
+            <button type="button" onClick={saveYear} className="button button--primary">{editingYearId ? 'Enregistrer' : 'Créer'}</button>
           </>
         }
       >
@@ -1038,14 +1125,14 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
 
       <Modal
         isOpen={!!termDraft}
-        onClose={() => setTermDraft(null)}
-        title="Ajouter une période académique"
+        onClose={() => { setTermDraft(null); setEditingTermId(null); }}
+        title={editingTermId ? 'Modifier la période académique' : 'Ajouter une période académique'}
         subtitle="Vous pouvez créer un trimestre, semestre, séquence ou toute autre période."
         maxWidth="lg"
         actions={
           <>
-            <button type="button" onClick={() => setTermDraft(null)} className="button button--secondary">Annuler</button>
-            <button type="button" onClick={saveTerm} className="button button--primary">Ajouter</button>
+            <button type="button" onClick={() => { setTermDraft(null); setEditingTermId(null); }} className="button button--secondary">Annuler</button>
+            <button type="button" onClick={saveTerm} className="button button--primary">{editingTermId ? 'Enregistrer' : 'Ajouter'}</button>
           </>
         }
       >
