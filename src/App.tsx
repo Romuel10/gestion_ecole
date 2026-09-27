@@ -25,7 +25,7 @@ export function App() {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
   const [isDark, setIsDark] = useState<boolean>(() => {
-    const stored = localStorage.getItem('EDUGASY_THEME');
+    const stored = localStorage.getItem('SEKOLY_THEME');
     if (stored === 'dark') return true;
     if (stored === 'light') return false;
     return window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -45,7 +45,7 @@ export function App() {
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', isDark);
-    localStorage.setItem('EDUGASY_THEME', isDark ? 'dark' : 'light');
+    localStorage.setItem('SEKOLY_THEME', isDark ? 'dark' : 'light');
   }, [isDark]);
 
   const showToast = (text: string, type: 'success' | 'error' | 'info' = 'info') => {
