@@ -337,9 +337,26 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
     setReRegSearch('');
   };
 
-  const filteredStudentsForReReg = db.students.filter((s) => {
+  const schoolYearStartMap = new Map(
+    db.schoolYears.map((year) => [year.id, year.startDate])
+  );
+  const latestHistoricalEnrollmentByMatricule = new Map<string, Student>();
+  db.students
+    .filter((student) => student.schoolYearId !== db.currentSchoolYearId)
+    .sort((a, b) =>
+      (schoolYearStartMap.get(b.schoolYearId) || '').localeCompare(
+        schoolYearStartMap.get(a.schoolYearId) || ''
+      )
+    )
+    .forEach((student) => {
+      if (!latestHistoricalEnrollmentByMatricule.has(student.matricule)) {
+        latestHistoricalEnrollmentByMatricule.set(student.matricule, student);
+      }
+    });
+
+  const filteredStudentsForReReg = Array.from(latestHistoricalEnrollmentByMatricule.values()).filter((s) => {
     const q = reRegSearch.toLowerCase().trim();
-    if (!q || s.schoolYearId === db.currentSchoolYearId) return false;
+    if (!q) return false;
 
     const alreadyPresentInActiveYear = db.students.some(
       (current) =>
