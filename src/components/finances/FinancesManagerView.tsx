@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Wallet,
   PlusCircle,
@@ -55,8 +55,14 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
   // New Tuition Payment Form State
   const activeSchoolYear = db.schoolYears.find((y) => y.id === db.currentSchoolYearId);
   const activeSchoolYearStart = activeSchoolYear?.startDate.slice(0, 4) || String(new Date().getFullYear());
-  const defaultTuitionMonth = `Novembre ${activeSchoolYearStart}`;
-  const defaultSalaryMonth = `Octobre ${activeSchoolYearStart}`;
+  const activeSchoolYearEnd =
+    activeSchoolYear?.endDate.slice(0, 4) || String(Number(activeSchoolYearStart) + 1);
+  const getSchoolMonthTarget = (monthName: string) => {
+    const startYearMonths = new Set(['Septembre', 'Octobre', 'Novembre', 'Décembre']);
+    return `${monthName} ${startYearMonths.has(monthName) ? activeSchoolYearStart : activeSchoolYearEnd}`;
+  };
+  const defaultTuitionMonth = getSchoolMonthTarget('Novembre');
+  const defaultSalaryMonth = getSchoolMonthTarget('Octobre');
 
   const [tuitionForm, setTuitionForm] = useState({
     studentId: db.students.find((s) => s.schoolYearId === db.currentSchoolYearId)?.id || '',
@@ -96,6 +102,21 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
   const classMap = new Map(db.classes.map((c) => [c.id, c]));
   const studentMap = new Map(db.students.map((s) => [s.id, s]));
   const teacherMap = new Map(db.teachers.map((t) => [t.id, t]));
+  const activeYearPayments = db.tuitionPayments.filter(
+    (payment) => payment.schoolYearId === db.currentSchoolYearId
+  );
+  const activeYearSalaryPayments = db.salaryPayments.filter(
+    (payment) => payment.schoolYearId === db.currentSchoolYearId
+  );
+  const activeYearCashTransactions = db.cashTransactions.filter(
+    (transaction) => transaction.schoolYearId === db.currentSchoolYearId
+  );
+
+  useEffect(() => {
+    if (initialAction === 'NEW_PAYMENT') {
+      setIsNewPaymentModalOpen(true);
+    }
+  }, [initialAction]);
 
   const schoolMonths = db.schoolConfig.schoolMonths || [
     'Septembre',
@@ -143,6 +164,19 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
     }
     if (discount > baseAmount) {
       onShowToast('La remise ne peut pas dépasser le montant demandé.', 'error');
+      return;
+    }
+
+    if (
+      tuitionForm.feeType === 'ECOLAGE_MENSUEL' &&
+      activeYearPayments.some(
+        (payment) =>
+          payment.studentId === stu.id &&
+          payment.feeType === 'ECOLAGE_MENSUEL' &&
+          payment.monthTarget === tuitionForm.monthTarget
+      )
+    ) {
+      onShowToast(`L'écolage de ${tuitionForm.monthTarget} est déjà enregistré pour cet élève.`, 'error');
       return;
     }
 
@@ -218,8 +252,30 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
     const advances = Number(salaryForm.advances || 0);
     const bonuses = Number(salaryForm.bonuses || 0);
     const net = gross + bonuses - advances - cnaps - ostie;
+    if (gross <= 0 || net <= 0) {
+      onShowToast('Le salaire brut et le net à payer doivent être supérieurs à 0.', 'error');
+      return;
+    }
 
-    const voucherNum = `SAL-${new Date().getFullYear()}-${String(db.salaryPayments.length + 1).padStart(4, '0')}`;
+    if (
+      activeYearSalaryPayments.some(
+        (payment) =>
+          payment.teacherId === teacher.id &&
+          payment.month.trim().toLowerCase() === salaryForm.month.trim().toLowerCase()
+      )
+    ) {
+      onShowToast(`Une fiche de paie existe déjà pour ${teacher.lastName} (${salaryForm.month}).`, 'error');
+      return;
+    }
+
+    const salaryYear = activeSchoolYearStart;
+    const usedSalaryNumbers = db.salaryPayments
+      .map((payment) => payment.voucherNumber)
+      .filter((number) => number.startsWith(`SAL-${salaryYear}-`))
+      .map((number) => Number(number.split('-').pop()))
+      .filter((number) => Number.isFinite(number));
+    const nextSalarySequence = (usedSalaryNumbers.length > 0 ? Math.max(...usedSalaryNumbers) : 0) + 1;
+    const voucherNum = `SAL-${salaryYear}-${String(nextSalarySequence).padStart(4, '0')}`;
     const newSalary: SalaryPayment = {
       id: `sal-${Date.now()}`,
       voucherNumber: voucherNum,
@@ -273,14 +329,20 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
   // Submit Miscellaneous Transaction
   const handleSubmitTransaction = (e: React.FormEvent) => {
     e.preventDefault();
-    const vNum = `TR-${txForm.type === 'RECETTE' ? 'REC' : 'DEP'}-${Date.now().toString().slice(-4)}`;
+    const transactionAmount = Number(txForm.amount || 0);
+    if (!Number.isFinite(transactionAmount) || transactionAmount <= 0) {
+      onShowToast('Le montant de l’écriture doit être supérieur à 0.', 'error');
+      return;
+    }
+
+    const vNum = `TR-${txForm.type === 'RECETTE' ? 'REC' : 'DEP'}-${Date.now().toString().slice(-6)}`;
 
     const newTx: CashTransaction = {
       id: `csh-${Date.now()}`,
       voucherNumber: vNum,
       type: txForm.type,
       category: txForm.category,
-      amount: Number(txForm.amount),
+      amount: transactionAmount,
       date: new Date().toISOString().slice(0, 10),
       paymentMethod: txForm.paymentMethod,
       beneficiaryOrPayer: txForm.beneficiaryOrPayer || 'Administration',
@@ -563,7 +625,7 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
         <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-              Historique des Reçus & Quittances de Caisse ({db.tuitionPayments.length})
+              Historique des Reçus & Quittances de Caisse ({activeYearPayments.length})
             </h3>
           </div>
 
@@ -581,7 +643,7 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {db.tuitionPayments.map((p) => {
+                {activeYearPayments.map((p) => {
                   const stu = studentMap.get(p.studentId);
                   const cls = classMap.get(p.classId);
                   return (
@@ -661,7 +723,7 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {db.salaryPayments.map((sal) => {
+                {activeYearSalaryPayments.map((sal) => {
                   const t = teacherMap.get(sal.teacherId);
                   return (
                     <tr key={sal.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">
@@ -714,7 +776,7 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
         <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-              Grand Livre de Caisse & Écritures ({db.cashTransactions.length})
+              Grand Livre de Caisse & Écritures ({activeYearCashTransactions.length})
             </h3>
             <button
               onClick={() => setIsNewExpenseModalOpen(true)}
@@ -739,7 +801,7 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {db.cashTransactions.map((tx) => (
+                {activeYearCashTransactions.map((tx) => (
                   <tr key={tx.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">
                     <td className="py-3 px-3 font-mono font-bold text-slate-600 dark:text-slate-400">
                       {tx.voucherNumber}
@@ -879,7 +941,9 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
               onChange={(e) => handleStudentSelectInModal(e.target.value)}
               className="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-bold"
             >
-              {db.students.map((s) => (
+              {db.students
+                .filter((s) => s.schoolYearId === db.currentSchoolYearId)
+                .map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.lastName} {s.firstName} ({s.matricule} - {classMap.get(s.classId)?.name})
                 </option>
@@ -892,7 +956,12 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
               <label className="block font-semibold mb-1">Type de Frais</label>
               <select
                 value={tuitionForm.feeType}
-                onChange={(e) => setTuitionForm({ ...tuitionForm, feeType: e.target.value as any })}
+                onChange={(e) =>
+                  setTuitionForm({
+                    ...tuitionForm,
+                    feeType: e.target.value as TuitionPayment['feeType'],
+                  })
+                }
                 className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
               >
                 <option value="ECOLAGE_MENSUEL">Écolage Mensuel</option>
@@ -911,8 +980,8 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
                 className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-medium"
               >
                 {schoolMonths.map((m) => (
-                  <option key={m} value={`${m} 2025`}>
-                    {m}
+                  <option key={m} value={getSchoolMonthTarget(m)}>
+                    {getSchoolMonthTarget(m)}
                   </option>
                 ))}
               </select>
