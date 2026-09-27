@@ -78,12 +78,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
     >
       <div className="app-sidebar__brand">
         <div className="app-sidebar__mark">
-          {db.schoolConfig.acronym?.slice(0, 2).toUpperCase() || 'EC'}
+          <img src="/sekoly-app.svg" alt="Sekoly" />
         </div>
         {!isCollapsed && (
           <div className="min-w-0">
-            <div className="app-sidebar__school">{db.schoolConfig.name}</div>
-            <div className="app-sidebar__location">{db.schoolConfig.city || 'Madagascar'}</div>
+            <div className="app-sidebar__product">SEKOLY</div>
+            <div className="app-sidebar__school">
+              {db.schoolConfig.name === 'Nouvel établissement'
+                ? "Gestion d'établissement"
+                : db.schoolConfig.name}
+            </div>
+            <div className="app-sidebar__location">Logiciel local · Madagascar</div>
           </div>
         )}
       </div>
