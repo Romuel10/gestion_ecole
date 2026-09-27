@@ -150,6 +150,13 @@ Deno.serve(async (req) => {
       );
     }
 
+    const { data: school, error: schoolError } = await admin
+      .from("sekoly_schools")
+      .select("name")
+      .eq("id", schoolId)
+      .single();
+    if (schoolError) throw schoolError;
+
     const { data: teacher, error: teacherError } = await admin
       .from("sekoly_teachers")
       .select("id,user_id")
@@ -226,11 +233,36 @@ Deno.serve(async (req) => {
       .single();
     if (updateError) throw updateError;
 
+    let emailDelivery = { sent: false, reason: "RESEND_NOT_CONFIGURED" } as {
+      sent: boolean;
+      reason?: string;
+      id?: string | null;
+    };
+
+    const { data: linkData } = await admin.auth.admin.generateLink({
+      type: "recovery",
+      email,
+      options: {
+        redirectTo: "sekoly-teacher://auth/callback",
+      },
+    } as any);
+
+    const actionLink = linkData?.properties?.action_link;
+    if (actionLink) {
+      emailDelivery = await sendActivationEmail({
+        email,
+        teacherName: `${firstName} ${lastName}`,
+        schoolName: school.name,
+        actionLink,
+      });
+    }
+
     return Response.json(
       {
         teacher: updatedTeacher,
         userId: createdUserId,
         temporaryPassword: password,
+        emailDelivery,
       },
       {
         status: 201,
