@@ -5,6 +5,7 @@ import {
   UsersRound,
   BookOpenCheck,
   CalendarDays,
+  ClipboardCheck,
   WalletCards,
   GraduationCap,
   Settings2,
@@ -20,6 +21,7 @@ export type NavTab =
   | 'academics'
   | 'finances'
   | 'schedule'
+  | 'attendance'
   | 'teachers'
   | 'settings';
 
@@ -56,6 +58,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         { id: 'students' as NavTab, label: 'Élèves', icon: UsersRound, count: activeStudentCount },
         { id: 'academics' as NavTab, label: 'Notes et bulletins', icon: BookOpenCheck },
         { id: 'schedule' as NavTab, label: 'Emploi du temps', icon: CalendarDays },
+        { id: 'attendance' as NavTab, label: 'Vie scolaire', icon: ClipboardCheck },
       ],
     },
     {
