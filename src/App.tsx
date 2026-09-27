@@ -190,6 +190,7 @@ export function App() {
                 onUpdateDb={setDb}
                 onShowToast={showToast}
                 initialAction={pendingFinanceAction || undefined}
+                initialPaymentId={selectedEntityId}
               />
             )}
 
@@ -206,6 +207,7 @@ export function App() {
                 db={db}
                 onUpdateDb={setDb}
                 onShowToast={showToast}
+                initialTeacherId={selectedEntityId}
               />
             )}
 
