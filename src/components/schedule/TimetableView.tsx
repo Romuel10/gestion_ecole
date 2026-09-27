@@ -406,7 +406,10 @@ export const TimetableView: React.FC<TimetableViewProps> = ({
               <select
                 value={slotForm.dayOfWeek}
                 onChange={(e) =>
-                  setSlotForm({ ...slotForm, dayOfWeek: Number(e.target.value) as any })
+                  setSlotForm({
+                    ...slotForm,
+                    dayOfWeek: Number(e.target.value) as 1 | 2 | 3 | 4 | 5 | 6,
+                  })
                 }
                 className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-bold"
               >
