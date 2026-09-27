@@ -1,3 +1,14 @@
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import {
+  DatabaseSchema,
+  ReportCardSummary,
+  TuitionPayment,
+  SalaryPayment,
+  Student,
+} from '../types/school';
+import { CalculationService } from './calculations';
+
 export class PdfGeneratorService {
   private static readonly BRAND = {
     ink: [31, 41, 55] as [number, number, number],
