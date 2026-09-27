@@ -38,6 +38,11 @@ export const INITIAL_DATA: DatabaseSchema = {
     reminderTemplate:
       "Chers Parents de l'élève {NOM} ({CLASSE}), sauf erreur de notre part, l'écolage du/des mois de {MOIS_IMPAYES} d'un montant total de {MONTANT} reste en attente de règlement à la caisse de l'établissement. Nous vous prions de bien vouloir régulariser cette situation dans les meilleurs délais. Merci de votre confiance.",
     badgeThemeColor: '#1e40af',
+    documentLogoPosition: 'LEFT',
+    documentLogoWidthMm: 18,
+    certificateTitle: 'CERTIFICAT DE SCOLARITÉ',
+    certificateTemplate:
+      "Je soussigné(e), {DIRECTEUR}, {FONCTION} de l'établissement {ETABLISSEMENT}, certifie que l'élève {NOM_ET_PRENOMS}, né(e) le {DATE_NAISSANCE} à {LIEU_NAISSANCE}, titulaire du matricule {MATRICULE}, est régulièrement inscrit(e) et fréquente les cours en classe de {CLASSE} au titre de l'année scolaire {ANNEE_SCOLAIRE}.\n\nEn foi de quoi, le présent certificat lui est délivré pour servir et valoir ce que de droit.",
     requireAllPeriodsForAnnualDecision: true,
     requireAllSubjectsForAnnualDecision: true,
     continuousAssessmentWeight: 1,

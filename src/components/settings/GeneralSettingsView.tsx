@@ -108,6 +108,30 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
     updateDatabase({ ...db, schoolConfig }, 'Paramètres de l’établissement enregistrés.');
   };
 
+  const handleLogoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      onShowToast('Sélectionnez une image PNG ou JPG.', 'error');
+      event.target.value = '';
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      onShowToast('Le logo doit faire moins de 2 Mo.', 'error');
+      event.target.value = '';
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const logoUrl = typeof reader.result === 'string' ? reader.result : '';
+      setSchoolConfig((current) => ({ ...current, logoUrl }));
+      onShowToast('Logo chargé. Enregistrez les paramètres pour le conserver.', 'info');
+    };
+    reader.readAsDataURL(file);
+    event.target.value = '';
+  };
+
   const handleSaveMatricule = (event: React.FormEvent) => {
     event.preventDefault();
     if (!matriculeConfig.pattern.trim() || !matriculeConfig.prefix.trim()) {
@@ -115,6 +139,42 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
       return;
     }
     updateDatabase({ ...db, matriculeConfig }, 'Règles de matricule enregistrées.');
+  };
+
+  const setMatriculePreset = (preset: 'CLASSIC' | 'SIMPLE' | 'LEVEL') => {
+    const prefix = matriculeConfig.prefix || db.schoolConfig.acronym || 'ECOLE';
+    const separator = matriculeConfig.separator || '-';
+    const numberToken = `{NUM${matriculeConfig.numDigits || 4}}`;
+    const yearToken = matriculeConfig.yearFormat === 'YY' ? '{YY}' : '{YYYY}';
+
+    const pattern =
+      preset === 'SIMPLE'
+        ? `{PREFIX}${separator}${numberToken}`
+        : preset === 'LEVEL'
+        ? `{PREFIX}${separator}{LEVEL}${separator}${yearToken}${separator}${numberToken}`
+        : `{PREFIX}${separator}${yearToken}${separator}${numberToken}`;
+
+    setMatriculeConfig({
+      ...matriculeConfig,
+      prefix,
+      pattern,
+      includeYear: preset !== 'SIMPLE',
+    });
+  };
+
+  const rebuildSimpleMatriculePattern = (patch: Partial<MatriculeConfig>) => {
+    const next = { ...matriculeConfig, ...patch };
+    const separator = next.separator || '-';
+    const numberToken = `{NUM${next.numDigits || 4}}`;
+    const yearToken = next.yearFormat === 'YY' ? '{YY}' : '{YYYY}';
+    const hasLevel = next.pattern.includes('{LEVEL}');
+    const pattern = [
+      '{PREFIX}',
+      ...(hasLevel ? ['{LEVEL}'] : []),
+      ...(next.includeYear ? [yearToken] : []),
+      numberToken,
+    ].join(separator);
+    setMatriculeConfig({ ...next, pattern });
   };
 
   const decisionRules =
@@ -428,7 +488,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
   };
 
   const activateYear = (schoolYear: SchoolYear) => {
-    const nextTermCode = schoolYear.terms[0]?.code || db.currentTermCode;
+    const nextTermCode = schoolYear.terms[0]?.code || '';
     updateDatabase(
       {
         ...db,
@@ -695,6 +755,97 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
               <Field label="Couleur des cartes scolaires">
                 <input type="color" value={schoolConfig.badgeThemeColor} onChange={(e) => setSchoolConfig({ ...schoolConfig, badgeThemeColor: e.target.value })} className="settings-input h-9" />
               </Field>
+
+              <div className="md:col-span-2 border-t border-slate-200 dark:border-slate-800 pt-4">
+                <div className="grid grid-cols-1 lg:grid-cols-[180px_1fr] gap-5">
+                  <div>
+                    <div className="text-[10.5px] font-semibold mb-2">Logo de l’établissement</div>
+                    <div className="h-28 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 flex items-center justify-center overflow-hidden">
+                      {schoolConfig.logoUrl ? (
+                        <img src={schoolConfig.logoUrl} alt="Logo établissement" className="max-h-24 max-w-[150px] object-contain" />
+                      ) : (
+                        <span className="text-[10px] text-slate-400">Aucun logo</span>
+                      )}
+                    </div>
+                    <div className="mt-2 flex gap-2">
+                      <label className="button button--secondary cursor-pointer">
+                        <Upload className="w-3.5 h-3.5" />
+                        Choisir
+                        <input type="file" accept="image/png,image/jpeg" onChange={handleLogoUpload} className="hidden" />
+                      </label>
+                      {schoolConfig.logoUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setSchoolConfig({ ...schoolConfig, logoUrl: undefined })}
+                          className="button button--secondary"
+                        >
+                          Retirer
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Field label="Position du logo sur les documents">
+                      <select
+                        value={schoolConfig.documentLogoPosition || 'LEFT'}
+                        onChange={(e) =>
+                          setSchoolConfig({
+                            ...schoolConfig,
+                            documentLogoPosition: e.target.value as 'LEFT' | 'CENTER' | 'RIGHT',
+                          })
+                        }
+                        className="settings-input"
+                      >
+                        <option value="LEFT">À gauche</option>
+                        <option value="CENTER">Au centre</option>
+                        <option value="RIGHT">À droite</option>
+                      </select>
+                    </Field>
+                    <Field label="Largeur du logo sur PDF (mm)">
+                      <input
+                        type="number"
+                        min="8"
+                        max="40"
+                        value={schoolConfig.documentLogoWidthMm || 18}
+                        onChange={(e) =>
+                          setSchoolConfig({
+                            ...schoolConfig,
+                            documentLogoWidthMm: Number(e.target.value),
+                          })
+                        }
+                        className="settings-input"
+                      />
+                    </Field>
+                    <div className="md:col-span-2">
+                      <Field label="Titre du certificat de scolarité">
+                        <input
+                          value={schoolConfig.certificateTitle || 'CERTIFICAT DE SCOLARITÉ'}
+                          onChange={(e) =>
+                            setSchoolConfig({ ...schoolConfig, certificateTitle: e.target.value })
+                          }
+                          className="settings-input"
+                        />
+                      </Field>
+                    </div>
+                    <div className="md:col-span-2">
+                      <Field label="Contenu du certificat de scolarité">
+                        <textarea
+                          rows={7}
+                          value={schoolConfig.certificateTemplate || ''}
+                          onChange={(e) =>
+                            setSchoolConfig({ ...schoolConfig, certificateTemplate: e.target.value })
+                          }
+                          className="settings-input resize-y leading-relaxed"
+                        />
+                      </Field>
+                      <div className="mt-1.5 text-[10px] text-slate-500">
+                        Variables : {'{NOM_ET_PRENOMS}'}, {'{MATRICULE}'}, {'{DATE_NAISSANCE}'}, {'{LIEU_NAISSANCE}'}, {'{CLASSE}'}, {'{ANNEE_SCOLAIRE}'}, {'{DIRECTEUR}'}, {'{FONCTION}'}, {'{ETABLISSEMENT}'}, {'{VILLE}'}.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
 
               <div className="md:col-span-2 border-t border-slate-200 dark:border-slate-800 pt-4">
                 <div className="text-[11px] font-semibold text-slate-800 dark:text-slate-200">Périodes d’écolage</div>
@@ -1218,27 +1369,114 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
                 <div className="mt-1 font-mono text-xl font-semibold">{matriculePreview}</div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                <Field label="Modèle">
-                  <input value={matriculeConfig.pattern} onChange={(e) => setMatriculeConfig({ ...matriculeConfig, pattern: e.target.value })} className="settings-input font-mono" />
+              <div className="mb-5">
+                <div className="text-[10.5px] font-semibold mb-2">Choisir un format</div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                  <button type="button" onClick={() => setMatriculePreset('CLASSIC')} className="matricule-preset">
+                    <strong>Classique</strong>
+                    <span>LPSM-2026-0001</span>
+                  </button>
+                  <button type="button" onClick={() => setMatriculePreset('SIMPLE')} className="matricule-preset">
+                    <strong>Simple</strong>
+                    <span>LPSM-0001</span>
+                  </button>
+                  <button type="button" onClick={() => setMatriculePreset('LEVEL')} className="matricule-preset">
+                    <strong>Avec niveau</strong>
+                    <span>LPSM-LYC-2026-0001</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
+                <Field label="Préfixe de l’établissement">
+                  <input
+                    value={matriculeConfig.prefix}
+                    onChange={(e) => rebuildSimpleMatriculePattern({ prefix: e.target.value.toUpperCase() })}
+                    placeholder="Ex. LPSM"
+                    className="settings-input font-mono"
+                  />
                 </Field>
-                <Field label="Préfixe">
-                  <input value={matriculeConfig.prefix} onChange={(e) => setMatriculeConfig({ ...matriculeConfig, prefix: e.target.value })} className="settings-input font-mono" />
+                <Field label="Séparateur">
+                  <select
+                    value={matriculeConfig.separator}
+                    onChange={(e) => rebuildSimpleMatriculePattern({ separator: e.target.value })}
+                    className="settings-input"
+                  >
+                    <option value="-">Tiret : -</option>
+                    <option value="/">Barre : /</option>
+                    <option value=".">Point : .</option>
+                    <option value="">Aucun</option>
+                  </select>
                 </Field>
                 <Field label="Nombre de chiffres">
-                  <input type="number" min="2" max="8" value={matriculeConfig.numDigits} onChange={(e) => setMatriculeConfig({ ...matriculeConfig, numDigits: Number(e.target.value) })} className="settings-input" />
+                  <select
+                    value={matriculeConfig.numDigits}
+                    onChange={(e) => rebuildSimpleMatriculePattern({ numDigits: Number(e.target.value) })}
+                    className="settings-input"
+                  >
+                    <option value={3}>3 chiffres (001)</option>
+                    <option value={4}>4 chiffres (0001)</option>
+                    <option value={5}>5 chiffres (00001)</option>
+                    <option value={6}>6 chiffres (000001)</option>
+                  </select>
+                </Field>
+                <Field label="Format de l’année">
+                  <select
+                    value={matriculeConfig.yearFormat}
+                    disabled={!matriculeConfig.includeYear}
+                    onChange={(e) => rebuildSimpleMatriculePattern({ yearFormat: e.target.value as 'YYYY' | 'YY' })}
+                    className="settings-input"
+                  >
+                    <option value="YYYY">2026</option>
+                    <option value="YY">26</option>
+                  </select>
                 </Field>
                 <Field label="Compteur actuel">
-                  <input type="number" min="0" value={matriculeConfig.currentCounter} onChange={(e) => setMatriculeConfig({ ...matriculeConfig, currentCounter: Number(e.target.value) })} className="settings-input" />
+                  <input
+                    type="number"
+                    min="0"
+                    value={matriculeConfig.currentCounter}
+                    onChange={(e) => setMatriculeConfig({ ...matriculeConfig, currentCounter: Number(e.target.value) })}
+                    className="settings-input"
+                  />
                 </Field>
-                <label className="flex items-center gap-2 text-[11px]">
-                  <input type="checkbox" checked={matriculeConfig.resetEveryYear} onChange={(e) => setMatriculeConfig({ ...matriculeConfig, resetEveryYear: e.target.checked })} />
-                  Remettre le compteur à zéro chaque année scolaire
-                </label>
+                <div className="space-y-2 pt-5">
+                  <label className="flex items-center gap-2 text-[11px]">
+                    <input
+                      type="checkbox"
+                      checked={matriculeConfig.includeYear}
+                      onChange={(e) => rebuildSimpleMatriculePattern({ includeYear: e.target.checked })}
+                    />
+                    Inclure l’année scolaire
+                  </label>
+                  <label className="flex items-center gap-2 text-[11px]">
+                    <input
+                      type="checkbox"
+                      checked={matriculeConfig.resetEveryYear}
+                      onChange={(e) => setMatriculeConfig({ ...matriculeConfig, resetEveryYear: e.target.checked })}
+                    />
+                    Recommencer à 001 chaque année
+                  </label>
+                </div>
               </div>
-              <p className="mt-4 text-[10.5px] text-slate-500">
-                Variables disponibles : {'{PREFIX}'}, {'{YYYY}'}, {'{YY}'}, {'{LEVEL}'}, {'{NUM3}'}, {'{NUM4}'}, {'{NUM5}'}.
-              </p>
+
+              <details className="mt-5 border-t border-slate-200 dark:border-slate-800 pt-4">
+                <summary className="cursor-pointer text-[10.5px] font-semibold text-slate-600 dark:text-slate-300">
+                  Réglage avancé
+                </summary>
+                <div className="mt-3">
+                  <Field label="Modèle technique">
+                    <input
+                      value={matriculeConfig.pattern}
+                      onChange={(e) => setMatriculeConfig({ ...matriculeConfig, pattern: e.target.value })}
+                      className="settings-input font-mono"
+                    />
+                  </Field>
+                  <p className="mt-2 text-[10px] text-slate-500">
+                    Variables : {'{PREFIX}'}, {'{YYYY}'}, {'{YY}'}, {'{LEVEL}'}, {'{NUM3}'}, {'{NUM4}'}, {'{NUM5}'}.
+                  </p>
+                </div>
+              </details>
             </div>
           </form>
         )}

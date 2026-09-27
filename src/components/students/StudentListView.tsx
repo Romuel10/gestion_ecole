@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { DatabaseSchema, Student } from '../../types/school';
 import { StorageService } from '../../services/storage';
+import { ExcelExporterService } from '../../services/excelExporter';
 import { PdfGeneratorService } from '../../services/pdfGenerator';
 import { StudentDetailModal } from './StudentDetailModal';
 import { StudentFormModal } from './StudentFormModal';
@@ -131,14 +132,16 @@ export const StudentListView: React.FC<StudentListViewProps> = ({
         </button>
         <button
           type="button"
-          onClick={() => StorageService.exportStudentsCSV({
-            ...db,
-            students: activeYearStudents,
-          })}
+          onClick={() =>
+            ExcelExporterService.exportStudents({
+              ...db,
+              students: activeYearStudents,
+            })
+          }
           className="button button--secondary"
         >
           <FileDown className="w-3.5 h-3.5" />
-          Exporter CSV
+          Exporter Excel
         </button>
         <button type="button" onClick={onOpenNewAdmission} className="button button--primary">
           <UserPlus className="w-3.5 h-3.5" />

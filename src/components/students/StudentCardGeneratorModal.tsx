@@ -41,8 +41,9 @@ export const StudentCardGeneratorModal: React.FC<StudentCardGeneratorModalProps>
       (candidate) => candidate.schoolYearId === db.currentSchoolYearId
     );
     setSelectedStudentId(student?.id || activeYearFallback?.id || '');
+    setThemeColor(db.schoolConfig.badgeThemeColor || '#243f5a');
     setPrintMode('SINGLE');
-  }, [isOpen, student?.id, db.currentSchoolYearId]);
+  }, [isOpen, student?.id, db.currentSchoolYearId, db.schoolConfig.badgeThemeColor]);
 
   if (!isOpen) return null;
 
@@ -81,8 +82,8 @@ export const StudentCardGeneratorModal: React.FC<StudentCardGeneratorModalProps>
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Générateur de Cartes Scolaires Personnalisables"
-      subtitle="Personnalisation des couleurs, mentions, code QR et impression individuelle ou par planche"
+      title="Cartes scolaires"
+      subtitle="Mise en page, informations visibles et impression."
       maxWidth="5xl"
       actions={
         <div className="flex items-center space-x-2">
@@ -272,12 +273,28 @@ export const StudentCardGeneratorModal: React.FC<StudentCardGeneratorModalProps>
                     className="px-3 py-1.5 text-white flex items-center justify-between relative overflow-hidden"
                     style={{ backgroundColor: themeColor }}
                   >
-                    <div className="flex items-center space-x-2">
-                      <div className="w-5 h-5 rounded bg-white/20 flex items-center justify-center font-bold text-[10px]">
-                        {db.schoolConfig.acronym?.slice(0, 3) || 'EDG'}
-                      </div>
-                      <div>
-                        <div className="text-[9px] font-bold uppercase tracking-tight leading-none">
+                    <div className="flex items-center space-x-2 min-w-0">
+                      {db.schoolConfig.logoUrl ? (
+                        <img
+                          src={db.schoolConfig.logoUrl}
+                          alt="Logo"
+                          className="w-6 h-6 object-contain bg-white/95 p-0.5 flex-shrink-0"
+                          style={{
+                            order:
+                              db.schoolConfig.documentLogoPosition === 'RIGHT'
+                                ? 3
+                                : db.schoolConfig.documentLogoPosition === 'CENTER'
+                                ? 2
+                                : 0,
+                          }}
+                        />
+                      ) : (
+                        <div className="w-5 h-5 bg-white/20 flex items-center justify-center font-bold text-[10px]">
+                          {db.schoolConfig.acronym?.slice(0, 3) || 'EDG'}
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <div className="text-[9px] font-bold uppercase tracking-tight leading-none truncate">
                           {db.schoolConfig.name}
                         </div>
                         <div className="text-[7.5px] font-medium opacity-90 leading-tight">

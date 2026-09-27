@@ -3,6 +3,8 @@ import {
   PlusCircle,
   Edit2,
   Trash2,
+  Printer,
+  AlertTriangle,
 } from 'lucide-react';
 import { DatabaseSchema, TimetableSlot } from '../../types/school';
 import { StorageService } from '../../services/storage';
@@ -26,6 +28,10 @@ export const TimetableView: React.FC<TimetableViewProps> = ({
 
   const [isSlotModalOpen, setIsSlotModalOpen] = useState(false);
   const [editingSlot, setEditingSlot] = useState<TimetableSlot | null>(null);
+  const [conflictState, setConflictState] = useState<{
+    messages: string[];
+    alternatives: { dayOfWeek: 1 | 2 | 3 | 4 | 5 | 6; startTime: string; endTime: string; label: string }[];
+  } | null>(null);
 
   // New/Edit slot form state
   const [slotForm, setSlotForm] = useState({
@@ -108,6 +114,39 @@ export const TimetableView: React.FC<TimetableViewProps> = ({
     return conflicts;
   };
 
+  const findAvailableAlternatives = (
+    candidate: Partial<TimetableSlot>,
+    excludeId?: string
+  ) => {
+    const alternatives: {
+      dayOfWeek: 1 | 2 | 3 | 4 | 5 | 6;
+      startTime: string;
+      endTime: string;
+      label: string;
+    }[] = [];
+
+    days.forEach((day) => {
+      timeSlots.forEach((time) => {
+        const testSlot = {
+          ...candidate,
+          dayOfWeek: day.id,
+          startTime: time.start,
+          endTime: time.end,
+        };
+        if (detectConflicts(testSlot, excludeId).length === 0) {
+          alternatives.push({
+            dayOfWeek: day.id,
+            startTime: time.start,
+            endTime: time.end,
+            label: `${day.name} · ${time.label}`,
+          });
+        }
+      });
+    });
+
+    return alternatives.slice(0, 5);
+  };
+
   const buildSlotDefaults = (
     dayOfWeek: 1 | 2 | 3 | 4 | 5 | 6 = 1,
     startTime = '07:30',
@@ -136,6 +175,7 @@ export const TimetableView: React.FC<TimetableViewProps> = ({
 
   const handleOpenAddModal = () => {
     setEditingSlot(null);
+    setConflictState(null);
     setSlotForm(buildSlotDefaults());
     setIsSlotModalOpen(true);
   };
@@ -166,10 +206,15 @@ export const TimetableView: React.FC<TimetableViewProps> = ({
 
     const conflicts = detectConflicts(slotForm, editingSlot?.id);
     if (conflicts.length > 0) {
-      if (!window.confirm(`Attention ! Conflits détectés :\n\n- ${conflicts.join('\n- ')}\n\nVoulez-vous forcer l'enregistrement ?`)) {
-        return;
-      }
+      setConflictState({
+        messages: conflicts,
+        alternatives: findAvailableAlternatives(slotForm, editingSlot?.id),
+      });
+      onShowToast('Conflit d’horaire détecté. Choisissez un créneau disponible.', 'error');
+      return;
     }
+
+    setConflictState(null);
 
     const sub = subjectMap.get(slotForm.subjectId);
     const slotColor = sub?.color || '#3b82f6';
@@ -223,6 +268,39 @@ export const TimetableView: React.FC<TimetableViewProps> = ({
 
   const allRooms = Array.from(new Set(db.timetableSlots.map((s) => s.room)));
 
+  const scheduleIssues = (() => {
+    const issues: string[] = [];
+    for (let i = 0; i < db.timetableSlots.length; i++) {
+      for (let j = i + 1; j < db.timetableSlots.length; j++) {
+        const a = db.timetableSlots[i];
+        const b = db.timetableSlots[j];
+        if (a.dayOfWeek !== b.dayOfWeek) continue;
+        const overlaps = a.startTime < b.endTime && b.startTime < a.endTime;
+        if (!overlaps) continue;
+
+        const dayName = days.find((day) => day.id === a.dayOfWeek)?.name || 'Jour';
+        if (a.teacherId === b.teacherId) {
+          const teacher = teacherMap.get(a.teacherId);
+          issues.push(
+            `${dayName} ${a.startTime}-${a.endTime} : ${teacher?.lastName || 'Enseignant'} est programmé sur deux cours.`
+          );
+        }
+        if (a.classId === b.classId) {
+          const schoolClass = classMap.get(a.classId);
+          issues.push(
+            `${dayName} ${a.startTime}-${a.endTime} : ${schoolClass?.name || 'Classe'} a deux cours simultanés.`
+          );
+        }
+        if (a.room.trim().toLowerCase() === b.room.trim().toLowerCase()) {
+          issues.push(
+            `${dayName} ${a.startTime}-${a.endTime} : la salle ${a.room} est utilisée deux fois.`
+          );
+        }
+      }
+    }
+    return Array.from(new Set(issues));
+  })();
+
   return (
     <div className="space-y-6">
       <div className="page-panel p-3 flex flex-col xl:flex-row xl:items-center justify-between gap-3">
@@ -269,6 +347,14 @@ export const TimetableView: React.FC<TimetableViewProps> = ({
               {allRooms.map((room) => <option key={room} value={room}>{room}</option>)}
             </select>
           )}
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className="button button--secondary"
+          >
+            <Printer className="w-3.5 h-3.5" />
+            Imprimer
+          </button>
           <button type="button" onClick={handleOpenAddModal} className="button button--primary">
             <PlusCircle className="w-3.5 h-3.5" />
             Ajouter un cours
@@ -276,8 +362,40 @@ export const TimetableView: React.FC<TimetableViewProps> = ({
         </div>
       </div>
 
+      {scheduleIssues.length > 0 && (
+        <div className="schedule-audit">
+          <div className="schedule-audit__title">
+            <AlertTriangle className="w-4 h-4" />
+            {scheduleIssues.length} conflit(s) détecté(s) dans le planning existant
+          </div>
+          <div className="schedule-audit__list">
+            {scheduleIssues.slice(0, 6).map((issue) => (
+              <div key={issue}>{issue}</div>
+            ))}
+            {scheduleIssues.length > 6 && (
+              <div>+ {scheduleIssues.length - 6} autre(s) conflit(s)</div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Interactive Weekly Timetable Grid */}
-      <div className="page-panel overflow-x-auto">
+      <div id="printable-area" className="page-panel overflow-x-auto timetable-print-area">
+        <div className="print-only timetable-print-heading">
+          <strong>{db.schoolConfig.name}</strong>
+          <span>
+            Emploi du temps — {
+              viewType === 'CLASS'
+                ? classMap.get(selectedEntityId)?.name
+                : viewType === 'TEACHER'
+                ? `${teacherMap.get(selectedEntityId)?.lastName || ''} ${teacherMap.get(selectedEntityId)?.firstName || ''}`
+                : selectedEntityId
+            }
+          </span>
+          <small>
+            Année scolaire : {db.schoolYears.find((year) => year.id === db.currentSchoolYearId)?.label || ''}
+          </small>
+        </div>
         <table className="w-full border-collapse min-w-[700px]">
           <thead>
             <tr>
@@ -494,6 +612,49 @@ export const TimetableView: React.FC<TimetableViewProps> = ({
               />
             </div>
           </div>
+
+          {conflictState && (
+            <div className="border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/20 p-3 space-y-3">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-700 dark:text-amber-300 mt-0.5" />
+                <div>
+                  <div className="font-semibold text-amber-900 dark:text-amber-200">Conflit détecté</div>
+                  <ul className="mt-1 space-y-1 text-[10.5px] text-amber-800 dark:text-amber-300">
+                    {conflictState.messages.map((message) => (
+                      <li key={message}>• {message}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+              {conflictState.alternatives.length > 0 && (
+                <div>
+                  <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
+                    Créneaux disponibles proposés
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {conflictState.alternatives.map((alternative) => (
+                      <button
+                        type="button"
+                        key={`${alternative.dayOfWeek}-${alternative.startTime}`}
+                        onClick={() => {
+                          setSlotForm({
+                            ...slotForm,
+                            dayOfWeek: alternative.dayOfWeek,
+                            startTime: alternative.startTime,
+                            endTime: alternative.endTime,
+                          });
+                          setConflictState(null);
+                        }}
+                        className="button button--secondary h-8"
+                      >
+                        {alternative.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           <button
             type="submit"

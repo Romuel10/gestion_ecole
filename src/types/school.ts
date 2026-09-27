@@ -39,6 +39,10 @@ export interface SchoolConfig {
   currency: string; // Ariary (Ar)
   logoUrl?: string;
   stampUrl?: string;
+  documentLogoPosition?: 'LEFT' | 'CENTER' | 'RIGHT';
+  documentLogoWidthMm?: number;
+  certificateTitle?: string;
+  certificateTemplate?: string;
   
   // Customization settings
   passingGrade: number; // e.g. 10.00
