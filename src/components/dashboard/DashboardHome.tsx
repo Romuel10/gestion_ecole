@@ -15,7 +15,7 @@ import { NavTab } from '../layout/Sidebar';
 
 interface DashboardHomeProps {
   db: DatabaseSchema;
-  onNavigate: (tab: NavTab) => void;
+  onNavigate: (tab: NavTab, entityId?: string) => void;
   isDark: boolean;
   show3DVisualizer: boolean;
 }
