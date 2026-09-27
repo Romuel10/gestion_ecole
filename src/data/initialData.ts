@@ -97,6 +97,7 @@ export const BASE_INITIAL_DATA: DatabaseSchema = {
       startDate: '2025-09-01',
       endDate: '2026-06-30',
       isCurrent: true,
+      status: 'ACTIVE',
       terms: [
         {
           id: 'term-t1',
@@ -133,6 +134,8 @@ export const BASE_INITIAL_DATA: DatabaseSchema = {
       startDate: '2024-09-02',
       endDate: '2025-06-27',
       isCurrent: false,
+      status: 'CLOSED',
+      closedAt: '2025-06-30T12:00:00.000Z',
       terms: [
         {
           id: 'term-prev-t1',
