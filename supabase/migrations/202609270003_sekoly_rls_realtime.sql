@@ -549,6 +549,7 @@ for each row execute function sekoly_private.validate_attendance_entry();
 
 -- Restrict teacher reads to their own academic scope.
 drop policy if exists "sekoly member read" on public.sekoly_students;
+drop policy if exists "sekoly students scoped read" on public.sekoly_students;
 create policy "sekoly students scoped read"
 on public.sekoly_students for select
 to authenticated
@@ -578,6 +579,7 @@ using (
 );
 
 drop policy if exists "sekoly member read" on public.sekoly_enrollments;
+drop policy if exists "sekoly enrollments scoped read" on public.sekoly_enrollments;
 create policy "sekoly enrollments scoped read"
 on public.sekoly_enrollments for select
 to authenticated
@@ -603,6 +605,7 @@ using (
 );
 
 drop policy if exists "sekoly member read" on public.sekoly_teachers;
+drop policy if exists "sekoly teachers scoped read" on public.sekoly_teachers;
 create policy "sekoly teachers scoped read"
 on public.sekoly_teachers for select
 to authenticated
@@ -615,6 +618,7 @@ using (
 );
 
 drop policy if exists "sekoly member read" on public.sekoly_teacher_assignments;
+drop policy if exists "sekoly teacher assignments scoped read" on public.sekoly_teacher_assignments;
 create policy "sekoly teacher assignments scoped read"
 on public.sekoly_teacher_assignments for select
 to authenticated
@@ -632,6 +636,7 @@ using (
 );
 
 drop policy if exists "sekoly member read" on public.sekoly_class_subjects;
+drop policy if exists "sekoly class subjects scoped read" on public.sekoly_class_subjects;
 create policy "sekoly class subjects scoped read"
 on public.sekoly_class_subjects for select
 to authenticated
@@ -649,6 +654,7 @@ using (
 );
 
 drop policy if exists "sekoly member read" on public.sekoly_timetable_slots;
+drop policy if exists "sekoly timetable scoped read" on public.sekoly_timetable_slots;
 create policy "sekoly timetable scoped read"
 on public.sekoly_timetable_slots for select
 to authenticated
@@ -667,6 +673,7 @@ using (
 
 drop policy if exists "sekoly attendance sessions read"
 on public.sekoly_attendance_sessions;
+drop policy if exists "sekoly attendance sessions scoped read" on public.sekoly_attendance_sessions;
 create policy "sekoly attendance sessions scoped read"
 on public.sekoly_attendance_sessions for select
 to authenticated
@@ -685,6 +692,7 @@ using (
 
 drop policy if exists "sekoly attendance entries read"
 on public.sekoly_attendance_entries;
+drop policy if exists "sekoly attendance entries scoped read" on public.sekoly_attendance_entries;
 create policy "sekoly attendance entries scoped read"
 on public.sekoly_attendance_entries for select
 to authenticated
@@ -697,6 +705,7 @@ using (
 );
 
 drop policy if exists "sekoly assessments read" on public.sekoly_assessments;
+drop policy if exists "sekoly assessments scoped read" on public.sekoly_assessments;
 create policy "sekoly assessments scoped read"
 on public.sekoly_assessments for select
 to authenticated
@@ -715,6 +724,7 @@ using (
 
 drop policy if exists "sekoly scores read"
 on public.sekoly_assessment_scores;
+drop policy if exists "sekoly scores scoped read" on public.sekoly_assessment_scores;
 create policy "sekoly scores scoped read"
 on public.sekoly_assessment_scores for select
 to authenticated
@@ -729,6 +739,7 @@ using (
 );
 
 drop policy if exists "sekoly member read" on public.sekoly_classes;
+drop policy if exists "sekoly classes scoped read" on public.sekoly_classes;
 create policy "sekoly classes scoped read"
 on public.sekoly_classes for select
 to authenticated
@@ -753,6 +764,7 @@ using (
 );
 
 drop policy if exists "sekoly member read" on public.sekoly_subjects;
+drop policy if exists "sekoly subjects scoped read" on public.sekoly_subjects;
 create policy "sekoly subjects scoped read"
 on public.sekoly_subjects for select
 to authenticated
