@@ -98,6 +98,19 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
       return;
     }
 
+    const classEnrollmentCount = db.students.filter(
+      (student) =>
+        student.schoolYearId === db.currentSchoolYearId &&
+        student.classId === selectedClass.id
+    ).length;
+    if (classEnrollmentCount >= selectedClass.capacity) {
+      onShowToast(
+        `La classe ${selectedClass.name} a atteint sa capacité maximale (${selectedClass.capacity} élèves).`,
+        'error'
+      );
+      return;
+    }
+
     // 1. Generate unique matricule & update counter
     const { matricule, updatedCounter } = MatriculeService.generateNextMatricule(
       db.matriculeConfig,
@@ -263,6 +276,19 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
     if (alreadyRegistered) {
       onShowToast(
         `${selectedStudentForReReg.lastName} est déjà inscrit(e) pour l’année scolaire active.`,
+        'error'
+      );
+      return;
+    }
+
+    const targetClassEnrollmentCount = db.students.filter(
+      (student) =>
+        student.schoolYearId === db.currentSchoolYearId &&
+        student.classId === targetClass.id
+    ).length;
+    if (targetClassEnrollmentCount >= targetClass.capacity) {
+      onShowToast(
+        `La classe ${targetClass.name} a atteint sa capacité maximale (${targetClass.capacity} élèves).`,
         'error'
       );
       return;
@@ -722,6 +748,30 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
 
                 {formData.payFeeNow && (
                   <div className="space-y-3 pt-1">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                        Remise / réduction (Ariary)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="500"
+                        value={formData.discount}
+                        onChange={(e) => setFormData({ ...formData, discount: Number(e.target.value) })}
+                        className="w-full text-xs px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500 font-mono"
+                      />
+                      {Number(formData.discount || 0) > 0 && (
+                        <div className="mt-1 text-[11px] text-emerald-600 dark:text-emerald-400">
+                          Net à encaisser : {CalculationService.formatAriary(
+                            Math.max(
+                              0,
+                              (selectedClass.registrationFee || 100000) - Number(formData.discount || 0)
+                            )
+                          )}
+                        </div>
+                      )}
+                    </div>
+
                     <div>
                       <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                         Mode de Règlement *
