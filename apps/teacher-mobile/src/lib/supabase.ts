@@ -27,8 +27,8 @@ export const supabase = createClient(url, publishableKey, {
 
 
 export async function acceptAuthDeepLink(url: string) {
-  const [base, fragment = ''] = url.split('#');
-  const parsed = new URL(base);
+  const [basePart, fragment = ''] = url.split('#');
+  const parsed = new URL(basePart || url);
   const fragmentParams = new URLSearchParams(fragment);
 
   const code = parsed.searchParams.get('code');
