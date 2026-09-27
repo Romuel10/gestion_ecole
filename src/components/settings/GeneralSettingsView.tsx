@@ -1116,6 +1116,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
                     <th>Salle</th>
                     <th>Capacité</th>
                     <th>Matières</th>
+                    <th>Classe suivante</th>
                     <th className="text-right">Écolage</th>
                     <th className="text-right">Actions</th>
                   </tr>
@@ -1129,6 +1130,11 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
                       <td>{schoolClass.room || '—'}</td>
                       <td>{schoolClass.capacity}</td>
                       <td>{schoolClass.subjects.length}</td>
+                      <td>
+                        {schoolClass.nextClassId
+                          ? db.classes.find((item) => item.id === schoolClass.nextClassId)?.name || 'Classe inconnue'
+                          : '—'}
+                      </td>
                       <td className="text-right font-mono">{CalculationService.formatAriary(schoolClass.monthlyTuitionFee)}</td>
                       <td className="text-right whitespace-nowrap">
                         <button type="button" onClick={() => { setEditingClassId(schoolClass.id); setClassDraft(JSON.parse(JSON.stringify(schoolClass))); }} className="p-1.5 text-slate-400 hover:text-slate-900 dark:hover:text-white" title="Modifier">
