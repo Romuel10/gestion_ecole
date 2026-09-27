@@ -164,7 +164,12 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
       if (entry.dev2 !== '' && !isNaN(Number(entry.dev2))) evaluations.push(Number(entry.dev2));
 
       const examGrade = entry.exam !== '' && !isNaN(Number(entry.exam)) ? Number(entry.exam) : undefined;
-      const subjectAverage = CalculationService.computeSubjectAverage(evaluations, examGrade);
+      const subjectAverage = CalculationService.computeSubjectAverage(
+        evaluations,
+        examGrade,
+        db.schoolConfig.continuousAssessmentWeight ?? 1,
+        db.schoolConfig.examWeight ?? 2
+      );
 
       const existingIndex = updatedGrades.findIndex(
         (g) =>
