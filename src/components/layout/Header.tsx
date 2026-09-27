@@ -45,9 +45,22 @@ export const Header: React.FC<HeaderProps> = ({
 
   const handleYearChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newYearId = e.target.value;
+    const selectedYear = db.schoolYears.find((year) => year.id === newYearId);
+    if (!selectedYear) return;
+
+    const validTermCodes = selectedYear.terms.map((term) => term.code);
+    const nextTermCode = validTermCodes.includes(db.currentTermCode)
+      ? db.currentTermCode
+      : selectedYear.terms[0]?.code || db.currentTermCode;
+
     const updated: DatabaseSchema = {
       ...db,
       currentSchoolYearId: newYearId,
+      currentTermCode: nextTermCode,
+      schoolYears: db.schoolYears.map((year) => ({
+        ...year,
+        isCurrent: year.id === newYearId,
+      })),
     };
     StorageService.saveDatabase(updated);
     onUpdateDb(updated);
