@@ -38,10 +38,9 @@ Fonctions V1 :
 
 ## Backend Supabase
 
-Projet actuellement utilisé : `gmlofgsgnbbcbefogpww`.
+Projet Supabase dédié : `cmpbrouwcfoauwyeiyfj` (`sekoly`).
 
-Toutes les tables Sekoly sont préfixées `sekoly_` afin de ne pas entrer en
-collision avec les tables d'autres applications présentes dans le même projet.
+Le projet est désormais dédié à Sekoly. Les tables restent préfixées `sekoly_` pour conserver une convention explicite et faciliter les migrations.
 
 ### Multi-tenant
 
