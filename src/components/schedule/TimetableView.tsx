@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
   PlusCircle,
+  Edit2,
   Trash2,
 } from 'lucide-react';
 import { DatabaseSchema, TimetableSlot } from '../../types/school';
@@ -107,23 +108,61 @@ export const TimetableView: React.FC<TimetableViewProps> = ({
     return conflicts;
   };
 
+  const buildSlotDefaults = (
+    dayOfWeek: 1 | 2 | 3 | 4 | 5 | 6 = 1,
+    startTime = '07:30',
+    endTime = '09:30'
+  ) => {
+    const defaultClassId =
+      viewType === 'CLASS' ? selectedEntityId : db.classes[0]?.id || '';
+    const defaultTeacherId =
+      viewType === 'TEACHER' ? selectedEntityId : db.teachers[0]?.id || '';
+    const defaultRoom =
+      viewType === 'ROOM'
+        ? selectedEntityId
+        : db.classes.find((cls) => cls.id === defaultClassId)?.room || 'Salle 201';
+
+    return {
+      dayOfWeek,
+      startTime,
+      endTime,
+      classId: defaultClassId,
+      subjectId: db.subjects[0]?.id || '',
+      teacherId: defaultTeacherId,
+      room: defaultRoom,
+      color: '#3b82f6',
+    };
+  };
+
   const handleOpenAddModal = () => {
     setEditingSlot(null);
-    setSlotForm({
-      dayOfWeek: 1,
-      startTime: '07:30',
-      endTime: '09:30',
-      classId: selectedEntityId || db.classes[0]?.id || '',
-      subjectId: db.subjects[0]?.id || '',
-      teacherId: db.teachers[0]?.id || '',
-      room: 'Salle 201',
-      color: '#3b82f6',
-    });
+    setSlotForm(buildSlotDefaults());
     setIsSlotModalOpen(true);
   };
 
   const handleSaveSlot = (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!db.classes.some((cls) => cls.id === slotForm.classId)) {
+      onShowToast('Veuillez sélectionner une classe valide.', 'error');
+      return;
+    }
+    if (!db.subjects.some((subject) => subject.id === slotForm.subjectId)) {
+      onShowToast('Veuillez sélectionner une matière valide.', 'error');
+      return;
+    }
+    if (!db.teachers.some((teacher) => teacher.id === slotForm.teacherId)) {
+      onShowToast('Veuillez sélectionner un enseignant valide.', 'error');
+      return;
+    }
+    if (!slotForm.room.trim()) {
+      onShowToast('La salle est obligatoire.', 'error');
+      return;
+    }
+    if (slotForm.startTime >= slotForm.endTime) {
+      onShowToast('L’heure de fin doit être postérieure à l’heure de début.', 'error');
+      return;
+    }
 
     const conflicts = detectConflicts(slotForm, editingSlot?.id);
     if (conflicts.length > 0) {
@@ -354,6 +393,26 @@ export const TimetableView: React.FC<TimetableViewProps> = ({
                             <span>{match.room}</span>
                             <div className="opacity-0 group-hover:opacity-100 flex items-center space-x-1 transition">
                               <button
+                                onClick={() => {
+                                  setEditingSlot(match);
+                                  setSlotForm({
+                                    dayOfWeek: match.dayOfWeek,
+                                    startTime: match.startTime,
+                                    endTime: match.endTime,
+                                    classId: match.classId,
+                                    subjectId: match.subjectId,
+                                    teacherId: match.teacherId,
+                                    room: match.room,
+                                    color: match.color || '#3b82f6',
+                                  });
+                                  setIsSlotModalOpen(true);
+                                }}
+                                className="p-0.5 rounded bg-black/30 hover:bg-black/50 text-white"
+                                title="Modifier ce créneau"
+                              >
+                                <Edit2 className="w-3 h-3" />
+                              </button>
+                              <button
                                 onClick={() => handleDeleteSlot(match.id)}
                                 className="p-0.5 rounded bg-black/30 hover:bg-black/50 text-white"
                                 title="Supprimer ce créneau"
@@ -368,12 +427,7 @@ export const TimetableView: React.FC<TimetableViewProps> = ({
                           <button
                             onClick={() => {
                               setEditingSlot(null);
-                              setSlotForm({
-                                ...slotForm,
-                                dayOfWeek: day.id,
-                                startTime: ts.start,
-                                endTime: ts.end,
-                              });
+                              setSlotForm(buildSlotDefaults(day.id, ts.start, ts.end));
                               setIsSlotModalOpen(true);
                             }}
                             className="p-1.5 rounded-lg bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 hover:bg-blue-100 text-[10px] font-bold"
