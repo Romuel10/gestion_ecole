@@ -27,9 +27,10 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
   show3DVisualizer,
 }) => {
   const metrics = CalculationService.computeFinancialMetrics(db);
-  const totalStudents = db.students.length;
-  const boys = db.students.filter((s) => s.gender === 'M').length;
-  const girls = db.students.filter((s) => s.gender === 'F').length;
+  const activeStudents = db.students.filter((s) => s.schoolYearId === db.currentSchoolYearId);
+  const totalStudents = activeStudents.length;
+  const boys = activeStudents.filter((s) => s.gender === 'M').length;
+  const girls = activeStudents.filter((s) => s.gender === 'F').length;
 
   const totalClasses = db.classes.length;
   const totalTeachers = db.teachers.length;
@@ -37,7 +38,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
   const vacataireCount = db.teachers.filter((t) => t.contractType === 'VACATAIRE').length;
 
   const studentsByLevel = (level: 'primaire' | 'college' | 'lycee') =>
-    db.students.filter((s) => {
+    activeStudents.filter((s) => {
       const cls = db.classes.find((c) => c.id === s.classId);
       return cls?.level === level;
     }).length;
@@ -57,7 +58,8 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
     .sort((a, b) => b.generalAverage - a.generalAverage)
     .slice(0, 5);
 
-  const recentPayments = [...db.tuitionPayments]
+  const recentPayments = db.tuitionPayments
+    .filter((payment) => payment.schoolYearId === db.currentSchoolYearId)
     .sort((a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime())
     .slice(0, 5);
 
@@ -250,7 +252,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
 
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
               {db.classes.map((cls) => {
-                const count = db.students.filter((s) => s.classId === cls.id).length;
+                const count = activeStudents.filter((s) => s.classId === cls.id).length;
                 return (
                   <div
                     key={cls.id}
