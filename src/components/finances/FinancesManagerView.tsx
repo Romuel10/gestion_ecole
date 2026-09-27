@@ -10,6 +10,7 @@ import {
   Sliders,
   Send,
   FileText,
+  FileSpreadsheet,
 } from 'lucide-react';
 import {
   DatabaseSchema,
@@ -21,6 +22,7 @@ import {
 import { CalculationService } from '../../services/calculations';
 import { StorageService } from '../../services/storage';
 import { PdfGeneratorService } from '../../services/pdfGenerator';
+import { ExcelExporterService } from '../../services/excelExporter';
 import { Modal } from '../common/Modal';
 
 interface FinancesManagerViewProps {
@@ -449,10 +451,20 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
           ))}
         </div>
 
-        <button type="button" onClick={() => setIsNewPaymentModalOpen(true)} className="button button--primary">
-          <PlusCircle className="w-3.5 h-3.5" />
-          Encaisser
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => ExcelExporterService.exportFinances(db)}
+            className="button button--secondary"
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5" />
+            Export Excel
+          </button>
+          <button type="button" onClick={() => setIsNewPaymentModalOpen(true)} className="button button--primary">
+            <PlusCircle className="w-3.5 h-3.5" />
+            Encaisser
+          </button>
+        </div>
       </div>
 
       {/* 3 Financial Summary Cards */}
