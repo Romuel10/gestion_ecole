@@ -159,217 +159,218 @@ export class PdfGeneratorService {
    * Generates and downloads an Official Report Card (Bulletin de Notes Madagascar)
    */
   static generateOfficialReportCardPDF(summary: ReportCardSummary, db: DatabaseSchema): void {
-    const doc = new jsPDF({
-      orientation: 'portrait',
-      unit: 'mm',
-      format: 'a4',
-    });
-
-    const cfg = db.schoolConfig;
-    this.addSchoolLogo(doc, db);
-    const yearObj = db.schoolYears.find(y => y.id === summary.schoolYearId);
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const yearObj = db.schoolYears.find((year) => year.id === summary.schoolYearId);
     const yearLabel = yearObj?.label || 'Année scolaire';
     const termLabel =
-      yearObj?.terms.find((term) => term.code === summary.termCode)?.label.toUpperCase() ||
-      summary.termCode.replace(/_/g, ' ').toUpperCase();
+      yearObj?.terms.find((term) => term.code === summary.termCode)?.label ||
+      summary.termCode.replace(/_/g, ' ');
+    const { ink, muted, line, soft, accent } = this.BRAND;
 
-    // Official Madagascar Top Header
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8);
-    doc.text("REPOBLIKAN'I MADAGASIKARA", 105, 12, { align: 'center' });
-    doc.setFont('helvetica', 'italic');
-    doc.setFontSize(7);
-    doc.text("Fitiavana - Tanindrazana - Fandrosoana", 105, 16, { align: 'center' });
-
-    // Ministry & CISCO left side
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(7);
-    doc.text("MINISTÈRE DE L'ÉDUCATION NATIONALE", 14, 22);
-    doc.text(cfg.dren || 'DREN ANALAMANGA', 14, 26);
-    doc.text(cfg.cisco || 'CISCO ANTANANARIVO RENIVOHITRA', 14, 30);
-    if (cfg.zap) doc.text(`ZAP : ${cfg.zap}`, 14, 34);
-
-    // School Name & Details right side
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10);
-    doc.text(cfg.name.toUpperCase(), 196, 22, { align: 'right' });
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(7);
-    doc.text(cfg.menCode || '', 196, 26, { align: 'right' });
-    doc.text(cfg.address || '', 196, 30, { align: 'right' });
-    doc.text(`Tél : ${cfg.phone || ''}`, 196, 34, { align: 'right' });
-
-    // Decorative separator line
-    doc.setDrawColor(30, 64, 175);
-    doc.setLineWidth(0.6);
-    doc.line(14, 37, 196, 37);
-
-    // Document Title Banner
-    doc.setFillColor(30, 58, 138); // Deep Navy
-    doc.rect(14, 40, 182, 8, 'F');
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(11);
-    doc.setTextColor(255, 255, 255);
-    doc.text(`BULLETIN DE NOTES OFFICIEL — ${termLabel} (${yearLabel})`, 105, 45.5, { align: 'center' });
-    doc.setTextColor(0, 0, 0);
-
-    // Student Info Card Box
-    doc.setDrawColor(203, 213, 225);
-    doc.setFillColor(248, 250, 252);
-    doc.roundedRect(14, 51, 182, 22, 2, 2, 'FD');
-
-    doc.setFontSize(8);
-    // Col 1
-    doc.setFont('helvetica', 'bold');
-    doc.text("Nom & Prénoms :", 18, 56);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`${summary.student.lastName.toUpperCase()} ${summary.student.firstName}`, 45, 56);
-
-    doc.setFont('helvetica', 'bold');
-    doc.text("Matricule :", 18, 62);
-    doc.setFont('helvetica', 'normal');
-    doc.text(summary.student.matricule, 45, 62);
-
-    doc.setFont('helvetica', 'bold');
-    doc.text("Date & Lieu Naiss :", 18, 68);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`${summary.student.birthDate} à ${summary.student.birthPlace || 'Madagascar'}`, 45, 68);
-
-    // Col 2
-    doc.setFont('helvetica', 'bold');
-    doc.text("Classe :", 125, 56);
-    doc.setFont('helvetica', 'normal');
-    doc.text(summary.schoolClass.name, 140, 56);
-
-    doc.setFont('helvetica', 'bold');
-    doc.text("Série / Filière :", 125, 62);
-    doc.setFont('helvetica', 'normal');
-    doc.text(summary.schoolClass.serie || 'Générale', 150, 62);
-
-    doc.setFont('helvetica', 'bold');
-    doc.text("Effectif de la classe :", 125, 68);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`${summary.classSize} élèves`, 158, 68);
-
-    // Grades Table
-    const tableBody = summary.subjectDetails.map(sub => [
-      sub.subjectName,
-      String(sub.coefficient),
-      sub.evaluations.length > 0 ? sub.evaluations.map(e => e.toFixed(1)).join(' | ') : '-',
-      sub.examGrade !== undefined ? sub.examGrade.toFixed(1) : '-',
-      sub.average.toFixed(2),
-      sub.weightedPoints.toFixed(2),
-      `${sub.rankInSubject}e`,
-      sub.classAvg.toFixed(2),
-      sub.teacherComment || 'Bien',
-    ]);
+    let y = this.drawInstitutionHeader(
+      doc,
+      db,
+      'Bulletin scolaire',
+      `${termLabel} • ${yearLabel}`
+    );
 
     autoTable(doc, {
-      startY: 76,
-      head: [
-        ['DISCIPLINES / MATIÈRES', 'Coeff', 'C. Continus', 'Compo /20', 'Moy /20', 'Pts Pondérés', 'Rang', 'Moy Cls', 'Appréciation du Professeur'],
-      ],
-      body: tableBody,
+      startY: y,
       theme: 'grid',
-      headStyles: {
-        fillColor: [30, 58, 138],
-        textColor: 255,
+      body: [
+        [
+          { content: 'ÉLÈVE', styles: { fontStyle: 'bold', textColor: muted, fontSize: 6.7 } },
+          { content: `${summary.student.lastName.toUpperCase()} ${summary.student.firstName}`, styles: { fontStyle: 'bold' } },
+          { content: 'MATRICULE', styles: { fontStyle: 'bold', textColor: muted, fontSize: 6.7 } },
+          summary.student.matricule,
+        ],
+        [
+          { content: 'CLASSE', styles: { fontStyle: 'bold', textColor: muted, fontSize: 6.7 } },
+          summary.schoolClass.name,
+          { content: 'EFFECTIF', styles: { fontStyle: 'bold', textColor: muted, fontSize: 6.7 } },
+          `${summary.classSize} élève(s)`,
+        ],
+        [
+          { content: 'NÉ(E) LE', styles: { fontStyle: 'bold', textColor: muted, fontSize: 6.7 } },
+          `${summary.student.birthDate} à ${summary.student.birthPlace || 'Madagascar'}`,
+          { content: 'SÉRIE / SECTION', styles: { fontStyle: 'bold', textColor: muted, fontSize: 6.7 } },
+          summary.schoolClass.serie || 'Générale',
+        ],
+      ],
+      styles: {
+        font: 'helvetica',
         fontSize: 7.5,
-        fontStyle: 'bold',
-        halign: 'center',
-      },
-      bodyStyles: {
-        fontSize: 7.5,
-        textColor: 30,
+        textColor: ink,
+        lineColor: line,
+        lineWidth: 0.15,
+        cellPadding: 2.2,
+        valign: 'middle',
       },
       columnStyles: {
-        0: { cellWidth: 42, halign: 'left', fontStyle: 'bold' },
-        1: { cellWidth: 12, halign: 'center' },
-        2: { cellWidth: 24, halign: 'center' },
-        3: { cellWidth: 18, halign: 'center' },
-        4: { cellWidth: 16, halign: 'center', fontStyle: 'bold' },
-        5: { cellWidth: 18, halign: 'center', fontStyle: 'bold' },
-        6: { cellWidth: 12, halign: 'center' },
-        7: { cellWidth: 14, halign: 'center' },
-        8: { cellWidth: 26, halign: 'left' },
+        0: { cellWidth: 22, fillColor: soft },
+        1: { cellWidth: 78 },
+        2: { cellWidth: 24, fillColor: soft },
+        3: { cellWidth: 58 },
       },
       margin: { left: 14, right: 14 },
     });
 
-    const lastY = (doc as any).lastAutoTable.finalY + 4;
+    y = (doc as any).lastAutoTable.finalY + 4;
 
-    // Academic Summary & Discipline Cards side by side
-    doc.setDrawColor(203, 213, 225);
-    doc.setFillColor(241, 245, 249);
-    doc.roundedRect(14, lastY, 115, 34, 1.5, 1.5, 'FD');
+    const rows = summary.subjectDetails.map((subject) => [
+      subject.subjectName,
+      subject.coefficient.toString(),
+      subject.evaluations.length
+        ? subject.evaluations.map((value) => value.toFixed(1)).join(' / ')
+        : '—',
+      subject.examGrade !== undefined ? subject.examGrade.toFixed(1) : '—',
+      subject.average.toFixed(2),
+      `${subject.rankInSubject}/${summary.classSize}`,
+      subject.classAvg.toFixed(2),
+      subject.teacherComment || '',
+    ]);
 
-    doc.setFontSize(8);
+    autoTable(doc, {
+      startY: y,
+      head: [[
+        'MATIÈRE',
+        'COEF.',
+        'CONTRÔLES',
+        'EXAMEN',
+        'MOY.',
+        'RANG',
+        'MOY. CL.',
+        'APPRÉCIATION',
+      ]],
+      body: rows,
+      theme: 'grid',
+      headStyles: {
+        fillColor: [239, 242, 246],
+        textColor: ink,
+        fontSize: 6.7,
+        fontStyle: 'bold',
+        halign: 'center',
+        lineColor: line,
+        lineWidth: 0.15,
+      },
+      bodyStyles: {
+        font: 'helvetica',
+        fontSize: 7,
+        textColor: ink,
+        lineColor: line,
+        lineWidth: 0.12,
+        cellPadding: 1.8,
+        valign: 'middle',
+      },
+      alternateRowStyles: { fillColor: [251, 252, 253] },
+      columnStyles: {
+        0: { cellWidth: 38, fontStyle: 'bold' },
+        1: { cellWidth: 11, halign: 'center' },
+        2: { cellWidth: 23, halign: 'center' },
+        3: { cellWidth: 18, halign: 'center' },
+        4: { cellWidth: 16, halign: 'center', fontStyle: 'bold' },
+        5: { cellWidth: 15, halign: 'center' },
+        6: { cellWidth: 17, halign: 'center' },
+        7: { cellWidth: 44 },
+      },
+      margin: { left: 14, right: 14 },
+    });
+
+    y = (doc as any).lastAutoTable.finalY + 4;
+
+    autoTable(doc, {
+      startY: y,
+      theme: 'grid',
+      body: [
+        [
+          { content: 'MOYENNE GÉNÉRALE', styles: { fontStyle: 'bold', fillColor: soft } },
+          { content: `${summary.generalAverage.toFixed(2)} / 20`, styles: { fontStyle: 'bold', textColor: accent, fontSize: 9 } },
+          { content: 'RANG', styles: { fontStyle: 'bold', fillColor: soft } },
+          `${summary.rank} / ${summary.classSize}`,
+        ],
+        [
+          { content: 'MOYENNE DE CLASSE', styles: { fontStyle: 'bold', fillColor: soft } },
+          summary.classGeneralAverage.toFixed(2),
+          { content: 'MENTION', styles: { fontStyle: 'bold', fillColor: soft } },
+          summary.honorMention,
+        ],
+        [
+          { content: 'ASSIDUITÉ', styles: { fontStyle: 'bold', fillColor: soft } },
+          `Abs. justifiées : ${summary.absencesJustified} • Abs. non justifiées : ${summary.absencesUnjustified} • Retards : ${summary.latenessCount}`,
+          { content: 'CONDUITE', styles: { fontStyle: 'bold', fillColor: soft } },
+          `${summary.conductGrade.toFixed(1)} / 20`,
+        ],
+      ],
+      styles: {
+        fontSize: 7.2,
+        textColor: ink,
+        lineColor: line,
+        lineWidth: 0.15,
+        cellPadding: 2.2,
+      },
+      columnStyles: {
+        0: { cellWidth: 35 },
+        1: { cellWidth: 65 },
+        2: { cellWidth: 30 },
+        3: { cellWidth: 52 },
+      },
+      margin: { left: 14, right: 14 },
+    });
+
+    y = (doc as any).lastAutoTable.finalY + 6;
+
+    doc.setDrawColor(...line);
+    doc.setLineWidth(0.2);
+    doc.rect(14, y, 182, 18);
     doc.setFont('helvetica', 'bold');
-    doc.text("BILAN DES RÉSULTATS DU TRIMESTRE", 18, lastY + 5);
-    doc.line(18, lastY + 6.5, 120, lastY + 6.5);
-
-    doc.setFont('helvetica', 'normal');
-    doc.text(`Total des points obtenus :`, 18, lastY + 12);
-    doc.setFont('helvetica', 'bold');
-    doc.text(`${summary.totalPoints.toFixed(2)} / ${(summary.totalCoefficients * 20).toFixed(0)}`, 70, lastY + 12);
-
-    doc.setFont('helvetica', 'normal');
-    doc.text(`Total des coefficients :`, 18, lastY + 17);
-    doc.setFont('helvetica', 'bold');
-    doc.text(`${summary.totalCoefficients}`, 70, lastY + 17);
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9.5);
-    doc.text(`MOYENNE GÉNÉRALE :`, 18, lastY + 24);
-    doc.setTextColor(30, 58, 138);
-    doc.text(`${summary.generalAverage.toFixed(2)} / 20`, 70, lastY + 24);
-    doc.setTextColor(0, 0, 0);
-
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'bold');
-    doc.text(`RANG : ${summary.rank}e sur ${summary.classSize} élèves`, 18, lastY + 30);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`(Moy. Cls: ${summary.classGeneralAverage.toFixed(2)} | Max: ${summary.classMaxAverage.toFixed(2)} | Min: ${summary.classMinAverage.toFixed(2)})`, 55, lastY + 30);
-
-    // Discipline & Mention Box (Right)
-    doc.setFillColor(241, 245, 249);
-    doc.roundedRect(132, lastY, 64, 34, 1.5, 1.5, 'FD');
-
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'bold');
-    doc.text("DISCIPLINE & DISTINCTION", 136, lastY + 5);
-    doc.line(136, lastY + 6.5, 192, lastY + 6.5);
-
-    doc.setFont('helvetica', 'normal');
-    doc.text(`Absences justifiées : ${summary.absencesJustified} demi-journée(s)`, 136, lastY + 12);
-    doc.text(`Absences non justifiées : ${summary.absencesUnjustified}`, 136, lastY + 17);
-    doc.text(`Retards signalés : ${summary.latenessCount}`, 136, lastY + 22);
-
-    doc.setFont('helvetica', 'bold');
-    doc.text("MENTION ATTRIBUÉE :", 136, lastY + 28);
-    doc.setTextColor(5, 150, 105);
-    doc.text(summary.honorMention, 136, lastY + 32);
-    doc.setTextColor(0, 0, 0);
-
-    // Signatures Area
-    const signY = lastY + 40;
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'bold');
-
-    doc.text("Le Professeur Principal", 25, signY);
-    doc.text("Visa des Parents / Tuteurs", 95, signY);
-    doc.text("Le Chef d'Établissement / Proviseur", 150, signY);
-
-    doc.setFont('helvetica', 'italic');
     doc.setFontSize(7);
-    doc.text("(Signature)", 32, signY + 15);
-    doc.text("(Signature)", 105, signY + 15);
-    doc.text(`Fait à ${cfg.city || 'Antananarivo'}, le ${new Date().toLocaleDateString('fr-FR')}`, 145, signY + 18);
-    doc.text(`Dr. ${cfg.directorName || 'Le Proviseur'}`, 145, signY + 22);
+    doc.setTextColor(...muted);
+    doc.text('APPRÉCIATION GÉNÉRALE / DÉCISION', 17, y + 5);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(...ink);
+    const decision =
+      summary.councilDecision ||
+      summary.student.councilDecision ||
+      'Avis du conseil de classe : ________________________________________________';
+    const decisionLines = doc.splitTextToSize(decision, 174);
+    doc.text(decisionLines, 17, y + 11);
 
-    // Save and download
-    const fileName = `BULLETIN_${summary.schoolClass.name.replace(/\s+/g, '_')}_${summary.student.lastName}_${summary.termCode}.pdf`;
-    doc.save(fileName);
+    const signY = Math.max(y + 28, 238);
+    const columns = [
+      { x: 14, width: 52, title: 'Professeur principal' },
+      { x: 79, width: 52, title: 'Parent / Tuteur' },
+      { x: 144, width: 52, title: db.schoolConfig.directorTitle || 'Direction' },
+    ];
+
+    columns.forEach((column) => {
+      doc.setTextColor(...ink);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7.2);
+      doc.text(column.title, column.x + column.width / 2, signY, { align: 'center', maxWidth: column.width });
+      doc.setDrawColor(...line);
+      doc.line(column.x + 4, signY + 18, column.x + column.width - 4, signY + 18);
+    });
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6.5);
+    doc.setTextColor(...muted);
+    doc.text(
+      `Fait à ${db.schoolConfig.city || 'Antananarivo'}, le ${new Date().toLocaleDateString('fr-FR')}`,
+      170,
+      signY + 24,
+      { align: 'center', maxWidth: 52 }
+    );
+
+    this.drawDocumentFooter(
+      doc,
+      db,
+      'Bulletin scolaire — document à conserver par la famille'
+    );
+
+    doc.save(
+      `BULLETIN_${summary.schoolClass.code}_${summary.student.matricule}_${summary.termCode}.pdf`
+    );
   }
 
   /**
