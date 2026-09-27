@@ -76,8 +76,12 @@ export const TeachersManagerView: React.FC<TeachersManagerViewProps> = ({
 
   const handleOpenAdd = () => {
     setEditingTeacher(null);
+    const usedTeacherNumbers = db.teachers
+      .map((teacher) => Number(teacher.matricule.match(/(\d+)$/)?.[1] || 0))
+      .filter((value) => Number.isFinite(value));
+    const nextTeacherNumber = (usedTeacherNumbers.length > 0 ? Math.max(...usedTeacherNumbers) : 0) + 1;
     setFormData({
-      matricule: `ENS-${String(db.teachers.length + 1).padStart(3, '0')}`,
+      matricule: `ENS-${String(nextTeacherNumber).padStart(3, '0')}`,
       lastName: '',
       firstName: '',
       gender: 'M',
@@ -110,17 +114,34 @@ export const TeachersManagerView: React.FC<TeachersManagerViewProps> = ({
       return;
     }
 
+    const normalizedMatricule = (formData.matricule || '').trim().toUpperCase();
+    if (!normalizedMatricule) {
+      onShowToast('Le matricule enseignant est obligatoire.', 'error');
+      return;
+    }
+    const matriculeAlreadyUsed = db.teachers.some(
+      (teacher) =>
+        teacher.id !== editingTeacher?.id &&
+        teacher.matricule.trim().toUpperCase() === normalizedMatricule
+    );
+    if (matriculeAlreadyUsed) {
+      onShowToast(`Le matricule ${normalizedMatricule} est déjà utilisé.`, 'error');
+      return;
+    }
+
     let updatedTeachers = [...db.teachers];
 
     if (editingTeacher) {
       updatedTeachers = updatedTeachers.map((t) =>
-        t.id === editingTeacher.id ? ({ ...t, ...formData } as Teacher) : t
+        t.id === editingTeacher.id
+          ? ({ ...t, ...formData, matricule: normalizedMatricule } as Teacher)
+          : t
       );
       onShowToast(`Enseignant ${formData.lastName} modifié avec succès.`, 'success');
     } else {
       const newTeacher: Teacher = {
         id: `tea-${Date.now()}`,
-        matricule: formData.matricule || `ENS-${Date.now().toString().slice(-3)}`,
+        matricule: normalizedMatricule,
         lastName: (formData.lastName || '').toUpperCase(),
         firstName: formData.firstName || '',
         gender: formData.gender || 'M',
