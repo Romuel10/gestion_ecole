@@ -141,6 +141,42 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
     updateDatabase({ ...db, matriculeConfig }, 'Règles de matricule enregistrées.');
   };
 
+  const setMatriculePreset = (preset: 'CLASSIC' | 'SIMPLE' | 'LEVEL') => {
+    const prefix = matriculeConfig.prefix || db.schoolConfig.acronym || 'ECOLE';
+    const separator = matriculeConfig.separator || '-';
+    const numberToken = `{NUM${matriculeConfig.numDigits || 4}}`;
+    const yearToken = matriculeConfig.yearFormat === 'YY' ? '{YY}' : '{YYYY}';
+
+    const pattern =
+      preset === 'SIMPLE'
+        ? `{PREFIX}${separator}${numberToken}`
+        : preset === 'LEVEL'
+        ? `{PREFIX}${separator}{LEVEL}${separator}${yearToken}${separator}${numberToken}`
+        : `{PREFIX}${separator}${yearToken}${separator}${numberToken}`;
+
+    setMatriculeConfig({
+      ...matriculeConfig,
+      prefix,
+      pattern,
+      includeYear: preset !== 'SIMPLE',
+    });
+  };
+
+  const rebuildSimpleMatriculePattern = (patch: Partial<MatriculeConfig>) => {
+    const next = { ...matriculeConfig, ...patch };
+    const separator = next.separator || '-';
+    const numberToken = `{NUM${next.numDigits || 4}}`;
+    const yearToken = next.yearFormat === 'YY' ? '{YY}' : '{YYYY}';
+    const hasLevel = next.pattern.includes('{LEVEL}');
+    const pattern = [
+      '{PREFIX}',
+      ...(hasLevel ? ['{LEVEL}'] : []),
+      ...(next.includeYear ? [yearToken] : []),
+      numberToken,
+    ].join(separator);
+    setMatriculeConfig({ ...next, pattern });
+  };
+
   const decisionRules =
     schoolConfig.annualDecisionRules || db.schoolConfig.annualDecisionRules || [];
 
@@ -1333,27 +1369,114 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
                 <div className="mt-1 font-mono text-xl font-semibold">{matriculePreview}</div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                <Field label="Modèle">
-                  <input value={matriculeConfig.pattern} onChange={(e) => setMatriculeConfig({ ...matriculeConfig, pattern: e.target.value })} className="settings-input font-mono" />
+              <div className="mb-5">
+                <div className="text-[10.5px] font-semibold mb-2">Choisir un format</div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                  <button type="button" onClick={() => setMatriculePreset('CLASSIC')} className="matricule-preset">
+                    <strong>Classique</strong>
+                    <span>LPSM-2026-0001</span>
+                  </button>
+                  <button type="button" onClick={() => setMatriculePreset('SIMPLE')} className="matricule-preset">
+                    <strong>Simple</strong>
+                    <span>LPSM-0001</span>
+                  </button>
+                  <button type="button" onClick={() => setMatriculePreset('LEVEL')} className="matricule-preset">
+                    <strong>Avec niveau</strong>
+                    <span>LPSM-LYC-2026-0001</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
+                <Field label="Préfixe de l’établissement">
+                  <input
+                    value={matriculeConfig.prefix}
+                    onChange={(e) => rebuildSimpleMatriculePattern({ prefix: e.target.value.toUpperCase() })}
+                    placeholder="Ex. LPSM"
+                    className="settings-input font-mono"
+                  />
                 </Field>
-                <Field label="Préfixe">
-                  <input value={matriculeConfig.prefix} onChange={(e) => setMatriculeConfig({ ...matriculeConfig, prefix: e.target.value })} className="settings-input font-mono" />
+                <Field label="Séparateur">
+                  <select
+                    value={matriculeConfig.separator}
+                    onChange={(e) => rebuildSimpleMatriculePattern({ separator: e.target.value })}
+                    className="settings-input"
+                  >
+                    <option value="-">Tiret : -</option>
+                    <option value="/">Barre : /</option>
+                    <option value=".">Point : .</option>
+                    <option value="">Aucun</option>
+                  </select>
                 </Field>
                 <Field label="Nombre de chiffres">
-                  <input type="number" min="2" max="8" value={matriculeConfig.numDigits} onChange={(e) => setMatriculeConfig({ ...matriculeConfig, numDigits: Number(e.target.value) })} className="settings-input" />
+                  <select
+                    value={matriculeConfig.numDigits}
+                    onChange={(e) => rebuildSimpleMatriculePattern({ numDigits: Number(e.target.value) })}
+                    className="settings-input"
+                  >
+                    <option value={3}>3 chiffres (001)</option>
+                    <option value={4}>4 chiffres (0001)</option>
+                    <option value={5}>5 chiffres (00001)</option>
+                    <option value={6}>6 chiffres (000001)</option>
+                  </select>
+                </Field>
+                <Field label="Format de l’année">
+                  <select
+                    value={matriculeConfig.yearFormat}
+                    disabled={!matriculeConfig.includeYear}
+                    onChange={(e) => rebuildSimpleMatriculePattern({ yearFormat: e.target.value as 'YYYY' | 'YY' })}
+                    className="settings-input"
+                  >
+                    <option value="YYYY">2026</option>
+                    <option value="YY">26</option>
+                  </select>
                 </Field>
                 <Field label="Compteur actuel">
-                  <input type="number" min="0" value={matriculeConfig.currentCounter} onChange={(e) => setMatriculeConfig({ ...matriculeConfig, currentCounter: Number(e.target.value) })} className="settings-input" />
+                  <input
+                    type="number"
+                    min="0"
+                    value={matriculeConfig.currentCounter}
+                    onChange={(e) => setMatriculeConfig({ ...matriculeConfig, currentCounter: Number(e.target.value) })}
+                    className="settings-input"
+                  />
                 </Field>
-                <label className="flex items-center gap-2 text-[11px]">
-                  <input type="checkbox" checked={matriculeConfig.resetEveryYear} onChange={(e) => setMatriculeConfig({ ...matriculeConfig, resetEveryYear: e.target.checked })} />
-                  Remettre le compteur à zéro chaque année scolaire
-                </label>
+                <div className="space-y-2 pt-5">
+                  <label className="flex items-center gap-2 text-[11px]">
+                    <input
+                      type="checkbox"
+                      checked={matriculeConfig.includeYear}
+                      onChange={(e) => rebuildSimpleMatriculePattern({ includeYear: e.target.checked })}
+                    />
+                    Inclure l’année scolaire
+                  </label>
+                  <label className="flex items-center gap-2 text-[11px]">
+                    <input
+                      type="checkbox"
+                      checked={matriculeConfig.resetEveryYear}
+                      onChange={(e) => setMatriculeConfig({ ...matriculeConfig, resetEveryYear: e.target.checked })}
+                    />
+                    Recommencer à 001 chaque année
+                  </label>
+                </div>
               </div>
-              <p className="mt-4 text-[10.5px] text-slate-500">
-                Variables disponibles : {'{PREFIX}'}, {'{YYYY}'}, {'{YY}'}, {'{LEVEL}'}, {'{NUM3}'}, {'{NUM4}'}, {'{NUM5}'}.
-              </p>
+
+              <details className="mt-5 border-t border-slate-200 dark:border-slate-800 pt-4">
+                <summary className="cursor-pointer text-[10.5px] font-semibold text-slate-600 dark:text-slate-300">
+                  Réglage avancé
+                </summary>
+                <div className="mt-3">
+                  <Field label="Modèle technique">
+                    <input
+                      value={matriculeConfig.pattern}
+                      onChange={(e) => setMatriculeConfig({ ...matriculeConfig, pattern: e.target.value })}
+                      className="settings-input font-mono"
+                    />
+                  </Field>
+                  <p className="mt-2 text-[10px] text-slate-500">
+                    Variables : {'{PREFIX}'}, {'{YYYY}'}, {'{YY}'}, {'{LEVEL}'}, {'{NUM3}'}, {'{NUM4}'}, {'{NUM5}'}.
+                  </p>
+                </div>
+              </details>
             </div>
           </form>
         )}
