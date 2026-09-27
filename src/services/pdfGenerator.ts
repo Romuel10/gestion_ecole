@@ -1,27 +1,29 @@
-import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
-import { DatabaseSchema, ReportCardSummary, TuitionPayment, SalaryPayment, Student } from '../types/school';
-import { CalculationService } from './calculations';
-
 export class PdfGeneratorService {
-  private static addSchoolLogo(doc: jsPDF, db: DatabaseSchema, y = 5): void {
+  private static readonly BRAND = {
+    ink: [31, 41, 55] as [number, number, number],
+    muted: [100, 116, 139] as [number, number, number],
+    line: [203, 213, 225] as [number, number, number],
+    soft: [248, 250, 252] as [number, number, number],
+    accent: [36, 63, 90] as [number, number, number],
+  };
+
+  private static addSchoolLogo(doc: jsPDF, db: DatabaseSchema, y = 8, maxHeight = 14): void {
     const cfg = db.schoolConfig;
     if (!cfg.logoUrl) return;
 
     try {
       const properties = doc.getImageProperties(cfg.logoUrl);
-      const requestedWidth = Math.min(40, Math.max(8, cfg.documentLogoWidthMm || 18));
+      const requestedWidth = Math.min(32, Math.max(10, cfg.documentLogoWidthMm || 18));
       const ratio = properties.width / properties.height || 1;
       let width = requestedWidth;
       let height = width / ratio;
-      const maxHeight = 11;
       if (height > maxHeight) {
         height = maxHeight;
         width = height * ratio;
       }
 
-      const pageWidth = doc.internal.pageSize.getWidth();
       const position = cfg.documentLogoPosition || 'LEFT';
+      const pageWidth = doc.internal.pageSize.getWidth();
       const x =
         position === 'CENTER'
           ? (pageWidth - width) / 2
@@ -32,8 +34,87 @@ export class PdfGeneratorService {
       const format = cfg.logoUrl.startsWith('data:image/png') ? 'PNG' : 'JPEG';
       doc.addImage(cfg.logoUrl, format, x, y, width, height, undefined, 'FAST');
     } catch {
-      // A broken logo must never block generation of an official document.
+      // Un logo invalide ne doit jamais empêcher la génération d'un document.
     }
+  }
+
+  private static drawInstitutionHeader(
+    doc: jsPDF,
+    db: DatabaseSchema,
+    documentTitle: string,
+    metaLine?: string
+  ): number {
+    const cfg = db.schoolConfig;
+    const { ink, muted, line, accent } = this.BRAND;
+
+    this.addSchoolLogo(doc, db, 8, 15);
+
+    doc.setTextColor(...ink);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10.5);
+    doc.text(cfg.name.toUpperCase(), 105, 12, { align: 'center' });
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6.8);
+    doc.setTextColor(...muted);
+    doc.text(
+      [cfg.dren, cfg.cisco].filter(Boolean).join(' • '),
+      105,
+      16.5,
+      { align: 'center' }
+    );
+    doc.text(
+      [cfg.address, cfg.city, cfg.phone ? `Tél. ${cfg.phone}` : '']
+        .filter(Boolean)
+        .join(' • '),
+      105,
+      20.5,
+      { align: 'center', maxWidth: 150 }
+    );
+
+    doc.setDrawColor(...line);
+    doc.setLineWidth(0.25);
+    doc.line(14, 25, 196, 25);
+
+    doc.setTextColor(...accent);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(12.5);
+    doc.text(documentTitle.toUpperCase(), 14, 33);
+
+    if (metaLine) {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.5);
+      doc.setTextColor(...muted);
+      doc.text(metaLine, 196, 33, { align: 'right' });
+    }
+
+    doc.setTextColor(...ink);
+    return 38;
+  }
+
+  private static drawDocumentFooter(doc: jsPDF, db: DatabaseSchema, note?: string): void {
+    const cfg = db.schoolConfig;
+    const { muted, line } = this.BRAND;
+    const pageHeight = doc.internal.pageSize.getHeight();
+
+    doc.setDrawColor(...line);
+    doc.setLineWidth(0.2);
+    doc.line(14, pageHeight - 14, 196, pageHeight - 14);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6.5);
+    doc.setTextColor(...muted);
+    doc.text(
+      note || `${cfg.acronym} • ${cfg.email || cfg.phone || ''}`,
+      14,
+      pageHeight - 9
+    );
+    doc.text(
+      `Document généré le ${new Date().toLocaleDateString('fr-FR')}`,
+      196,
+      pageHeight - 9,
+      { align: 'right' }
+    );
   }
 
   private static fillCertificateTemplate(
