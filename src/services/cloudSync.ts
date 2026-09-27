@@ -136,7 +136,7 @@ async function restUpsert(
 function enrollmentStatus(status: string) {
   if (status === 'EN_ATTENTE') return 'PENDING';
   if (status === 'TRANSFERE') return 'TRANSFERRED';
-  if (status === 'ABANDONNE') return 'DROPPED';
+  if (status === 'ABANDON') return 'DROPPED';
   return 'ENROLLED';
 }
 
@@ -343,7 +343,7 @@ export class CloudSyncService {
       code: subject.code,
       name: subject.name,
       category: subject.category,
-      default_coefficient: subject.defaultCoefficient,
+      default_coefficient: subject.defaultCoeff,
       color: subject.color,
     }));
     await restUpsert('sekoly_subjects', subjects, 'id');
@@ -435,7 +435,7 @@ export class CloudSyncService {
           ? cloudUuid('teacher', config.teacherId)
           : null,
         coefficient: config.coefficient,
-        weekly_hours: config.weeklyHours,
+        weekly_hours: config.weeklyHours || 2,
       }))
     );
     await restUpsert('sekoly_class_subjects', classSubjects, 'id');
@@ -456,7 +456,7 @@ export class CloudSyncService {
             `${currentYearId}:${schoolClass.id}`
           ),
           subject_id: cloudUuid('subject', config.subjectId),
-          weekly_hours: config.weeklyHours,
+          weekly_hours: config.weeklyHours || 2,
           active: true,
         }))
     );
