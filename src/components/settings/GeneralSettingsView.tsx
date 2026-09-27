@@ -124,6 +124,33 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
     onShowToast(`Nouvelle session scolaire (${nextYearLabel}) ajoutée.`, 'success');
   };
 
+  const handleToggleTermLock = (schoolYearId: string, termId: string) => {
+    const updatedYears = db.schoolYears.map((year) => {
+      if (year.id !== schoolYearId) return year;
+      return {
+        ...year,
+        terms: year.terms.map((term) =>
+          term.id === termId ? { ...term, isLocked: !term.isLocked } : term
+        ),
+      };
+    });
+
+    const updatedDb: DatabaseSchema = {
+      ...db,
+      schoolYears: updatedYears,
+    };
+    StorageService.saveDatabase(updatedDb);
+    onUpdateDb(updatedDb);
+
+    const updatedTerm = updatedYears
+      .find((year) => year.id === schoolYearId)
+      ?.terms.find((term) => term.id === termId);
+    onShowToast(
+      `${updatedTerm?.label || 'Période'} ${updatedTerm?.isLocked ? 'verrouillé' : 'rouvert'}.`,
+      updatedTerm?.isLocked ? 'info' : 'success'
+    );
+  };
+
   // Backup file upload handler
   const handleBackupUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -506,9 +533,14 @@ Paramétrage général de l'application
                   {sy.id !== db.currentSchoolYearId && (
                     <button
                       onClick={() => {
+                        const validTermCodes = sy.terms.map((term) => term.code);
+                        const nextTermCode = validTermCodes.includes(db.currentTermCode)
+                          ? db.currentTermCode
+                          : sy.terms[0]?.code || db.currentTermCode;
                         const updated: DatabaseSchema = {
                           ...db,
                           currentSchoolYearId: sy.id,
+                          currentTermCode: nextTermCode,
                           schoolYears: db.schoolYears.map((year) => ({
                             ...year,
                             isCurrent: year.id === sy.id,
@@ -537,13 +569,18 @@ Paramétrage général de l'application
                           {t.startDate} au {t.endDate}
                         </div>
                       </div>
-                      <span
-                        className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                          t.isLocked ? 'bg-rose-100 text-rose-800' : 'bg-emerald-100 text-emerald-800'
+                      <button
+                        type="button"
+                        onClick={() => handleToggleTermLock(sy.id, t.id)}
+                        className={`text-[10px] font-bold px-2 py-1 rounded transition hover:ring-2 hover:ring-offset-1 ${
+                          t.isLocked
+                            ? 'bg-rose-100 text-rose-800 hover:bg-rose-200'
+                            : 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
                         }`}
+                        title={t.isLocked ? 'Cliquer pour rouvrir la saisie' : 'Cliquer pour verrouiller la saisie'}
                       >
                         {t.isLocked ? 'Verrouillé' : 'Ouvert'}
-                      </span>
+                      </button>
                     </div>
                   ))}
                 </div>
