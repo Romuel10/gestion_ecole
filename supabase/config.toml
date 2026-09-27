@@ -5,3 +5,10 @@ verify_jwt = true
 
 [functions.sekoly-invite-teacher]
 verify_jwt = true
+
+[functions.sekoly-provision-teacher]
+verify_jwt = true
+
+[auth]
+site_url = "https://cmpbrouwcfoauwyeiyfj.supabase.co"
+additional_redirect_urls = ["sekoly-teacher://auth/callback"]
