@@ -19,6 +19,7 @@
       "eas": {
         "projectId": "REPLACE_WITH_EXPO_PROJECT_ID"
       }
-    }
+    },
+    "scheme": "sekoly-teacher"
   }
 }
