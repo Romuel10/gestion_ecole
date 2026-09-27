@@ -27,49 +27,6 @@ function temporaryPassword() {
   return `Sk1!${body}`;
 }
 
-async function sendActivationEmail(args: {
-  email: string;
-  teacherName: string;
-  schoolName: string;
-  actionLink: string;
-}) {
-  const apiKey = Deno.env.get("RESEND_API_KEY") ?? "";
-  const from = Deno.env.get("RESEND_FROM_EMAIL") ?? "";
-
-  if (!apiKey || !from) {
-    return { sent: false, reason: "RESEND_NOT_CONFIGURED" };
-  }
-
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from,
-      to: [args.email],
-      subject: `Activez votre accès Sekoly Enseignant — ${args.schoolName}`,
-      text: [
-        `Bonjour ${args.teacherName},`,
-        "",
-        `${args.schoolName} vous a créé un accès à Sekoly Enseignant.`,
-        "Ouvrez le lien suivant sur votre téléphone pour choisir votre mot de passe :",
-        args.actionLink,
-        "",
-        "Sekoly Enseignant",
-      ].join("\n"),
-    }),
-  });
-
-  if (!response.ok) {
-    return { sent: false, reason: "RESEND_SEND_FAILED" };
-  }
-
-  const result = await response.json().catch(() => ({}));
-  return { sent: true, id: result?.id ?? null };
-}
-
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") {
@@ -150,13 +107,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { data: school, error: schoolError } = await admin
-      .from("sekoly_schools")
-      .select("name")
-      .eq("id", schoolId)
-      .single();
-    if (schoolError) throw schoolError;
-
     const { data: teacher, error: teacherError } = await admin
       .from("sekoly_teachers")
       .select("id,user_id")
@@ -233,36 +183,11 @@ Deno.serve(async (req) => {
       .single();
     if (updateError) throw updateError;
 
-    let emailDelivery = { sent: false, reason: "RESEND_NOT_CONFIGURED" } as {
-      sent: boolean;
-      reason?: string;
-      id?: string | null;
-    };
-
-    const { data: linkData } = await admin.auth.admin.generateLink({
-      type: "recovery",
-      email,
-      options: {
-        redirectTo: "sekoly-teacher://auth/callback",
-      },
-    } as any);
-
-    const actionLink = linkData?.properties?.action_link;
-    if (actionLink) {
-      emailDelivery = await sendActivationEmail({
-        email,
-        teacherName: `${firstName} ${lastName}`,
-        schoolName: school.name,
-        actionLink,
-      });
-    }
-
     return Response.json(
       {
         teacher: updatedTeacher,
         userId: createdUserId,
         temporaryPassword: password,
-        emailDelivery,
       },
       {
         status: 201,
