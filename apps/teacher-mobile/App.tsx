@@ -4,6 +4,7 @@ import {
   Alert,
   FlatList,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   Pressable,
   RefreshControl,
@@ -16,7 +17,7 @@ import {
   View,
 } from 'react-native';
 import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
-import { supabase } from './src/lib/supabase';
+import { acceptAuthDeepLink, supabase } from './src/lib/supabase';
 import {
   Assignment,
   Assessment,
@@ -127,6 +128,84 @@ function Segmented({
         </Pressable>
       ))}
     </ScrollView>
+  );
+}
+
+function ActivateAccountScreen({
+  onDone,
+}: {
+  onDone: () => Promise<void>;
+}) {
+  const [password, setPassword] = useState('');
+  const [confirmation, setConfirmation] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const save = async () => {
+    if (password.length < 8) {
+      Alert.alert('Mot de passe', 'Utilisez au moins 8 caractères.');
+      return;
+    }
+    if (password !== confirmation) {
+      Alert.alert('Mot de passe', 'Les deux mots de passe ne correspondent pas.');
+      return;
+    }
+
+    setBusy(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password });
+      if (error) throw error;
+      await onDone();
+    } catch (error) {
+      Alert.alert(
+        'Activation impossible',
+        error instanceof Error ? error.message : 'Réessayez.'
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <KeyboardAvoidingView
+      style={styles.full}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <SafeAreaView style={styles.loginPage}>
+        <View style={styles.brandSeal}>
+          <Text style={styles.brandSealText}>S</Text>
+        </View>
+        <Text style={styles.brandTitle}>ACTIVER MON COMPTE</Text>
+        <Text style={styles.brandSubtitle}>
+          Choisissez le mot de passe de votre compte Sekoly Enseignant
+        </Text>
+
+        <View style={styles.loginCard}>
+          <Text style={styles.label}>Nouveau mot de passe</Text>
+          <TextInput
+            secureTextEntry
+            value={password}
+            onChangeText={setPassword}
+            style={styles.input}
+          />
+
+          <Text style={[styles.label, { marginTop: 14 }]}>Confirmation</Text>
+          <TextInput
+            secureTextEntry
+            value={confirmation}
+            onChangeText={setConfirmation}
+            style={styles.input}
+          />
+
+          <View style={{ marginTop: 18 }}>
+            <PrimaryButton
+              label={busy ? 'Activation…' : 'Activer mon compte'}
+              onPress={save}
+              disabled={busy}
+            />
+          </View>
+        </View>
+      </SafeAreaView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -858,6 +937,7 @@ export default function App() {
   const [queueCount, setQueueCount] = useState(0);
   const [syncing, setSyncing] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [needsPassword, setNeedsPassword] = useState(false);
 
   const refreshQueue = () => setQueueCount(teacherApi.queueCount());
 
@@ -885,6 +965,30 @@ export default function App() {
       setBooting(false);
     }
   }, [loadWorkspace]);
+
+  useEffect(() => {
+    const handleUrl = async (url: string | null) => {
+      if (!url || !url.startsWith('sekoly-teacher://')) return;
+      try {
+        const result = await acceptAuthDeepLink(url);
+        if (result.session) {
+          setNeedsPassword(true);
+        }
+      } catch (error) {
+        Alert.alert(
+          'Invitation',
+          error instanceof Error ? error.message : "Impossible d'ouvrir l'invitation."
+        );
+      }
+    };
+
+    void Linking.getInitialURL().then(handleUrl);
+    const subscription = Linking.addEventListener('url', ({ url }) => {
+      void handleUrl(url);
+    });
+
+    return () => subscription.remove();
+  }, []);
 
   useEffect(() => {
     void boot();
@@ -952,6 +1056,17 @@ export default function App() {
         <ActivityIndicator size="large" color={COLORS.navy} />
         <Text style={styles.bootText}>Ouverture de Sekoly Enseignant…</Text>
       </View>
+    );
+  }
+
+  if (needsPassword) {
+    return (
+      <ActivateAccountScreen
+        onDone={async () => {
+          setNeedsPassword(false);
+          await loadWorkspace();
+        }}
+      />
     );
   }
 
