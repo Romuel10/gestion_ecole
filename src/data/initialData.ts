@@ -1030,6 +1030,7 @@ export const BASE_INITIAL_DATA: DatabaseSchema = {
     },
   ],
 
+  cashDayClosures: [],
   cashTransactions: [
     {
       id: 'csh-001',
