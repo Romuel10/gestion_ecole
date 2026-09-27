@@ -23,6 +23,7 @@ export function App() {
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [show3DVisualizer, setShow3DVisualizer] = useState(false); // Clean desktop default
   const [selectedEntityId, setSelectedEntityId] = useState<string | undefined>(undefined);
+  const [pendingFinanceAction, setPendingFinanceAction] = useState<'NEW_PAYMENT' | null>(null);
 
   // Mode sombre : mémorisé, sinon préférence du système.
   const [isDark, setIsDark] = useState<boolean>(() => {
@@ -57,17 +58,51 @@ export function App() {
   const handleNavigate = (tab: NavTab, entityId?: string) => {
     setCurrentTab(tab);
     setSelectedEntityId(entityId);
+    if (tab !== 'finances') setPendingFinanceAction(null);
   };
 
   const handleQuickAction = (action: 'NEW_STUDENT' | 'NEW_PAYMENT' | 'NEW_GRADE') => {
     if (action === 'NEW_STUDENT') {
+      setPendingFinanceAction(null);
       setCurrentTab('admissions');
     } else if (action === 'NEW_PAYMENT') {
+      setPendingFinanceAction('NEW_PAYMENT');
       setCurrentTab('finances');
     } else if (action === 'NEW_GRADE') {
+      setPendingFinanceAction(null);
       setCurrentTab('academics');
     }
   };
+
+  // Raccourcis annoncés dans l'interface : Ctrl/Cmd+K, Ctrl/Cmd+N et Ctrl/Cmd+E.
+  useEffect(() => {
+    const handleGlobalShortcut = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      const key = e.key.toLowerCase();
+
+      if (key === 'k') {
+        e.preventDefault();
+        setIsCommandPaletteOpen((open) => !open);
+      } else if (key === 'n') {
+        e.preventDefault();
+        handleQuickAction('NEW_STUDENT');
+      } else if (key === 'e') {
+        e.preventDefault();
+        handleQuickAction('NEW_PAYMENT');
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalShortcut);
+    return () => window.removeEventListener('keydown', handleGlobalShortcut);
+  }, []);
+
+  // L'action est consommée après le rendu du module Finances.
+  useEffect(() => {
+    if (currentTab === 'finances' && pendingFinanceAction) {
+      const timer = window.setTimeout(() => setPendingFinanceAction(null), 0);
+      return () => window.clearTimeout(timer);
+    }
+  }, [currentTab, pendingFinanceAction]);
 
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-slate-100 dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans antialiased">
@@ -75,8 +110,8 @@ export function App() {
       <DesktopMenuBar
         db={db}
         onUpdateDb={setDb}
-        onOpenNewAdmission={() => setCurrentTab('admissions')}
-        onOpenNewPayment={() => setCurrentTab('finances')}
+        onOpenNewAdmission={() => handleQuickAction('NEW_STUDENT')}
+        onOpenNewPayment={() => handleQuickAction('NEW_PAYMENT')}
         onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
         isDark={isDark}
         onToggleTheme={() => setIsDark(!isDark)}
@@ -154,6 +189,7 @@ export function App() {
                 db={db}
                 onUpdateDb={setDb}
                 onShowToast={showToast}
+                initialAction={pendingFinanceAction || undefined}
               />
             )}
 
