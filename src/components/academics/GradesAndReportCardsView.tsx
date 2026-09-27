@@ -279,28 +279,15 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
 
   return (
     <div className="space-y-6">
-      {/* Top Banner & Selectors */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm">
-        <div>
-          <h2 className="text-base font-bold text-slate-900 dark:text-white m-0">
-            Pédagogie de l'École : Notes, Bulletins & Délibérations
-          </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Saisie rapide, calcul automatique des moyennes, fiches synoptiques du conseil et feuilles d'appel
-          </p>
-        </div>
-
-        {/* Global Selectors */}
-        <div className="flex flex-wrap items-center gap-2.5">
+      <div className="page-panel p-3 flex flex-col xl:flex-row xl:items-center gap-3 justify-between">
+        <div className="flex flex-wrap items-center gap-2">
           <select
             value={selectedClassId}
             onChange={(e) => handleSelectSubjectOrClass(e.target.value, selectedSubjectId, selectedTerm)}
-            className="text-xs font-bold px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="settings-input w-auto min-w-[180px]"
           >
             {db.classes.map((cls) => (
-              <option key={cls.id} value={cls.id}>
-                {cls.name} ({cls.serie || 'GEN'})
-              </option>
+              <option key={cls.id} value={cls.id}>{cls.name}</option>
             ))}
           </select>
 
@@ -310,63 +297,35 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
               onChange={(e) =>
                 handleSelectSubjectOrClass(selectedClassId, selectedSubjectId, e.target.value as TermType)
               }
-              className="text-xs font-bold px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="settings-input w-auto min-w-[150px]"
             >
               {configuredTerms.map((term) => (
-                <option key={term.id} value={term.code}>
-                  {term.label}
-                </option>
+                <option key={term.id} value={term.code}>{term.label}</option>
               ))}
             </select>
           )}
+        </div>
 
-          {/* View Tab Switcher */}
-          <div className="flex flex-wrap items-center space-x-1 p-1 rounded-xl bg-slate-100 dark:bg-slate-800">
+        <div className="flex flex-wrap items-center gap-1">
+          {[
+            ['REPORT_CARDS', 'Bulletins'],
+            ['ENTRY_MATRIX', 'Saisie des notes'],
+            ['DELIBERATION_SHEET', 'Délibération'],
+            ['ATTENDANCE_SHEET', 'Feuille d’appel'],
+          ].map(([id, label]) => (
             <button
-              onClick={() => setActiveTab('REPORT_CARDS')}
-              className={`px-3 py-1 text-xs font-semibold rounded-lg transition flex items-center space-x-1.5 ${
-                activeTab === 'REPORT_CARDS'
-                  ? 'bg-blue-600 text-white shadow'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              key={id}
+              type="button"
+              onClick={() => setActiveTab(id as typeof activeTab)}
+              className={`px-3 py-2 rounded-md text-[11px] font-semibold transition ${
+                activeTab === id
+                  ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
+                  : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
               }`}
             >
-              <FileSpreadsheet className="w-3.5 h-3.5" />
-              <span>Bulletins</span>
+              {label}
             </button>
-            <button
-              onClick={() => setActiveTab('ENTRY_MATRIX')}
-              className={`px-3 py-1 text-xs font-semibold rounded-lg transition flex items-center space-x-1.5 ${
-                activeTab === 'ENTRY_MATRIX'
-                  ? 'bg-blue-600 text-white shadow'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              <Calculator className="w-3.5 h-3.5" />
-              <span>Saisie Notes</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('DELIBERATION_SHEET')}
-              className={`px-3 py-1 text-xs font-semibold rounded-lg transition flex items-center space-x-1.5 ${
-                activeTab === 'DELIBERATION_SHEET'
-                  ? 'bg-blue-600 text-white shadow'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              <Award className="w-3.5 h-3.5" />
-              <span>Conseil de Classe</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('ATTENDANCE_SHEET')}
-              className={`px-3 py-1 text-xs font-semibold rounded-lg transition flex items-center space-x-1.5 ${
-                activeTab === 'ATTENDANCE_SHEET'
-                  ? 'bg-blue-600 text-white shadow'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              <Calendar className="w-3.5 h-3.5" />
-              <span>Feuille d'Appel</span>
-            </button>
-          </div>
+          ))}
         </div>
       </div>
 
