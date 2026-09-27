@@ -12,3 +12,6 @@ verify_jwt = true
 [auth]
 site_url = "https://cmpbrouwcfoauwyeiyfj.supabase.co"
 additional_redirect_urls = ["sekoly-teacher://auth/callback"]
+
+[functions.sekoly-send-teacher-activation]
+verify_jwt = true
