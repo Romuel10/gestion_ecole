@@ -153,11 +153,21 @@ function ActivateAccountScreen({
     setBusy(true);
     try {
       await teacherApi.changeInitialPassword(password);
+    } catch (error) {
+      Alert.alert(
+        'Changement impossible',
+        error instanceof Error ? error.message : 'Réessayez.'
+      );
+      setBusy(false);
+      return;
+    }
+
+    try {
       await onDone();
     } catch (error) {
       Alert.alert(
-        'Activation impossible',
-        error instanceof Error ? error.message : 'Réessayez.'
+        'Mot de passe enregistré',
+        'Votre mot de passe a bien été changé, mais les données de l’établissement n’ont pas pu être chargées. Fermez puis rouvrez l’application. Si nécessaire, reconnectez-vous avec votre nouveau mot de passe.'
       );
     } finally {
       setBusy(false);
