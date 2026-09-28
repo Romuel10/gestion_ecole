@@ -30,3 +30,6 @@ jobs:
 
       - name: Lint
         run: npm run lint
+
+      - name: Business tests
+        run: npm test
