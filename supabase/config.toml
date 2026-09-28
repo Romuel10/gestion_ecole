@@ -24,3 +24,6 @@ verify_jwt = true
 
 [functions.sekoly-sync-monitor]
 verify_jwt = true
+
+[functions.sekoly-public-enrollment]
+verify_jwt = false
