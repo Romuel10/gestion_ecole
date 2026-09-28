@@ -746,24 +746,61 @@ export class CloudSyncService {
       'id'
     );
 
-    const guardians = (db.guardians ?? []).map((guardian) => ({
-      id: cloudEntityUuid('guardian', guardian.id),
-      school_id: schoolId,
-      last_name: guardian.lastName,
-      first_name: guardian.firstName,
-      phone_primary: guardian.phonePrimary || null,
-      phone_secondary: guardian.phoneSecondary || null,
-      email: guardian.email || null,
-      cin_number: guardian.cinNumber || null,
-      cin_issued_at: guardian.cinIssuedAt || null,
-      cin_issue_place: guardian.cinIssuePlace || null,
-      occupation: guardian.occupation || null,
-      employer: guardian.employer || null,
-      address: guardian.address || null,
-      city: guardian.city || null,
-      nationality: guardian.nationality || 'Malgache',
-      status: guardian.status || 'ACTIVE',
-    }));
+    const cloudExistingGuardians = await restSelect<any>(
+      'sekoly_guardians',
+      `select=id,last_name,first_name,phone_primary,email,cin_number&school_id=eq.${schoolId}`
+    );
+    const guardianCloudIdMap = new Map<string, string>();
+
+    const normalizedKey = (value?: string | null) =>
+      (value || '').replace(/\s+/g, '').toUpperCase();
+
+    const guardians = (db.guardians ?? []).map((guardian) => {
+      const cinKey = normalizedKey(guardian.cinNumber);
+      const phoneKey = normalizedKey(guardian.phonePrimary);
+      const emailKey = (guardian.email || '').trim().toLowerCase();
+      const matching = cloudExistingGuardians.find((candidate) => {
+        if (cinKey && normalizedKey(candidate.cin_number) === cinKey) return true;
+        if (
+          phoneKey &&
+          normalizedKey(candidate.phone_primary) === phoneKey &&
+          normalizedKey(candidate.last_name) === normalizedKey(guardian.lastName)
+        ) {
+          return true;
+        }
+        if (
+          emailKey &&
+          (candidate.email || '').trim().toLowerCase() === emailKey &&
+          normalizedKey(candidate.last_name) === normalizedKey(guardian.lastName)
+        ) {
+          return true;
+        }
+        return false;
+      });
+
+      const cloudGuardianId =
+        matching?.id || cloudEntityUuid('guardian', guardian.id);
+      guardianCloudIdMap.set(guardian.id, cloudGuardianId);
+
+      return {
+        id: cloudGuardianId,
+        school_id: schoolId,
+        last_name: guardian.lastName,
+        first_name: guardian.firstName,
+        phone_primary: guardian.phonePrimary || null,
+        phone_secondary: guardian.phoneSecondary || null,
+        email: guardian.email || null,
+        cin_number: guardian.cinNumber || null,
+        cin_issued_at: guardian.cinIssuedAt || null,
+        cin_issue_place: guardian.cinIssuePlace || null,
+        occupation: guardian.occupation || null,
+        employer: guardian.employer || null,
+        address: guardian.address || null,
+        city: guardian.city || null,
+        nationality: guardian.nationality || 'Malgache',
+        status: guardian.status || 'ACTIVE',
+      };
+    });
     await restUpsert('sekoly_guardians', guardians, 'id');
 
     const guardianLinkMap = new Map<string, Record<string, unknown>>();
@@ -774,7 +811,9 @@ export class CloudSyncService {
         'student',
         student.matricule.toUpperCase()
       );
-      const cloudGuardianId = cloudEntityUuid('guardian', link.guardianId);
+      const cloudGuardianId =
+        guardianCloudIdMap.get(link.guardianId) ||
+        cloudEntityUuid('guardian', link.guardianId);
       const key = `${cloudStudentId}:${cloudGuardianId}`;
       guardianLinkMap.set(key, {
         id: cloudEntityUuid('student-guardian', key),
@@ -791,6 +830,77 @@ export class CloudSyncService {
     });
     const guardianLinks = Array.from(guardianLinkMap.values());
     await restUpsert('sekoly_student_guardians', guardianLinks, 'id');
+
+    const familyMap = new Map<string, Record<string, unknown>>();
+    const familyGuardianMap = new Map<string, Record<string, unknown>>();
+    const familyStudentMap = new Map<string, Record<string, unknown>>();
+
+    db.students.forEach((student) => {
+      const localLinks = (db.studentGuardianLinks ?? []).filter(
+        (link) => link.studentId === student.id
+      );
+      if (localLinks.length === 0) return;
+
+      const primaryLink =
+        localLinks.find((link) => link.isPrimary) || localLinks[0];
+      const primaryGuardian = (db.guardians ?? []).find(
+        (guardian) => guardian.id === primaryLink.guardianId
+      );
+      if (!primaryGuardian) return;
+
+      const cloudPrimaryGuardianId =
+        guardianCloudIdMap.get(primaryGuardian.id) ||
+        cloudEntityUuid('guardian', primaryGuardian.id);
+      const cloudFamilyId = cloudEntityUuid(
+        'family',
+        cloudPrimaryGuardianId
+      );
+
+      familyMap.set(cloudFamilyId, {
+        id: cloudFamilyId,
+        school_id: schoolId,
+        family_code: cloudFamilyId.replaceAll('-', '').slice(0, 10).toUpperCase(),
+        display_name: `Famille ${primaryGuardian.lastName}`,
+        address: primaryGuardian.address || student.address || null,
+        city: primaryGuardian.city || student.city || null,
+        status: 'ACTIVE',
+      });
+
+      localLinks.forEach((link) => {
+        const cloudGuardianId =
+          guardianCloudIdMap.get(link.guardianId) ||
+          cloudEntityUuid('guardian', link.guardianId);
+        const key = `${cloudFamilyId}:${cloudGuardianId}`;
+        familyGuardianMap.set(key, {
+          id: cloudEntityUuid('family-guardian', key),
+          school_id: schoolId,
+          family_id: cloudFamilyId,
+          guardian_id: cloudGuardianId,
+          is_primary: cloudGuardianId === cloudPrimaryGuardianId,
+          relationship: link.relationship,
+        });
+      });
+
+      const cloudStudentId = cloudEntityUuid(
+        'student',
+        student.matricule.toUpperCase()
+      );
+      const familyStudentKey = `${cloudFamilyId}:${cloudStudentId}`;
+      familyStudentMap.set(familyStudentKey, {
+        id: cloudEntityUuid('family-student', familyStudentKey),
+        school_id: schoolId,
+        family_id: cloudFamilyId,
+        student_id: cloudStudentId,
+        relationship_label: 'ENFANT',
+      });
+    });
+
+    const families = Array.from(familyMap.values());
+    const familyGuardians = Array.from(familyGuardianMap.values());
+    const familyStudents = Array.from(familyStudentMap.values());
+    await restUpsert('sekoly_families', families, 'id');
+    await restUpsert('sekoly_family_guardians', familyGuardians, 'id');
+    await restUpsert('sekoly_family_students', familyStudents, 'id');
 
     const enrollments = db.students.map((student) => ({
       id: cloudEntityUuid(
@@ -969,6 +1079,9 @@ export class CloudSyncService {
       students: uniqueStudents.size,
       guardians: guardians.length,
       guardianLinks: guardianLinks.length,
+      families: families.length,
+      familyGuardians: familyGuardians.length,
+      familyStudents: familyStudents.length,
       enrollments: enrollments.length,
       teachers: teachers.length,
       assignments: assignments.length,
