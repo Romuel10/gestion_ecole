@@ -681,15 +681,72 @@ function renderPortalPage(ctx: any, token: string, basePath: string) {
       ).join("")
     : '<div class="empty">Aucun enfant déjà inscrit n’est encore lié à ce dossier familial.</div>';
 
+  const primaryRelationship =
+    (ctx.links ?? []).find(
+      (item: any) =>
+        item.guardian_id === ctx.primaryGuardian?.id,
+    )?.relationship ?? "GUARDIAN";
+  const cinDocumentType =
+    primaryRelationship === "FATHER"
+      ? "CIN_FATHER"
+      : primaryRelationship === "MOTHER"
+        ? "CIN_MOTHER"
+        : "CIN_GUARDIAN";
+  const checklistDocumentType: Record<string, string> = {
+    BIRTH_CERTIFICATE: "BIRTH_CERTIFICATE",
+    CIN_PRIMARY: cinDocumentType,
+    STUDENT_PHOTO: "STUDENT_PHOTO",
+    RESIDENCE: "RESIDENCE_CERTIFICATE",
+    TRANSFER: "TRANSFER_CERTIFICATE",
+    REPORT_CARD: "REPORT_CARD",
+  };
+
   const requestsHtml = (ctx.applications ?? []).length
-    ? (ctx.applications ?? []).map((app: any) =>
-        '<div class="row"><div><strong>' +
-        htmlEscape(app.child_last_name) + ' ' + htmlEscape(app.child_first_name) +
-        '</strong><small>' +
-        (app.application_type === "RE_REGISTRATION" ? "Réinscription" : "Nouvelle inscription") +
-        '</small></div><span class="pill">' +
-        htmlEscape(statusLabels[app.status] ?? app.status) + '</span></div>'
-      ).join("")
+    ? (ctx.applications ?? []).map((app: any) => {
+        const items = (ctx.checklist ?? []).filter(
+          (item: any) => item.application_id === app.id,
+        );
+        const missing = items.filter(
+          (item: any) =>
+            item.required &&
+            !["PROVIDED", "VERIFIED", "NOT_REQUIRED"].includes(item.status),
+        );
+        const checklistHtml = items.length
+          ? '<div class="checklist">' +
+            items
+              .map((item: any) => {
+                const state =
+                  item.status === "VERIFIED"
+                    ? "Vérifié"
+                    : item.status === "PROVIDED"
+                      ? "Reçu"
+                      : item.status === "NOT_REQUIRED"
+                        ? "Non requis"
+                        : "Manquant";
+                const input =
+                  item.status === "MISSING" && checklistDocumentType[item.code]
+                    ? '<label class="mini-upload">Ajouter<input type="file" data-portal-upload="' +
+                      htmlEscape(app.id) + '" data-doc-type="' +
+                      htmlEscape(checklistDocumentType[item.code]) +
+                      '" accept=".pdf,image/jpeg,image/png,image/webp"></label>'
+                    : "";
+                return '<div class="check"><span>' +
+                  htmlEscape(item.label) + '</span><b class="' +
+                  (item.status === "VERIFIED" ? "good" : item.status === "PROVIDED" ? "ready" : "missing") +
+                  '">' + htmlEscape(state) + '</b>' + input + '</div>';
+              })
+              .join("") +
+            '</div>'
+          : "";
+        return '<article class="request-card"><div class="row"><div><strong>' +
+          htmlEscape(app.child_last_name) + ' ' + htmlEscape(app.child_first_name) +
+          '</strong><small>' +
+          (app.application_type === "RE_REGISTRATION" ? "Réinscription" : "Nouvelle inscription") +
+          (missing.length ? " · " + missing.length + " pièce(s) obligatoire(s) manquante(s)" : "") +
+          '</small></div><span class="pill">' +
+          htmlEscape(statusLabels[app.status] ?? app.status) +
+          '</span></div>' + checklistHtml + '</article>';
+      }).join("")
     : '<div class="empty">Aucune demande récente.</div>';
 
   const campaignAction = ctx.campaign
@@ -709,7 +766,7 @@ function renderPortalPage(ctx: any, token: string, basePath: string) {
     '.row{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:12px 0;border-bottom:1px solid var(--line)}.row:last-child{border-bottom:0}.row small{display:block;margin-top:3px;color:var(--muted)}' +
     '.pill{font-size:10px;font-weight:850;padding:6px 9px;border-radius:999px;background:#eef4f4;color:var(--brand);text-align:right}.pill.ok{background:#eaf5ef;color:var(--accent)}' +
     '.primary{display:block;margin-top:14px;padding:14px 16px;border-radius:12px;background:var(--brand);color:#fff;text-decoration:none;text-align:center;font-weight:850}.notice,.empty{padding:12px;border-radius:10px;background:#f5f8f8;color:var(--muted);font-size:12px}' +
-    '.security{margin:16px 3px;color:var(--muted);font-size:10px;line-height:1.6}@media(max-width:620px){.hero{padding:20px}.hero h1{font-size:22px}.card{padding:16px}}' +
+    '.request-card{padding:4px 0 8px;border-bottom:1px solid var(--line)}.request-card:last-child{border-bottom:0}.request-card .row{border-bottom:0}.checklist{display:grid;gap:6px;padding:0 0 8px 2px}.check{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:10px}.check>span{min-width:150px;color:var(--muted)}.check b{font-size:9px;padding:4px 7px;border-radius:999px;background:#f1f4f5}.check b.good{background:#e8f5ed;color:#2f7a54}.check b.ready{background:#e9f1fa;color:#2563eb}.check b.missing{background:#fff2df;color:#9b6b22}.mini-upload{display:inline-flex;align-items:center;padding:5px 7px;border-radius:8px;background:#edf4f2;color:var(--accent);font-size:9px;font-weight:800;cursor:pointer}.mini-upload input{display:none}.uploading{opacity:.55;pointer-events:none}.security{margin:16px 3px;color:var(--muted);font-size:10px;line-height:1.6}@media(max-width:620px){.hero{padding:20px}.hero h1{font-size:22px}.card{padding:16px}.row{align-items:flex-start}.check>span{min-width:120px}}' +
     '</style></head><body><main>' +
     '<section class="hero"><div class="brand">SEKOLY · PORTAIL FAMILLE</div><h1>' +
     htmlEscape(ctx.family.display_name || "Votre famille") + '</h1><p>' +
@@ -718,7 +775,7 @@ function renderPortalPage(ctx: any, token: string, basePath: string) {
     '<section class="card"><h2>Mes enfants inscrits</h2>' + childrenHtml + '</section>' +
     '<section class="card"><h2>Mes demandes</h2>' + requestsHtml + campaignAction + '</section>' +
     '<p class="security">Ce lien est personnel. Conservez-le pour les prochaines inscriptions et réinscriptions. Ne le partagez pas.</p>' +
-    '</main></body></html>';
+    '</main><script>(function(){var token=' + JSON.stringify(token) + ';document.querySelectorAll("[data-portal-upload]").forEach(function(input){input.addEventListener("change",async function(){var file=input.files&&input.files[0];if(!file)return;var label=input.closest(".mini-upload");label.classList.add("uploading");label.firstChild.textContent="Envoi…";var fd=new FormData();fd.append("file",file);fd.append("applicationId",input.dataset.portalUpload);fd.append("documentType",input.dataset.docType);try{var response=await fetch(location.pathname+"?action=upload&family="+encodeURIComponent(token),{method:"POST",body:fd});var result=await response.json();if(!response.ok)throw new Error(result.error||"Envoi impossible.");location.reload();}catch(error){alert(error.message||"Envoi impossible.");label.classList.remove("uploading");label.firstChild.textContent="Ajouter";}});});})();<\/script></body></html>';
 }
 
 function renderPage(ctx: any, publicCode: string, familyAccess: any = null) {
