@@ -188,29 +188,29 @@ const TYPE_OPTIONS=${JSON.stringify(allowedTypes)};
 let childCount=0;
 const children=document.getElementById('children');
 function childTemplate(index){
-  return `<div class="child" data-child>
-    <div class="child-head"><h3>Enfant ${index+1}</h3><button type="button" class="remove" data-remove>Retirer</button></div>
-    <div class="grid">
-      <div><label>Type *</label><select data-field="type">${TYPE_OPTIONS}</select></div>
-      <div><label>Matricule actuel (si réinscription)</label><input data-field="existingMatricule" maxlength="80"></div>
-      <div><label>Nom *</label><input data-field="lastName" required maxlength="120"></div>
-      <div><label>Prénoms *</label><input data-field="firstName" required maxlength="160"></div>
-      <div><label>Sexe</label><select data-field="gender"><option value="M">Masculin</option><option value="F">Féminin</option></select></div>
-      <div><label>Date de naissance</label><input data-field="birthDate" type="date"></div>
-      <div><label>Lieu de naissance</label><input data-field="birthPlace" maxlength="180"></div>
-      <div><label>Nationalité</label><input data-field="nationality" value="Malgache" maxlength="80"></div>
-      <div><label>Classe souhaitée</label><select data-field="desiredClassId"><option value="">À déterminer avec l'école</option>${CLASS_OPTIONS}</select></div>
-      <div><label>Ancien établissement</label><input data-field="previousSchool" maxlength="180"></div>
-      <div><label>N° acte de naissance</label><input data-field="birthCertificateNumber" maxlength="100"></div>
-      <div><label>Date acte</label><input data-field="birthCertificateDate" type="date"></div>
-      <div><label>Lieu acte</label><input data-field="birthCertificatePlace" maxlength="180"></div>
-      <div><label>Groupe sanguin</label><input data-field="bloodType" maxlength="20"></div>
-      <div class="span2"><label>Adresse de l'enfant si différente</label><input data-field="address" maxlength="250"></div>
-      <div><label>Fokontany / quartier</label><input data-field="neighborhood" maxlength="120"></div>
-      <div><label>Ville / Commune</label><input data-field="city" maxlength="120"></div>
-      <div class="span2"><label>Informations utiles / médicales (facultatif)</label><textarea data-field="medicalNotes" maxlength="1000"></textarea></div>
-    </div>
-  </div>`;
+  return '<div class="child" data-child>' +
+    '<div class="child-head"><h3>Enfant '+(index+1)+'</h3><button type="button" class="remove" data-remove>Retirer</button></div>' +
+    '<div class="grid">' +
+      '<div><label>Type *</label><select data-field="type">'+TYPE_OPTIONS+'</select></div>' +
+      '<div><label>Matricule actuel (si réinscription)</label><input data-field="existingMatricule" maxlength="80"></div>' +
+      '<div><label>Nom *</label><input data-field="lastName" required maxlength="120"></div>' +
+      '<div><label>Prénoms *</label><input data-field="firstName" required maxlength="160"></div>' +
+      '<div><label>Sexe</label><select data-field="gender"><option value="M">Masculin</option><option value="F">Féminin</option></select></div>' +
+      '<div><label>Date de naissance</label><input data-field="birthDate" type="date"></div>' +
+      '<div><label>Lieu de naissance</label><input data-field="birthPlace" maxlength="180"></div>' +
+      '<div><label>Nationalité</label><input data-field="nationality" value="Malgache" maxlength="80"></div>' +
+      '<div><label>Classe souhaitée</label><select data-field="desiredClassId"><option value="">À déterminer avec l\'école</option>'+CLASS_OPTIONS+'</select></div>' +
+      '<div><label>Ancien établissement</label><input data-field="previousSchool" maxlength="180"></div>' +
+      '<div><label>N° acte de naissance</label><input data-field="birthCertificateNumber" maxlength="100"></div>' +
+      '<div><label>Date acte</label><input data-field="birthCertificateDate" type="date"></div>' +
+      '<div><label>Lieu acte</label><input data-field="birthCertificatePlace" maxlength="180"></div>' +
+      '<div><label>Groupe sanguin</label><input data-field="bloodType" maxlength="20"></div>' +
+      '<div class="span2"><label>Adresse de l\'enfant si différente</label><input data-field="address" maxlength="250"></div>' +
+      '<div><label>Fokontany / quartier</label><input data-field="neighborhood" maxlength="120"></div>' +
+      '<div><label>Ville / Commune</label><input data-field="city" maxlength="120"></div>' +
+      '<div class="span2"><label>Informations utiles / médicales (facultatif)</label><textarea data-field="medicalNotes" maxlength="1000"></textarea></div>' +
+    '</div>' +
+  '</div>';
 }
 function addChild(){
   if(document.querySelectorAll('[data-child]').length>=10)return;
