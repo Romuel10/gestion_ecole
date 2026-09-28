@@ -29,7 +29,7 @@ import { PdfGeneratorService } from '../../services/pdfGenerator';
 import {
   CloudSyncService,
   EnrollmentQueueItem,
-  cloudUuid,
+  cloudEntityUuid,
 } from '../../services/cloudSync';
 import { OnlineEnrollmentPanel } from './OnlineEnrollmentPanel';
 
@@ -672,7 +672,7 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
       classId:
         db.classes.find(
           (item) =>
-            cloudUuid(
+            cloudEntityUuid(
               'class',
               `${db.currentSchoolYearId}:${item.id}`
             ) === application.desired_class_id
