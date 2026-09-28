@@ -65,6 +65,32 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
     }))
     .filter((item) => Boolean(item.guardian));
 
+  const guardianIds = new Set(guardianLinks.map((link) => link.guardianId));
+  const siblingIds = new Set(
+    (db.studentGuardianLinks ?? [])
+      .filter(
+        (link) =>
+          link.studentId !== student.id && guardianIds.has(link.guardianId)
+      )
+      .map((link) => link.studentId)
+  );
+  const siblingByMatricule = new Map<string, Student>();
+  db.students
+    .filter(
+      (candidate) =>
+        siblingIds.has(candidate.id) && candidate.matricule !== student.matricule
+    )
+    .sort((a, b) =>
+      (b.schoolYearId === db.currentSchoolYearId ? 1 : 0) -
+      (a.schoolYearId === db.currentSchoolYearId ? 1 : 0)
+    )
+    .forEach((candidate) => {
+      if (!siblingByMatricule.has(candidate.matricule)) {
+        siblingByMatricule.set(candidate.matricule, candidate);
+      }
+    });
+  const siblings = Array.from(siblingByMatricule.values());
+
   return (
     <Modal
       isOpen={isOpen}
@@ -240,6 +266,23 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+              {siblings.length > 0 && (
+                <div className="pt-2 border-t border-slate-200 dark:border-slate-700">
+                  <div className="text-[10px] uppercase font-bold tracking-wide text-slate-400 mb-1">
+                    Fratrie liée au même responsable
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {siblings.map((sibling) => (
+                      <span
+                        key={sibling.matricule}
+                        className="px-2 py-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-[10px]"
+                      >
+                        {sibling.lastName} {sibling.firstName}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               )}
               <div className="pt-1 border-t border-slate-200 dark:border-slate-700">
