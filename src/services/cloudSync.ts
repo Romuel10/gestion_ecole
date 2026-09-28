@@ -566,7 +566,7 @@ export class CloudSyncService {
       'sekoly_enrollments',
       `select=id&school_id=eq.${schoolId}&school_year_id=eq.${cloudUuid(
         'year',
-        currentYearId
+        db.currentSchoolYearId
       )}`
     );
     const localEnrollmentIds = new Set(enrollments.map((item) => item.id));
