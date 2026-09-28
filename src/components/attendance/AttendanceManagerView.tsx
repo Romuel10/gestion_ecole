@@ -154,6 +154,15 @@ export const AttendanceManagerView: React.FC<AttendanceManagerViewProps> = ({
     };
   });
 
+  const yearTotals = yearStats.reduce(
+    (totals, item) => ({
+      justified: totals.justified + item.justified,
+      unjustified: totals.unjustified + item.unjustified,
+      late: totals.late + item.late,
+    }),
+    { justified: 0, unjustified: 0, late: 0 }
+  );
+
   if (db.classes.length === 0) {
     return (
       <div className="page-panel p-8 text-center">
@@ -327,15 +336,29 @@ export const AttendanceManagerView: React.FC<AttendanceManagerViewProps> = ({
       </section>
 
       <section className="page-panel overflow-hidden">
-        <div className="page-panel__header">
+        <div className="page-panel__header attendance-year-header">
           <div>
             <h2 className="page-panel__title">Suivi annuel de la classe</h2>
             <p className="page-panel__subtitle">Absences et retards cumulés sur l’année active.</p>
           </div>
-          <UsersRound className="w-4 h-4 text-slate-400" />
+          <div className="attendance-year-summary" aria-label="Totaux annuels de la classe">
+            <span>
+              <em>Justifiées</em>
+              <strong>{yearTotals.justified}</strong>
+            </span>
+            <span>
+              <em>Non justifiées</em>
+              <strong>{yearTotals.unjustified}</strong>
+            </span>
+            <span>
+              <em>Retards</em>
+              <strong>{yearTotals.late}</strong>
+            </span>
+            <UsersRound className="w-4 h-4 text-slate-400" />
+          </div>
         </div>
-        <div className="overflow-x-auto">
-          <table className="erp-table">
+        <div className="overflow-x-auto attendance-year-scroll">
+          <table className="erp-table attendance-year-table">
             <thead>
               <tr>
                 <th>Élève</th>
@@ -350,9 +373,27 @@ export const AttendanceManagerView: React.FC<AttendanceManagerViewProps> = ({
                   <td className="font-semibold">
                     {item.student.lastName} {item.student.firstName}
                   </td>
-                  <td className="text-right font-mono">{item.justified}</td>
-                  <td className="text-right font-mono">{item.unjustified}</td>
-                  <td className="text-right font-mono">{item.late}</td>
+                  <td className="attendance-number-cell">
+                    <span
+                      className={`attendance-count attendance-count--justified ${item.justified === 0 ? 'is-zero' : ''}`}
+                    >
+                      {item.justified}
+                    </span>
+                  </td>
+                  <td className="attendance-number-cell">
+                    <span
+                      className={`attendance-count attendance-count--unjustified ${item.unjustified === 0 ? 'is-zero' : ''}`}
+                    >
+                      {item.unjustified}
+                    </span>
+                  </td>
+                  <td className="attendance-number-cell">
+                    <span
+                      className={`attendance-count attendance-count--late ${item.late === 0 ? 'is-zero' : ''}`}
+                    >
+                      {item.late}
+                    </span>
+                  </td>
                 </tr>
               ))}
             </tbody>
