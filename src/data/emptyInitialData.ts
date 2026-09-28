@@ -115,6 +115,8 @@ export const EMPTY_INITIAL_DATA: DatabaseSchema = {
   subjects: [],
   classes: [],
   students: [],
+  guardians: [],
+  studentGuardianLinks: [],
   teachers: [],
   grades: [],
   tuitionPayments: [],
