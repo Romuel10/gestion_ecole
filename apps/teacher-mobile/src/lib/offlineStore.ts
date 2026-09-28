@@ -117,11 +117,13 @@ export const offlineStore = {
     const row = db.getFirstSync<{
       total: number;
       failed: number;
+      blocked: number;
       last_error: string | null;
     }>(
       `SELECT
          COUNT(*) AS total,
          SUM(CASE WHEN attempts > 0 THEN 1 ELSE 0 END) AS failed,
+         SUM(CASE WHEN attempts >= 5 THEN 1 ELSE 0 END) AS blocked,
          (
            SELECT last_error
            FROM mutation_queue
@@ -135,6 +137,7 @@ export const offlineStore = {
     return {
       total: row?.total ?? 0,
       failed: row?.failed ?? 0,
+      blocked: row?.blocked ?? 0,
       lastError: row?.last_error ?? null,
     };
   },
