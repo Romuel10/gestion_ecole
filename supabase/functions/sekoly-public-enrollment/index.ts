@@ -727,57 +727,91 @@ ${instructions}
 const PUBLIC_CODE=${JSON.stringify(publicCode)};
 const CLASS_OPTIONS=${JSON.stringify(classOptions)};
 const TYPE_OPTIONS=${JSON.stringify(allowedTypes)};
-let childCount=0;
+const FAMILY_BOOT=${JSON.stringify(familyBootstrap)};
+const FAMILY_TOKEN=new URLSearchParams(location.search).get('family')||'';
+const DRAFT_KEY='sekoly-enrollment-draft:'+PUBLIC_CODE;
+const form=document.getElementById('form');
 const children=document.getElementById('children');
-function childTemplate(index){
-  return '<div class="child" data-child>' +
-    '<div class="child-head"><h3>Enfant '+(index+1)+'</h3><button type="button" class="remove" data-remove>Retirer</button></div>' +
-    '<div class="grid">' +
-      '<div><label>Type *</label><select data-field="type">'+TYPE_OPTIONS+'</select></div>' +
-      '<div><label>Matricule actuel (si réinscription)</label><input data-field="existingMatricule" maxlength="80"></div>' +
-      '<div><label>Nom *</label><input data-field="lastName" required maxlength="120"></div>' +
-      '<div><label>Prénoms *</label><input data-field="firstName" required maxlength="160"></div>' +
-      '<div><label>Sexe</label><select data-field="gender"><option value="M">Masculin</option><option value="F">Féminin</option></select></div>' +
-      '<div><label>Date de naissance</label><input data-field="birthDate" type="date"></div>' +
-      '<div><label>Lieu de naissance</label><input data-field="birthPlace" maxlength="180"></div>' +
-      '<div><label>Nationalité</label><input data-field="nationality" value="Malgache" maxlength="80"></div>' +
-      '<div><label>Classe souhaitée</label><select data-field="desiredClassId"><option value="">À déterminer avec l\'école</option>'+CLASS_OPTIONS+'</select></div>' +
-      '<div><label>Ancien établissement</label><input data-field="previousSchool" maxlength="180"></div>' +
-      '<div><label>N° acte de naissance</label><input data-field="birthCertificateNumber" maxlength="100"></div>' +
-      '<div><label>Date acte</label><input data-field="birthCertificateDate" type="date"></div>' +
-      '<div><label>Lieu acte</label><input data-field="birthCertificatePlace" maxlength="180"></div>' +
-      '<div><label>Groupe sanguin</label><input data-field="bloodType" maxlength="20"></div>' +
-      '<div class="span2"><label>Adresse de l\'enfant si différente</label><input data-field="address" maxlength="250"></div>' +
-      '<div><label>Fokontany / quartier</label><input data-field="neighborhood" maxlength="120"></div>' +
-      '<div><label>Ville / Commune</label><input data-field="city" maxlength="120"></div>' +
-      '<div class="span2"><label>Informations utiles / médicales (facultatif)</label><textarea data-field="medicalNotes" maxlength="1000"></textarea></div>' +
-    '</div>' +
-  '</div>';
-}
-function addChild(){
-  if(document.querySelectorAll('[data-child]').length>=10)return;
-  children.insertAdjacentHTML('beforeend',childTemplate(childCount++));
-  const blocks=[...document.querySelectorAll('[data-child]')];
-  blocks.forEach((block,i)=>block.querySelector('h3').textContent='Enfant '+(i+1));
-}
-children.addEventListener('click',e=>{
-  const btn=e.target.closest('[data-remove]');
-  if(!btn)return;
-  if(document.querySelectorAll('[data-child]').length===1)return;
-  btn.closest('[data-child]').remove();
-  [...document.querySelectorAll('[data-child]')].forEach((block,i)=>block.querySelector('h3').textContent='Enfant '+(i+1));
-});
-document.getElementById('addChild').addEventListener('click',addChild);
-addChild();
+const childDocs=document.getElementById('childDocs');
+let childCount=0;
+let currentStep=0;
 
-document.getElementById('form').addEventListener('submit',async(e)=>{
-  e.preventDefault();
-  const form=e.currentTarget;
-  const fd=new FormData(form);
-  if(String(fd.get('website')||'').trim()) return;
-  const childBlocks=[...document.querySelectorAll('[data-child]')];
-  const childrenPayload=childBlocks.map(block=>{
-    const get=name=>block.querySelector('[data-field="'+name+'"]').value.trim();
+function qa(selector,root=document){return Array.from(root.querySelectorAll(selector))}
+function q(selector,root=document){return root.querySelector(selector)}
+function escapeHtml(value){return String(value||'').replace(/[&<>"']/g,function(ch){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[ch]})}
+
+function showStep(next){
+  currentStep=Math.max(0,Math.min(3,next));
+  qa('[data-step]').forEach(function(el,index){el.classList.toggle('active',index===currentStep)});
+  qa('[data-go]').forEach(function(el,index){
+    el.classList.toggle('active',index===currentStep);
+    el.classList.toggle('done',index<currentStep);
+  });
+  if(currentStep===2) renderDocuments();
+  if(currentStep===3) renderReview();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function validateStep(){
+  const active=q('[data-step="'+currentStep+'"]');
+  const required=qa('input[required],select[required]',active);
+  for(const input of required){
+    if(!input.checkValidity()){input.reportValidity();return false}
+  }
+  if(currentStep===1&&qa('[data-child]').length===0){
+    alert('Ajoutez au moins un enfant.');
+    return false;
+  }
+  return true;
+}
+
+function childTemplate(index){
+  return '<article class="child" data-child>'+
+    '<div class="child-head"><h3>Enfant '+(index+1)+'</h3><button type="button" class="remove" data-remove>Retirer</button></div>'+
+    '<div class="grid">'+
+    '<div class="field"><label>Type *</label><select data-field="type">'+TYPE_OPTIONS+'</select></div>'+
+    '<div class="field"><label>Matricule actuel</label><input data-field="existingMatricule" maxlength="80"><small>Obligatoire uniquement pour une réinscription.</small></div>'+
+    '<div class="field"><label>Nom *</label><input data-field="lastName" required maxlength="120"></div>'+
+    '<div class="field"><label>Prénoms *</label><input data-field="firstName" required maxlength="160"></div>'+
+    '<div class="field"><label>Sexe</label><select data-field="gender"><option value="M">Masculin</option><option value="F">Féminin</option></select></div>'+
+    '<div class="field"><label>Date de naissance</label><input data-field="birthDate" type="date"></div>'+
+    '<div class="field"><label>Lieu de naissance</label><input data-field="birthPlace" maxlength="180"></div>'+
+    '<div class="field"><label>Nationalité</label><input data-field="nationality" value="Malgache" maxlength="80"></div>'+
+    '<div class="field"><label>Classe souhaitée</label><select data-field="desiredClassId"><option value="">À déterminer avec l\'école</option>'+CLASS_OPTIONS+'</select></div>'+
+    '<div class="field"><label>Ancien établissement</label><input data-field="previousSchool" maxlength="180"></div>'+
+    '<div class="field"><label>N° acte de naissance</label><input data-field="birthCertificateNumber" maxlength="100"></div>'+
+    '<div class="field"><label>Date acte</label><input data-field="birthCertificateDate" type="date"></div>'+
+    '<div class="field"><label>Lieu acte</label><input data-field="birthCertificatePlace" maxlength="180"></div>'+
+    '<div class="field"><label>Groupe sanguin</label><input data-field="bloodType" maxlength="20"></div>'+
+    '<div class="field span2"><label>Adresse si différente</label><input data-field="address" maxlength="250"></div>'+
+    '<div class="field"><label>Fokontany / quartier</label><input data-field="neighborhood" maxlength="120"></div>'+
+    '<div class="field"><label>Ville / Commune</label><input data-field="city" maxlength="120"></div>'+
+    '<div class="field span2"><label>Informations utiles / médicales</label><textarea data-field="medicalNotes" maxlength="1000"></textarea></div>'+
+    '</div></article>';
+}
+
+function renumberChildren(){
+  qa('[data-child]').forEach(function(block,index){
+    q('.child-head h3',block).textContent='Enfant '+(index+1);
+  });
+}
+
+function addChild(data){
+  if(qa('[data-child]').length>=10)return;
+  children.insertAdjacentHTML('beforeend',childTemplate(childCount++));
+  const block=children.lastElementChild;
+  const values=data||{};
+  Object.keys(values).forEach(function(key){
+    const field=q('[data-field="'+key+'"]',block);
+    if(field&&values[key]!=null) field.value=values[key];
+  });
+  renumberChildren();
+  saveDraft();
+}
+
+function readChildren(){
+  return qa('[data-child]').map(function(block){
+    const get=function(name){const field=q('[data-field="'+name+'"]',block);return field?field.value.trim():''};
     return {
       type:get('type'),existingMatricule:get('existingMatricule'),
       lastName:get('lastName'),firstName:get('firstName'),gender:get('gender'),
@@ -790,31 +824,213 @@ document.getElementById('form').addEventListener('submit',async(e)=>{
       neighborhood:get('neighborhood'),city:get('city'),medicalNotes:get('medicalNotes')
     };
   });
-  if(childrenPayload.some(c=>!c.lastName||!c.firstName)){alert('Nom et prénoms sont obligatoires pour chaque enfant.');return;}
-  const button=document.getElementById('submitBtn');button.disabled=true;button.textContent='Envoi…';
+}
+
+function guardianDraft(){
+  const fd=new FormData(form);
+  const result={};
+  ['guardianLastName','guardianFirstName','relationship','phonePrimary','phoneSecondary','email','cinNumber','cinIssuedAt','cinIssuePlace','occupation','address','city','preferredContact'].forEach(function(name){
+    result[name]=String(fd.get(name)||'');
+  });
+  return result;
+}
+
+function saveDraft(){
+  try{
+    localStorage.setItem(DRAFT_KEY,JSON.stringify({guardian:guardianDraft(),children:readChildren()}));
+  }catch{}
+}
+
+function applyGuardian(values){
+  if(!values)return;
+  Object.keys(values).forEach(function(key){
+    const field=form.elements[key];
+    if(field&&values[key]!=null) field.value=values[key];
+  });
+}
+
+function restoreDraft(){
+  let draft=null;
+  try{draft=JSON.parse(localStorage.getItem(DRAFT_KEY)||'null')}catch{}
+  if(FAMILY_BOOT&&FAMILY_BOOT.guardian) applyGuardian(FAMILY_BOOT.guardian);
+  else if(draft&&draft.guardian) applyGuardian(draft.guardian);
+
+  const savedChildren=draft&&Array.isArray(draft.children)?draft.children:[];
+  if(savedChildren.length) savedChildren.forEach(addChild);
+  else addChild();
+
+  const known=document.getElementById('knownChildren');
+  const existing=FAMILY_BOOT&&Array.isArray(FAMILY_BOOT.students)?FAMILY_BOOT.students:[];
+  if(existing.length){
+    known.innerHTML='<span style="width:100%;font-size:11px;color:#68777f">Enfant déjà connu : cliquez pour préparer sa réinscription.</span>'+
+      existing.map(function(student,index){
+        return '<button type="button" data-known="'+index+'">'+escapeHtml(student.lastName+' '+student.firstName)+' · '+escapeHtml(student.matricule)+'</button>';
+      }).join('');
+    qa('[data-known]',known).forEach(function(button){
+      button.addEventListener('click',function(){
+        const student=existing[Number(button.dataset.known)];
+        addChild({
+          type:'RE_REGISTRATION',
+          existingMatricule:student.matricule,
+          lastName:student.lastName,
+          firstName:student.firstName,
+          birthDate:student.birthDate||''
+        });
+      });
+    });
+  }
+}
+
+function primaryCinType(){
+  const relationship=String(form.elements.relationship.value||'GUARDIAN');
+  if(relationship==='FATHER')return 'CIN_FATHER';
+  if(relationship==='MOTHER')return 'CIN_MOTHER';
+  return 'CIN_GUARDIAN';
+}
+
+function renderDocuments(){
+  const list=readChildren();
+  childDocs.innerHTML=list.map(function(child,index){
+    const name=escapeHtml((child.lastName||'Enfant '+(index+1))+' '+(child.firstName||''));
+    return '<div class="doc-child"><strong>'+name+'</strong><div class="doc-grid" style="margin-top:10px">'+
+      '<label class="doc"><strong>Acte de naissance</strong><small>Recommandé</small><input type="file" data-child-index="'+index+'" data-doc-type="BIRTH_CERTIFICATE" accept=".pdf,image/jpeg,image/png,image/webp"></label>'+
+      '<label class="doc"><strong>Photo d\'identité</strong><small>Portrait récent</small><input type="file" data-child-index="'+index+'" data-doc-type="STUDENT_PHOTO" accept="image/jpeg,image/png,image/webp"></label>'+
+      '<label class="doc"><strong>Dernier bulletin</strong><small>Facultatif</small><input type="file" data-child-index="'+index+'" data-doc-type="REPORT_CARD" accept=".pdf,image/jpeg,image/png,image/webp"></label>'+
+      '<label class="doc"><strong>Certificat de transfert</strong><small>Si changement d\'établissement</small><input type="file" data-child-index="'+index+'" data-doc-type="TRANSFER_CERTIFICATE" accept=".pdf,image/jpeg,image/png,image/webp"></label>'+
+      '</div></div>';
+  }).join('');
+}
+
+function renderReview(){
+  const fd=new FormData(form);
+  const list=readChildren();
+  document.getElementById('review').innerHTML=
+    '<div class="review-row"><span>Responsable</span><strong>'+escapeHtml(String(fd.get('guardianLastName')||'')+' '+String(fd.get('guardianFirstName')||''))+'</strong></div>'+
+    '<div class="review-row"><span>Téléphone</span><strong>'+escapeHtml(String(fd.get('phonePrimary')||''))+'</strong></div>'+
+    '<div class="review-row"><span>Nombre d\'enfants</span><strong>'+list.length+'</strong></div>'+
+    list.map(function(child){
+      return '<div class="review-row"><span>'+(child.type==='RE_REGISTRATION'?'Réinscription':'Nouvelle inscription')+'</span><strong>'+escapeHtml(child.lastName+' '+child.firstName)+'</strong></div>';
+    }).join('');
+}
+
+async function uploadOne(file,applicationId,documentType,familyToken){
+  const fd=new FormData();
+  fd.append('file',file);
+  fd.append('applicationId',applicationId||'');
+  fd.append('documentType',documentType);
+  const response=await fetch(location.pathname+'?action=upload&family='+encodeURIComponent(familyToken),{method:'POST',body:fd});
+  const result=await response.json();
+  if(!response.ok)throw new Error(result.error||'Envoi du document impossible.');
+  return result;
+}
+
+async function uploadDocuments(result){
+  const jobs=[];
+  qa('[data-family-doc]').forEach(function(input){
+    const file=input.files&&input.files[0];
+    if(!file)return;
+    const type=input.dataset.familyDoc==='CIN_PRIMARY'?primaryCinType():input.dataset.familyDoc;
+    jobs.push(uploadOne(file,'',type,result.familyToken));
+  });
+  qa('[data-doc-type]').forEach(function(input){
+    const file=input.files&&input.files[0];
+    if(!file)return;
+    const app=result.applications&&result.applications[Number(input.dataset.childIndex)];
+    if(app) jobs.push(uploadOne(file,app.id,input.dataset.docType,result.familyToken));
+  });
+  if(!jobs.length)return{uploaded:0,failed:0};
+  const settled=await Promise.allSettled(jobs);
+  return {
+    uploaded:settled.filter(function(item){return item.status==='fulfilled'}).length,
+    failed:settled.filter(function(item){return item.status==='rejected'}).length
+  };
+}
+
+qa('[data-next]').forEach(function(button){button.addEventListener('click',function(){if(validateStep())showStep(currentStep+1)})});
+qa('[data-prev]').forEach(function(button){button.addEventListener('click',function(){showStep(currentStep-1)})});
+qa('[data-go]').forEach(function(button,index){button.addEventListener('click',function(){if(index<=currentStep||validateStep())showStep(index)})});
+document.getElementById('addChild').addEventListener('click',function(){addChild()});
+children.addEventListener('click',function(event){
+  const button=event.target.closest('[data-remove]');
+  if(!button)return;
+  if(qa('[data-child]').length===1)return;
+  button.closest('[data-child]').remove();
+  renumberChildren();
+  saveDraft();
+});
+let draftTimer=0;
+form.addEventListener('input',function(){clearTimeout(draftTimer);draftTimer=setTimeout(saveDraft,250)});
+
+form.addEventListener('submit',async function(event){
+  event.preventDefault();
+  if(!document.getElementById('consent').checked){
+    alert('Veuillez confirmer l’exactitude des informations.');
+    return;
+  }
+  const fd=new FormData(form);
+  if(String(fd.get('website')||'').trim())return;
+  const childrenPayload=readChildren();
+  if(childrenPayload.some(function(child){return !child.lastName||!child.firstName})){
+    alert('Nom et prénoms sont obligatoires pour chaque enfant.');
+    showStep(1);
+    return;
+  }
+  const button=document.getElementById('submitBtn');
+  const saving=document.getElementById('saving');
+  button.disabled=true;
+  button.textContent='Envoi en cours…';
+  saving.textContent='Création sécurisée du dossier familial…';
   try{
     const response=await fetch(location.pathname+'?code='+encodeURIComponent(PUBLIC_CODE),{
-      method:'POST',headers:{'Content-Type':'application/json'},
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
         code:PUBLIC_CODE,
+        familyToken:FAMILY_TOKEN,
         clientRequestId:crypto.randomUUID(),
         guardian:{
-          lastName:String(fd.get('guardianLastName')||''),firstName:String(fd.get('guardianFirstName')||''),
-          relationship:String(fd.get('relationship')||'GUARDIAN'),phonePrimary:String(fd.get('phonePrimary')||''),
-          phoneSecondary:String(fd.get('phoneSecondary')||''),email:String(fd.get('email')||''),
-          cinNumber:String(fd.get('cinNumber')||''),cinIssuedAt:String(fd.get('cinIssuedAt')||''),
-          cinIssuePlace:String(fd.get('cinIssuePlace')||''),occupation:String(fd.get('occupation')||''),
-          address:String(fd.get('address')||''),city:String(fd.get('city')||''),
+          lastName:String(fd.get('guardianLastName')||''),
+          firstName:String(fd.get('guardianFirstName')||''),
+          relationship:String(fd.get('relationship')||'GUARDIAN'),
+          phonePrimary:String(fd.get('phonePrimary')||''),
+          phoneSecondary:String(fd.get('phoneSecondary')||''),
+          email:String(fd.get('email')||''),
+          cinNumber:String(fd.get('cinNumber')||''),
+          cinIssuedAt:String(fd.get('cinIssuedAt')||''),
+          cinIssuePlace:String(fd.get('cinIssuePlace')||''),
+          occupation:String(fd.get('occupation')||''),
+          address:String(fd.get('address')||''),
+          city:String(fd.get('city')||''),
           preferredContact:String(fd.get('preferredContact')||'PHONE')
         },
         children:childrenPayload
       })
     });
     const result=await response.json();
-    if(!response.ok) throw new Error(result.error||'Envoi impossible.');
-    form.style.display='none';document.getElementById('reference').textContent=result.referenceCode;document.getElementById('success').style.display='block';
-  }catch(err){alert(err.message||'Envoi impossible.');button.disabled=false;button.textContent='Envoyer la demande';}
+    if(!response.ok)throw new Error(result.error||'Envoi impossible.');
+    saving.textContent='Dossier créé. Envoi des pièces justificatives…';
+    const uploads=await uploadDocuments(result);
+    try{localStorage.removeItem(DRAFT_KEY)}catch{}
+    form.style.display='none';
+    q('.progress').style.display='none';
+    document.getElementById('reference').textContent=result.referenceCode;
+    document.getElementById('uploadStatus').textContent=
+      uploads.uploaded>0
+        ? uploads.uploaded+' document(s) transmis'+(uploads.failed?' · '+uploads.failed+' échec(s)':'')
+        : 'Les pièces manquantes pourront être complétées avec l’établissement.';
+    const portal=document.getElementById('portalLink');
+    portal.href=result.portalUrl||('#');
+    document.getElementById('success').style.display='block';
+    window.scrollTo({top:0,behavior:'smooth'});
+  }catch(error){
+    alert(error&&error.message?error.message:'Envoi impossible.');
+    button.disabled=false;
+    button.textContent='Envoyer la demande';
+    saving.textContent='';
+  }
 });
+
+restoreDraft();
 </script>
 </body>
 </html>`;
