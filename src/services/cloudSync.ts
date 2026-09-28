@@ -1090,6 +1090,7 @@ export class CloudSyncService {
     const profileMap = new Map(profiles.map((item) => [item.id, item]));
     const checklistMap = new Map<string, EnrollmentChecklistItem[]>();
     const documentMap = new Map<string, EnrollmentDocument[]>();
+    const familyDocumentMap = new Map<string, EnrollmentDocument[]>();
 
     checklist.forEach((item) => {
       const rows = checklistMap.get(item.application_id) ?? [];
@@ -1097,10 +1098,15 @@ export class CloudSyncService {
       checklistMap.set(item.application_id, rows);
     });
     documents.forEach((item) => {
-      if (!item.application_id) return;
-      const rows = documentMap.get(item.application_id) ?? [];
+      if (item.application_id) {
+        const rows = documentMap.get(item.application_id) ?? [];
+        rows.push(item as EnrollmentDocument);
+        documentMap.set(item.application_id, rows);
+        return;
+      }
+      const rows = familyDocumentMap.get(item.family_id) ?? [];
       rows.push(item as EnrollmentDocument);
-      documentMap.set(item.application_id, rows);
+      familyDocumentMap.set(item.family_id, rows);
     });
 
     return applications.map((item) => {
@@ -1117,7 +1123,10 @@ export class CloudSyncService {
           ? classMap.get(item.desired_class_id) || null
           : null,
         checklist: checklistMap.get(item.id) ?? [],
-        documents: documentMap.get(item.id) ?? [],
+        documents: [
+          ...(profile?.id ? familyDocumentMap.get(profile.id) ?? [] : []),
+          ...(documentMap.get(item.id) ?? []),
+        ],
       };
     }) as EnrollmentQueueItem[];
   }
@@ -1240,7 +1249,8 @@ export class CloudSyncService {
 
   static async finalizeEnrollmentApplication(
     applicationId: string,
-    studentMatricule: string
+    studentMatricule: string,
+    paymentStatus: EnrollmentQueueItem['payment_status'] = 'NOT_REQUIRED'
   ) {
     const schoolId = this.getSchoolId();
     if (!schoolId) throw new Error('Établissement Cloud non lié.');
@@ -1273,7 +1283,7 @@ export class CloudSyncService {
         status: 'APPROVED',
         final_student_id: cloudStudentId,
         approved_at: new Date().toISOString(),
-        payment_status: 'PAID',
+        payment_status: paymentStatus,
       }
     );
 
