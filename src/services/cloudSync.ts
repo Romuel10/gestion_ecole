@@ -1183,6 +1183,15 @@ export class CloudSyncService {
     return parseResponse<{ sent: boolean }>(response);
   }
 
+  static resetPullCursor(db: DatabaseSchema) {
+    const schoolId = this.getSchoolId();
+    if (!schoolId) throw new Error('Établissement Cloud non lié.');
+    const cloudYearId = cloudUuid('year', db.currentSchoolYearId);
+    localStorage.removeItem(
+      `${PULL_CURSOR_PREFIX}:${schoolId}:${cloudYearId}`
+    );
+  }
+
   static async pullTeacherChanges(db: DatabaseSchema): Promise<PullResult> {
     const schoolId = this.getSchoolId();
     if (!schoolId || !this.isConnected()) {
