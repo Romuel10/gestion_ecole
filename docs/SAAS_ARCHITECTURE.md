@@ -182,3 +182,23 @@ pendant la transition.
 - tester avec une école pilote avant ouverture multi-écoles ;
 - à terme, faire de Supabase la source principale de Sekoly Admin au lieu du
   pont de synchronisation local/cloud.
+
+
+## Validation pilote de bout en bout
+
+Sekoly Admin contient maintenant deux niveaux de contrôle dans **Paramètres > Cloud & mobile** :
+
+1. **Diagnostic du pilote** : vérifie les volumes synchronisés, l'année active et la présence d'au moins un accès enseignant.
+2. **Test pilote de bout en bout** : appelle la fonction Edge `sekoly-pilot-smoke-test` et contrôle sans modifier les données :
+   - établissement actif ;
+   - année scolaire active ;
+   - période non verrouillée ;
+   - classes et matières ;
+   - élèves et inscriptions ;
+   - adresse email enseignant ;
+   - compte mobile enseignant ;
+   - affectation classe/matière liée à ce compte ;
+   - emploi du temps (optionnel) ;
+   - configuration Resend (optionnelle pour le pilote avec mot de passe temporaire).
+
+La synchronisation Admin est bidirectionnelle : la structure locale est envoyée vers Supabase, puis les présences et notes saisies dans Sekoly Enseignant sont rapatriées dans Sekoly Admin. Le logiciel effectue également une récupération périodique lorsque la session Cloud est active.
