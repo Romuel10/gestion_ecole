@@ -940,7 +940,7 @@ export default function App() {
 
   const refreshQueue = () => setQueueCount(teacherApi.queueCount());
 
-  const loadWorkspace = useCallback(async () => {
+  const loadWorkspace = useCallback(async (recordOpen = false) => {
     const nextContext = await teacherApi.loadContext();
     const [nextAssignments, nextTimetable] = await Promise.all([
       teacherApi.loadAssignments(nextContext),
@@ -950,6 +950,13 @@ export default function App() {
     setAssignments(nextAssignments);
     setTimetable(nextTimetable);
     refreshQueue();
+
+    if (recordOpen) {
+      void teacherApi.recordDeviceEvent(nextContext, 'APP_OPEN', 'OK', {
+        assignments: nextAssignments.length,
+        timetable: nextTimetable.length,
+      });
+    }
   }, []);
 
   const boot = useCallback(async () => {
@@ -960,7 +967,7 @@ export default function App() {
         if (mustChange) {
           setNeedsPassword(true);
         } else {
-          await loadWorkspace();
+          await loadWorkspace(true);
         }
       }
     } catch (error) {
@@ -1085,7 +1092,7 @@ export default function App() {
       <ActivateAccountScreen
         onDone={async () => {
           setNeedsPassword(false);
-          await loadWorkspace();
+          await loadWorkspace(true);
         }}
       />
     );
@@ -1103,7 +1110,7 @@ export default function App() {
               setNeedsPassword(true);
               return;
             }
-            await loadWorkspace();
+            await loadWorkspace(true);
           }}
         />
       </>
