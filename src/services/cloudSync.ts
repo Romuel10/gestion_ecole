@@ -831,6 +831,19 @@ export class CloudSyncService {
     const guardianLinks = Array.from(guardianLinkMap.values());
     await restUpsert('sekoly_student_guardians', guardianLinks, 'id');
 
+    const existingFamilyGuardianLinks = await restSelect<any>(
+      'sekoly_family_guardians',
+      `select=family_id,guardian_id,is_primary&school_id=eq.${schoolId}`
+    );
+    const existingFamilyByGuardian = new Map<string, string>();
+    existingFamilyGuardianLinks
+      .sort((a, b) => Number(Boolean(b.is_primary)) - Number(Boolean(a.is_primary)))
+      .forEach((link) => {
+        if (!existingFamilyByGuardian.has(link.guardian_id)) {
+          existingFamilyByGuardian.set(link.guardian_id, link.family_id);
+        }
+      });
+
     const familyMap = new Map<string, Record<string, unknown>>();
     const familyGuardianMap = new Map<string, Record<string, unknown>>();
     const familyStudentMap = new Map<string, Record<string, unknown>>();
@@ -851,10 +864,9 @@ export class CloudSyncService {
       const cloudPrimaryGuardianId =
         guardianCloudIdMap.get(primaryGuardian.id) ||
         cloudEntityUuid('guardian', primaryGuardian.id);
-      const cloudFamilyId = cloudEntityUuid(
-        'family',
-        cloudPrimaryGuardianId
-      );
+      const cloudFamilyId =
+        existingFamilyByGuardian.get(cloudPrimaryGuardianId) ||
+        cloudEntityUuid('family', cloudPrimaryGuardianId);
 
       familyMap.set(cloudFamilyId, {
         id: cloudFamilyId,
