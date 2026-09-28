@@ -9,6 +9,7 @@ const DEFAULT_KEY =
 
 const SESSION_KEY = 'SEKOLY_CLOUD_SESSION_V2';
 const SCHOOL_KEY = 'SEKOLY_CLOUD_SCHOOL_ID_V2';
+const ADMIN_DEVICE_KEY = 'SEKOLY_ADMIN_DEVICE_ID_V1';
 
 type CloudSession = {
   access_token: string;
@@ -160,6 +161,22 @@ const saveSession = (session: CloudSession | null) => {
     return;
   }
   localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+};
+
+const getAdminDeviceId = () => {
+  const existing = localStorage.getItem(ADMIN_DEVICE_KEY);
+  if (existing) return existing;
+
+  const id =
+    typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : cloudUuid(
+          'admin-device',
+          `${Date.now()}:${Math.random().toString(36).slice(2)}`
+        );
+
+  localStorage.setItem(ADMIN_DEVICE_KEY, id);
+  return id;
 };
 
 async function authRequest(
@@ -680,6 +697,40 @@ export class CloudSyncService {
     );
 
     return parseResponse<PilotSmokeTest>(response);
+  }
+
+  static async recordAdminSyncEvent(
+    eventType: 'SYNC_START' | 'SYNC_SUCCESS' | 'SYNC_ERROR',
+    status: 'OK' | 'WARNING' | 'ERROR' = 'OK',
+    metadata: Record<string, unknown> = {},
+    errorMessage?: string | null
+  ) {
+    const schoolId = this.getSchoolId();
+    const session = this.getSession();
+    if (!schoolId || !session?.user?.id) return;
+
+    try {
+      const response = await authRequest('/rest/v1/sekoly_sync_events', {
+        method: 'POST',
+        headers: { Prefer: 'return=minimal' },
+        body: JSON.stringify({
+          school_id: schoolId,
+          user_id: session.user.id,
+          teacher_id: null,
+          device_id: getAdminDeviceId(),
+          platform: 'DESKTOP',
+          event_type: eventType,
+          status,
+          queue_count: 0,
+          error_message: errorMessage?.slice(0, 1000) || null,
+          metadata,
+          occurred_at: new Date().toISOString(),
+        }),
+      });
+      if (!response.ok) await parseResponse(response);
+    } catch (error) {
+      console.warn('Sekoly Admin sync event:', error);
+    }
   }
 
   static async syncMonitor(): Promise<SyncMonitor> {
