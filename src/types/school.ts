@@ -136,6 +136,36 @@ export interface SchoolClass {
   nextClassId?: string;
 }
 
+export interface Guardian {
+  id: string;
+  lastName: string;
+  firstName: string;
+  phonePrimary: string;
+  phoneSecondary?: string;
+  email?: string;
+  cinNumber?: string;
+  cinIssuedAt?: string;
+  cinIssuePlace?: string;
+  occupation?: string;
+  employer?: string;
+  address?: string;
+  city?: string;
+  nationality?: string;
+  status?: 'ACTIVE' | 'INACTIVE';
+}
+
+export interface StudentGuardianLink {
+  id: string;
+  studentId: string;
+  guardianId: string;
+  relationship: 'FATHER' | 'MOTHER' | 'GUARDIAN' | 'OTHER';
+  isPrimary?: boolean;
+  hasLegalCustody?: boolean;
+  authorizedPickup?: boolean;
+  emergencyPriority?: number;
+  notes?: string;
+}
+
 export interface Student {
   id: string;
   matricule: string;
@@ -156,18 +186,33 @@ export interface Student {
   fatherName?: string;
   fatherPhone?: string;
   fatherJob?: string;
+  fatherCinNumber?: string;
+  fatherCinIssuedAt?: string;
+  fatherCinIssuePlace?: string;
+  fatherEmail?: string;
   motherName?: string;
   motherPhone?: string;
   motherJob?: string;
+  motherCinNumber?: string;
+  motherCinIssuedAt?: string;
+  motherCinIssuePlace?: string;
+  motherEmail?: string;
   guardianName?: string;
   guardianPhone?: string;
   guardianJob?: string;
+  guardianCinNumber?: string;
+  guardianCinIssuedAt?: string;
+  guardianCinIssuePlace?: string;
+  guardianEmail?: string;
   emergencyContact: string;
   emergencyPhone: string;
   
   bloodType?: string;
   medicalNotes?: string;
   previousSchool?: string;
+  birthCertificateNumber?: string;
+  birthCertificateDate?: string;
+  birthCertificatePlace?: string;
   photoUrl?: string;
   councilDecision?: string; // Admis, Redouble, etc.
 }
@@ -364,6 +409,8 @@ export interface DatabaseSchema {
   subjects: Subject[];
   classes: SchoolClass[];
   students: Student[];
+  guardians: Guardian[];
+  studentGuardianLinks: StudentGuardianLink[];
   teachers: Teacher[];
   grades: GradeEntry[];
   tuitionPayments: TuitionPayment[];
