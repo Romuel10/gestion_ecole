@@ -196,6 +196,10 @@ export interface GradeEntry {
   subjectAverage: number;
   teacherComment?: string;
   updatedAt: string;
+  cloudEvaluationIds?: Array<string | null>;
+  cloudExamAssessmentId?: string;
+  cloudIgnoredExamAssessmentIds?: string[];
+  cloudSyncConflict?: string;
 }
 
 export interface ReportCardSummary {
