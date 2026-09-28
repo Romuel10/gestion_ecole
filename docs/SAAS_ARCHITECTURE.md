@@ -202,3 +202,57 @@ Sekoly Admin contient maintenant deux niveaux de contrôle dans **Paramètres > 
    - configuration Resend (optionnelle pour le pilote avec mot de passe temporaire).
 
 La synchronisation Admin est bidirectionnelle : la structure locale est envoyée vers Supabase, puis les présences et notes saisies dans Sekoly Enseignant sont rapatriées dans Sekoly Admin. Le logiciel effectue également une récupération périodique lorsque la session Cloud est active.
+
+
+## Supervision des synchronisations et audit
+
+La phase pilote inclut maintenant une supervision opérationnelle dans **Paramètres > Cloud & mobile**.
+
+### Événements de synchronisation
+
+La table `sekoly_sync_events` enregistre les événements utiles de Sekoly Enseignant et de Sekoly Admin :
+
+- ouverture de l'application ;
+- début / succès / erreur de synchronisation ;
+- présences enregistrées ;
+- notes enregistrées ;
+- évolution de la file hors ligne.
+
+Chaque événement conserve l'établissement, l'utilisateur, l'enseignant si applicable, un identifiant d'appareil, la plateforme, l'état, le nombre d'opérations en attente et un message d'erreur éventuel.
+
+Les enseignants ne peuvent écrire que leurs propres événements. La lecture de supervision est réservée aux rôles de direction autorisés par RLS.
+
+### État des appareils
+
+Le moniteur Cloud agrège la dernière activité par appareil et classe chaque appareil :
+
+- **Synchronisé** ;
+- **En attente** si des opérations restent dans la file hors ligne ;
+- **Erreur** si le dernier événement a échoué ;
+- **Inactif** si aucun événement récent n'a été reçu.
+
+La fonction Edge active est `sekoly-sync-monitor`. Son implémentation RLS est versionnée sous `supabase/functions/sekoly-sync-monitor-rls/`.
+
+### Journal d'audit
+
+Des triggers PostgreSQL alimentent automatiquement `sekoly_audit_logs` lors des modifications concernant :
+
+- inscriptions ;
+- enseignants ;
+- affectations ;
+- séances de présence et lignes d'appel ;
+- évaluations ;
+- notes.
+
+Le journal expose l'acteur, l'action, le type d'objet et la date sans recopier le contenu scolaire complet dans l'audit.
+
+### Interface Admin
+
+La section **Supervision des synchronisations** affiche :
+
+- nombre d'appareils connus et actifs sur 24 h ;
+- appareils avec file en attente ou état anormal ;
+- erreurs de synchronisation des dernières 24 h ;
+- dernière activité et dernière erreur de chaque appareil ;
+- événements de synchronisation récents ;
+- journal d'audit de l'établissement.
