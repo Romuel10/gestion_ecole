@@ -678,24 +678,30 @@ export class CloudSyncService {
     }));
     await restUpsert('sekoly_guardians', guardians, 'id');
 
-    const guardianLinks = (db.studentGuardianLinks ?? [])
-      .map((link) => {
-        const student = db.students.find((item) => item.id === link.studentId);
-        if (!student) return null;
-        return {
-          id: cloudUuid('student-guardian', link.id),
-          school_id: schoolId,
-          student_id: cloudUuid('student', student.matricule.toUpperCase()),
-          guardian_id: cloudUuid('guardian', link.guardianId),
-          relationship: link.relationship,
-          is_primary: Boolean(link.isPrimary),
-          has_legal_custody: link.hasLegalCustody !== false,
-          authorized_pickup: link.authorizedPickup !== false,
-          emergency_priority: link.emergencyPriority || null,
-          notes: link.notes || null,
-        };
-      })
-      .filter(Boolean) as Record<string, unknown>[];
+    const guardianLinkMap = new Map<string, Record<string, unknown>>();
+    (db.studentGuardianLinks ?? []).forEach((link) => {
+      const student = db.students.find((item) => item.id === link.studentId);
+      if (!student) return;
+      const cloudStudentId = cloudUuid(
+        'student',
+        student.matricule.toUpperCase()
+      );
+      const cloudGuardianId = cloudUuid('guardian', link.guardianId);
+      const key = `${cloudStudentId}:${cloudGuardianId}`;
+      guardianLinkMap.set(key, {
+        id: cloudUuid('student-guardian', key),
+        school_id: schoolId,
+        student_id: cloudStudentId,
+        guardian_id: cloudGuardianId,
+        relationship: link.relationship,
+        is_primary: Boolean(link.isPrimary),
+        has_legal_custody: link.hasLegalCustody !== false,
+        authorized_pickup: link.authorizedPickup !== false,
+        emergency_priority: link.emergencyPriority || null,
+        notes: link.notes || null,
+      });
+    });
+    const guardianLinks = Array.from(guardianLinkMap.values());
     await restUpsert('sekoly_student_guardians', guardianLinks, 'id');
 
     const enrollments = db.students.map((student) => ({
