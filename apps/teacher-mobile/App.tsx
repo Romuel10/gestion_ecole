@@ -1,7 +1,9 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Animated,
+  Easing,
   FlatList,
   KeyboardAvoidingView,
   Linking,
@@ -15,6 +17,7 @@ import {
   Text,
   TextInput,
   View,
+  useColorScheme,
 } from 'react-native';
 import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
 import { acceptAuthDeepLink, supabase } from './src/lib/supabase';
@@ -35,17 +38,52 @@ type AttendanceDraft = {
   reason?: string;
 };
 
-const COLORS = {
+const LIGHT_COLORS = {
   navy: '#173f49',
+  navySoft: '#eaf1f2',
   green: '#2f7a54',
   red: '#b94141',
   ink: '#17212b',
   muted: '#65717f',
   border: '#d9dee4',
-  soft: '#f5f7f8',
+  soft: '#f4f7f8',
+  surface: '#ffffff',
   white: '#ffffff',
   amber: '#a86f14',
+  shadow: '#10242b',
 };
+
+const DARK_COLORS: typeof LIGHT_COLORS = {
+  navy: '#123740',
+  navySoft: '#183038',
+  green: '#61b88c',
+  red: '#e47e7e',
+  ink: '#eef4f6',
+  muted: '#a7b4bb',
+  border: '#2d3d45',
+  soft: '#0d151a',
+  surface: '#151f25',
+  white: '#ffffff',
+  amber: '#e0ad59',
+  shadow: '#000000',
+};
+
+type ThemeMode = 'light' | 'dark';
+type MobileColors = typeof LIGHT_COLORS;
+type MobileThemeContextValue = {
+  mode: ThemeMode;
+  colors: MobileColors;
+  styles: ReturnType<typeof createStyles>;
+  toggleTheme: () => void;
+};
+
+const MobileThemeContext = createContext<MobileThemeContextValue | null>(null);
+
+function useMobileTheme() {
+  const value = useContext(MobileThemeContext);
+  if (!value) throw new Error('Sekoly mobile theme unavailable.');
+  return value;
+}
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
 
@@ -67,6 +105,7 @@ function PrimaryButton({
   disabled?: boolean;
   kind?: 'primary' | 'secondary' | 'danger';
 }) {
+  const { colors: COLORS, styles } = useMobileTheme();
   const background =
     kind === 'primary'
       ? COLORS.navy
@@ -102,6 +141,7 @@ function Segmented({
   value: string;
   onChange: (key: string) => void;
 }) {
+  const { styles } = useMobileTheme();
   return (
     <ScrollView
       horizontal
@@ -136,6 +176,7 @@ function ActivateAccountScreen({
 }: {
   onDone: () => Promise<void>;
 }) {
+  const { styles } = useMobileTheme();
   const [password, setPassword] = useState('');
   const [confirmation, setConfirmation] = useState('');
   const [busy, setBusy] = useState(false);
@@ -223,6 +264,7 @@ function LoginScreen({
 }: {
   onLoggedIn: () => Promise<void>;
 }) {
+  const { styles } = useMobileTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
@@ -311,6 +353,7 @@ function Header({
   onSync: () => void;
   onLogout: () => void;
 }) {
+  const { mode, styles, toggleTheme } = useMobileTheme();
   return (
     <View style={styles.header}>
       <View style={{ flex: 1 }}>
@@ -322,16 +365,23 @@ function Header({
       </View>
 
       <View style={styles.headerActions}>
-        <Pressable onPress={onSync} style={styles.syncChip}>
-          <Text style={styles.syncChipText}>
-            {syncing
-              ? 'Synchronisation…'
-              : queueCount > 0
-              ? `${queueCount} en attente`
-              : 'Synchronisé'}
-          </Text>
-        </Pressable>
-        <Pressable onPress={onLogout}>
+        <View style={styles.headerActionRow}>
+          <Pressable onPress={onSync} style={styles.syncChip}>
+            <Text style={styles.syncChipText}>
+              {syncing
+                ? 'Synchronisation…'
+                : queueCount > 0
+                ? `${queueCount} en attente`
+                : 'Synchronisé'}
+            </Text>
+          </Pressable>
+          <Pressable onPress={toggleTheme} style={styles.themeChip}>
+            <Text style={styles.themeChipText}>
+              {mode === 'dark' ? 'Jour' : 'Nuit'}
+            </Text>
+          </Pressable>
+        </View>
+        <Pressable onPress={onLogout} hitSlop={8}>
           <Text style={styles.logoutText}>Quitter</Text>
         </Pressable>
       </View>
@@ -356,6 +406,7 @@ function HomeScreen({
   onOpenAttendance: (assignment: Assignment) => void;
   onOpenGrades: (assignment: Assignment) => void;
 }) {
+  const { styles } = useMobileTheme();
   const jsDay = new Date().getDay();
   const dbDay = jsDay === 0 ? 7 : jsDay;
   const todaySlots = timetable.filter((slot) => slot.day_of_week === dbDay);
@@ -482,6 +533,7 @@ function AttendanceScreen({
   onDone: () => void;
   onQueued: () => void;
 }) {
+  const { colors: COLORS, styles } = useMobileTheme();
   const [assignmentId, setAssignmentId] = useState(
     initialAssignment?.id ?? assignments[0]?.id ?? ''
   );
@@ -680,6 +732,7 @@ function GradesScreen({
   onDone: () => void;
   onQueued: () => void;
 }) {
+  const { colors: COLORS, styles } = useMobileTheme();
   const [assignmentId, setAssignmentId] = useState(
     initialAssignment?.id ?? assignments[0]?.id ?? ''
   );
@@ -935,7 +988,8 @@ function GradesScreen({
   );
 }
 
-export default function App() {
+function AppContent() {
+  const { colors: COLORS, mode, styles } = useMobileTheme();
   const [booting, setBooting] = useState(true);
   const [context, setContext] = useState<TeacherContext | null>(null);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
@@ -947,6 +1001,17 @@ export default function App() {
   const [syncing, setSyncing] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [needsPassword, setNeedsPassword] = useState(false);
+  const screenProgress = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    screenProgress.setValue(0);
+    Animated.timing(screenProgress, {
+      toValue: 1,
+      duration: 260,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [tab, screenProgress]);
 
   const refreshQueue = () => setQueueCount(teacherApi.queueCount());
 
@@ -1090,7 +1155,7 @@ export default function App() {
   if (booting) {
     return (
       <View style={[styles.full, styles.center]}>
-        <ExpoStatusBar style="dark" />
+        <ExpoStatusBar style={mode === 'dark' ? 'light' : 'dark'} />
         <ActivityIndicator size="large" color={COLORS.navy} />
         <Text style={styles.bootText}>Ouverture de Sekoly Enseignant…</Text>
       </View>
@@ -1111,8 +1176,8 @@ export default function App() {
   if (!context) {
     return (
       <>
-        <StatusBar barStyle="dark-content" />
-        <ExpoStatusBar style="dark" />
+        <StatusBar barStyle={mode === 'dark' ? 'light-content' : 'dark-content'} />
+        <ExpoStatusBar style={mode === 'dark' ? 'light' : 'dark'} />
         <LoginScreen
           onLoggedIn={async () => {
             const mustChange = await teacherApi.requiresPasswordChange();
@@ -1138,8 +1203,8 @@ export default function App() {
   };
 
   return (
-    <SafeAreaView style={styles.full}>
-      <ExpoStatusBar style="light" />
+    <SafeAreaView style={[styles.full, styles.safeRoot]}>
+      <ExpoStatusBar style="light" backgroundColor={COLORS.navy} />
       <Header
         context={context}
         queueCount={queueCount}
@@ -1148,51 +1213,97 @@ export default function App() {
         onLogout={() => void teacherApi.signOut()}
       />
 
-      {tab === 'HOME' && (
-        <HomeScreen
-          context={context}
-          assignments={assignments}
-          timetable={timetable}
-          refreshing={refreshing}
-          onRefresh={refresh}
-          onOpenAttendance={openAttendance}
-          onOpenGrades={openGrades}
-        />
-      )}
+      <Animated.View
+        style={[
+          styles.screenStage,
+          {
+            opacity: screenProgress,
+            transform: [
+              {
+                translateY: screenProgress.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [8, 0],
+                }),
+              },
+            ],
+          },
+        ]}
+      >
+        {tab === 'HOME' && (
+          <HomeScreen
+            context={context}
+            assignments={assignments}
+            timetable={timetable}
+            refreshing={refreshing}
+            onRefresh={refresh}
+            onOpenAttendance={openAttendance}
+            onOpenGrades={openGrades}
+          />
+        )}
 
-      {tab === 'ATTENDANCE' && (
-        <AttendanceScreen
-          context={context}
-          assignments={assignments}
-          initialAssignment={selectedAssignment}
-          onQueued={refreshQueue}
-          onDone={() => {
-            setTab('HOME');
-            setSelectedAssignment(null);
-            refreshQueue();
-          }}
-        />
-      )}
+        {tab === 'ATTENDANCE' && (
+          <AttendanceScreen
+            context={context}
+            assignments={assignments}
+            initialAssignment={selectedAssignment}
+            onQueued={refreshQueue}
+            onDone={() => {
+              setTab('HOME');
+              setSelectedAssignment(null);
+              refreshQueue();
+            }}
+          />
+        )}
 
-      {tab === 'GRADES' && (
-        <GradesScreen
-          context={context}
-          assignments={assignments}
-          initialAssignment={selectedAssignment}
-          onQueued={refreshQueue}
-          onDone={() => {
-            setTab('HOME');
-            setSelectedAssignment(null);
-            refreshQueue();
-          }}
-        />
-      )}
+        {tab === 'GRADES' && (
+          <GradesScreen
+            context={context}
+            assignments={assignments}
+            initialAssignment={selectedAssignment}
+            onQueued={refreshQueue}
+            onDone={() => {
+              setTab('HOME');
+              setSelectedAssignment(null);
+              refreshQueue();
+            }}
+          />
+        )}
+      </Animated.View>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
+export default function App() {
+  const systemScheme = useColorScheme();
+  const [mode, setMode] = useState<ThemeMode>(
+    systemScheme === 'dark' ? 'dark' : 'light'
+  );
+
+  const colors = mode === 'dark' ? DARK_COLORS : LIGHT_COLORS;
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const toggleTheme = useCallback(() => {
+    setMode((current) => (current === 'dark' ? 'light' : 'dark'));
+  }, []);
+  const themeValue = useMemo(
+    () => ({ mode, colors, styles, toggleTheme }),
+    [mode, colors, styles, toggleTheme]
+  );
+
+  return (
+    <MobileThemeContext.Provider value={themeValue}>
+      <AppContent />
+    </MobileThemeContext.Provider>
+  );
+}
+
+function createStyles(COLORS: MobileColors) {
+  return StyleSheet.create({
   full: { flex: 1, backgroundColor: COLORS.soft },
+  safeRoot: {
+    paddingTop: Platform.OS === 'android' ? Math.max(StatusBar.currentHeight ?? 0, 24) : 0,
+    backgroundColor: COLORS.navy,
+  },
+  screenStage: { flex: 1, backgroundColor: COLORS.soft },
   center: { alignItems: 'center', justifyContent: 'center' },
   bootText: { marginTop: 14, color: COLORS.muted, fontSize: 13 },
 
@@ -1206,11 +1317,11 @@ const styles = StyleSheet.create({
     width: 62,
     height: 62,
     alignSelf: 'center',
-    borderRadius: 31,
+    borderRadius: 18,
     backgroundColor: COLORS.navy,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 4,
+    borderWidth: 3,
     borderColor: COLORS.green,
   },
   brandSealText: { color: COLORS.white, fontSize: 27, fontWeight: '800' },
@@ -1228,58 +1339,93 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: COLORS.muted,
     fontSize: 12,
+    borderRadius: 12,
   },
   loginCard: {
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.surface,
     borderWidth: 1,
     borderColor: COLORS.border,
     padding: 20,
+    borderRadius: 18,
+    shadowColor: COLORS.shadow,
+    shadowOpacity: 0.12,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 4,
   },
 
   header: {
-    minHeight: 88,
-    paddingHorizontal: 18,
-    paddingVertical: 12,
+    minHeight: 108,
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 16,
     backgroundColor: COLORS.navy,
     flexDirection: 'row',
     alignItems: 'center',
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    shadowColor: COLORS.shadow,
+    shadowOpacity: 0.22,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 8,
+    zIndex: 5,
   },
   headerProduct: {
     color: COLORS.white,
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '900',
-    letterSpacing: 2.5,
+    letterSpacing: 3.2,
+    opacity: 0.94,
   },
   headerSchool: {
-    marginTop: 4,
+    marginTop: 8,
     color: COLORS.white,
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: -0.2,
   },
   headerTeacher: {
-    marginTop: 2,
+    marginTop: 4,
     color: '#c9d7da',
-    fontSize: 10,
+    fontSize: 10.5,
   },
-  headerActions: { alignItems: 'flex-end', gap: 8 },
+  headerActions: { alignItems: 'flex-end', gap: 10 },
+  headerActionRow: { flexDirection: 'row', gap: 7, alignItems: 'center' },
   syncChip: {
-    paddingHorizontal: 9,
-    paddingVertical: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
     borderWidth: 1,
     borderColor: '#6d8990',
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.06)',
   },
-  syncChipText: { color: COLORS.white, fontSize: 9, fontWeight: '700' },
-  logoutText: { color: '#d8e3e5', fontSize: 9 },
+  syncChipText: { color: COLORS.white, fontSize: 9, fontWeight: '800' },
+  themeChip: {
+    paddingHorizontal: 9,
+    paddingVertical: 7,
+    borderWidth: 1,
+    borderColor: '#6d8990',
+    borderRadius: 10,
+  },
+  themeChipText: { color: COLORS.white, fontSize: 9, fontWeight: '800' },
+  logoutText: { color: '#d8e3e5', fontSize: 9.5, fontWeight: '700' },
 
   screen: { flex: 1, backgroundColor: COLORS.soft },
-  screenContent: { padding: 16, paddingBottom: 42 },
+  screenContent: { padding: 18, paddingBottom: 48 },
   hero: {
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.surface,
     borderWidth: 1,
     borderColor: COLORS.border,
-    padding: 18,
+    padding: 20,
     borderLeftWidth: 4,
     borderLeftColor: COLORS.green,
+    borderRadius: 18,
+    shadowColor: COLORS.shadow,
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 2,
   },
   heroEyebrow: {
     color: COLORS.muted,
@@ -1307,10 +1453,12 @@ const styles = StyleSheet.create({
   },
   courseCard: {
     flexDirection: 'row',
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.surface,
     borderWidth: 1,
     borderColor: COLORS.border,
-    marginBottom: 9,
+    marginBottom: 10,
+    borderRadius: 16,
+    overflow: 'hidden',
   },
   courseTime: {
     width: 64,
@@ -1318,7 +1466,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRightWidth: 1,
     borderRightColor: COLORS.border,
-    backgroundColor: '#f0f4f4',
+    backgroundColor: COLORS.navySoft,
   },
   courseTimeText: { color: COLORS.navy, fontSize: 14, fontWeight: '800' },
   courseTimeEnd: { marginTop: 3, color: COLORS.muted, fontSize: 9 },
@@ -1328,13 +1476,19 @@ const styles = StyleSheet.create({
   courseButtons: { marginTop: 10, flexDirection: 'row', gap: 7 },
 
   assignmentRow: {
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.surface,
     borderWidth: 1,
     borderColor: COLORS.border,
-    padding: 13,
-    marginBottom: 7,
+    padding: 15,
+    marginBottom: 10,
     flexDirection: 'row',
     alignItems: 'center',
+    borderRadius: 16,
+    shadowColor: COLORS.shadow,
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 1,
   },
   assignmentTitle: { color: COLORS.ink, fontSize: 12, fontWeight: '800' },
   assignmentMeta: { marginTop: 2, color: COLORS.muted, fontSize: 9.5 },
@@ -1342,33 +1496,37 @@ const styles = StyleSheet.create({
   smallLink: {
     borderWidth: 1,
     borderColor: COLORS.border,
-    paddingHorizontal: 9,
-    paddingVertical: 6,
+    paddingHorizontal: 11,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: COLORS.surface,
   },
   smallLinkText: { color: COLORS.navy, fontSize: 9, fontWeight: '800' },
 
   emptyCard: {
     borderWidth: 1,
     borderColor: COLORS.border,
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.surface,
     padding: 18,
+    borderRadius: 16,
   },
   emptyTitle: { color: COLORS.ink, fontSize: 12, fontWeight: '800' },
   emptyText: { marginTop: 4, color: COLORS.muted, fontSize: 10.5 },
 
   button: {
-    minHeight: 38,
+    minHeight: 40,
     borderWidth: 1,
-    paddingHorizontal: 13,
+    paddingHorizontal: 14,
     alignItems: 'center',
     justifyContent: 'center',
+    borderRadius: 11,
   },
   buttonText: { fontSize: 10.5, fontWeight: '800' },
 
   subHeader: {
-    minHeight: 54,
-    paddingHorizontal: 16,
-    backgroundColor: COLORS.white,
+    minHeight: 60,
+    paddingHorizontal: 18,
+    backgroundColor: COLORS.surface,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
     flexDirection: 'row',
@@ -1393,7 +1551,7 @@ const styles = StyleSheet.create({
   input: {
     minHeight: 42,
     paddingHorizontal: 12,
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.surface,
     borderWidth: 1,
     borderColor: COLORS.border,
     color: COLORS.ink,
@@ -1408,13 +1566,14 @@ const styles = StyleSheet.create({
 
   segmentRow: { gap: 6, paddingBottom: 4 },
   segment: {
-    minHeight: 34,
-    paddingHorizontal: 11,
+    minHeight: 36,
+    paddingHorizontal: 12,
     borderWidth: 1,
     borderColor: COLORS.border,
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.surface,
     alignItems: 'center',
     justifyContent: 'center',
+    borderRadius: 999,
   },
   segmentActive: {
     backgroundColor: COLORS.navy,
@@ -1426,23 +1585,25 @@ const styles = StyleSheet.create({
   summaryStrip: {
     marginTop: 12,
     marginBottom: 12,
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.surface,
     borderWidth: 1,
     borderColor: COLORS.border,
-    padding: 12,
+    padding: 14,
     flexDirection: 'row',
     alignItems: 'baseline',
     gap: 8,
+    borderRadius: 14,
   },
   summaryValue: { color: COLORS.navy, fontSize: 20, fontWeight: '900' },
   summaryLabel: { color: COLORS.muted, fontSize: 10 },
 
   studentCard: {
-    marginBottom: 8,
-    padding: 12,
-    backgroundColor: COLORS.white,
+    marginBottom: 9,
+    padding: 14,
+    backgroundColor: COLORS.surface,
     borderWidth: 1,
     borderColor: COLORS.border,
+    borderRadius: 14,
   },
   studentTop: { flexDirection: 'row', alignItems: 'center' },
   studentName: { color: COLORS.ink, fontSize: 11.5, fontWeight: '800' },
@@ -1456,10 +1617,11 @@ const styles = StyleSheet.create({
   createBox: {
     marginTop: 14,
     marginBottom: 16,
-    padding: 13,
-    backgroundColor: COLORS.white,
+    padding: 14,
+    backgroundColor: COLORS.surface,
     borderWidth: 1,
     borderColor: COLORS.border,
+    borderRadius: 14,
   },
   createTitle: {
     marginBottom: 8,
@@ -1469,21 +1631,22 @@ const styles = StyleSheet.create({
   },
 
   scoreRow: {
-    minHeight: 60,
+    minHeight: 62,
     paddingHorizontal: 12,
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.surface,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderBottomWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
+    borderRadius: 12,
+    marginBottom: 7,
   },
   scoreInput: {
     width: 62,
     height: 38,
     borderWidth: 1,
     borderColor: COLORS.border,
-    backgroundColor: COLORS.soft,
+    backgroundColor: COLORS.navySoft,
     textAlign: 'center',
     color: COLORS.ink,
     fontSize: 14,
@@ -1495,4 +1658,5 @@ const styles = StyleSheet.create({
     color: COLORS.muted,
     fontSize: 9,
   },
-});
+  });
+}
