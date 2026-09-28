@@ -333,6 +333,24 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
     }
   };
 
+  const handleCloudFullSync = async () => {
+    const confirmed = window.confirm(
+      'Relancer une synchronisation complète ?\n\nSekoly renverra la structure locale et relira tout l’historique Cloud de l’année active. Utilisez cette option après une restauration, un changement d’ordinateur ou si des données semblent manquer.'
+    );
+    if (!confirmed) return;
+
+    try {
+      CloudSyncService.resetPullCursor(db);
+      await handleCloudSync();
+      onShowToast('Resynchronisation complète terminée.', 'success');
+    } catch (error) {
+      onShowToast(
+        error instanceof Error ? error.message : 'Resynchronisation complète impossible.',
+        'error'
+      );
+    }
+  };
+
   const handlePilotStatus = async () => {
     setPilotStatusBusy(true);
     try {
@@ -2192,15 +2210,27 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
                             </div>
                           )}
                         </div>
-                        <button
-                          type="button"
-                          onClick={handleCloudSync}
-                          disabled={cloudBusy}
-                          className="button button--primary"
-                        >
-                          <RefreshCw className="w-4 h-4" />
-                          {cloudBusy ? 'Synchronisation…' : 'Synchroniser dans les deux sens'}
-                        </button>
+                        <div className="flex flex-wrap justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => void handleCloudFullSync()}
+                            disabled={cloudBusy}
+                            className="button button--secondary"
+                            title="Relire tout l’historique Cloud de l’année active"
+                          >
+                            <RotateCcw className="w-4 h-4" />
+                            Reprise complète
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void handleCloudSync()}
+                            disabled={cloudBusy}
+                            className="button button--primary"
+                          >
+                            <RefreshCw className="w-4 h-4" />
+                            {cloudBusy ? 'Synchronisation…' : 'Synchroniser dans les deux sens'}
+                          </button>
+                        </div>
                       </div>
 
                       <div className="border border-slate-200 dark:border-slate-700 p-4">
