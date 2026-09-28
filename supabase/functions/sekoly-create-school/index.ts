@@ -62,6 +62,7 @@ Deno.serve(async (req) => {
         address: String(body.address ?? "").trim() || null,
         phone: String(body.phone ?? "").trim() || null,
         email: String(body.email ?? "").trim() || user.email || null,
+        settings: { id_namespace_version: 2 },
       })
       .select("*")
       .single();
