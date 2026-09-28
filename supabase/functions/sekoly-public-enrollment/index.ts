@@ -1549,11 +1549,28 @@ Deno.serve(async (req) => {
       }
     }
 
-    const persistent = await findOrCreatePersistentFamily(
-      admin,
-      context.campaign.school_id,
-      guardian,
-    );
+    let persistent: any = null;
+    const suppliedFamilyToken = clean(body.familyToken, 160);
+    if (suppliedFamilyToken) {
+      const tokenAccess = await familyFromToken(admin, suppliedFamilyToken);
+      if (
+        tokenAccess &&
+        tokenAccess.family.school_id === context.campaign.school_id
+      ) {
+        persistent = {
+          family: tokenAccess.family,
+          guardian: tokenAccess.primaryGuardian,
+        };
+      }
+    }
+
+    if (!persistent) {
+      persistent = await findOrCreatePersistentFamily(
+        admin,
+        context.campaign.school_id,
+        guardian,
+      );
+    }
 
     const { data: family, error: familyError } = await admin
       .from("sekoly_enrollment_families")
@@ -1603,11 +1620,13 @@ Deno.serve(async (req) => {
       throw appError;
     }
 
-    const familyToken = await issuePortalToken(
-      admin,
-      context.campaign.school_id,
-      persistent.family.id,
-    );
+    const familyToken =
+      suppliedFamilyToken ||
+      (await issuePortalToken(
+        admin,
+        context.campaign.school_id,
+        persistent.family.id,
+      ));
     const portalUrl =
       url.origin +
       url.pathname +
