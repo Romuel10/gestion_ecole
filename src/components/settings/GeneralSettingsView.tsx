@@ -275,9 +275,21 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
     setCloudBusy(true);
     try {
       const stats = await CloudSyncService.syncLocalStructure(db);
-      setCloudStats(stats);
+      const pulled = await CloudSyncService.pullTeacherChanges(db);
+
+      if (pulled.attendanceAdded > 0 || pulled.gradesChanged > 0) {
+        StorageService.saveDatabase(pulled.db);
+        onUpdateDb(pulled.db);
+      }
+
+      setCloudStats({
+        ...stats,
+        attendanceAdded: pulled.attendanceAdded,
+        gradesChanged: pulled.gradesChanged,
+      });
+
       onShowToast(
-        `Cloud synchronisé : ${stats.students} élève(s), ${stats.teachers} enseignant(s), ${stats.assignments} affectation(s).`,
+        `Synchronisation bidirectionnelle terminée : ${stats.students} élève(s), ${stats.teachers} enseignant(s), ${pulled.attendanceAdded} présence(s) reçue(s), ${pulled.gradesChanged} fiche(s) de notes mise(s) à jour.`,
         'success'
       );
     } catch (error) {
@@ -2100,13 +2112,15 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
                         <div>
                           <div className="text-[11px] font-semibold">Synchroniser la structure</div>
                           <p className="mt-1 text-[10.5px] text-slate-500">
-                            Envoie années, classes, matières, élèves, inscriptions, enseignants,
-                            affectations et emploi du temps vers Supabase.
+                            Envoie la structure vers Supabase puis récupère immédiatement les
+                            présences et notes saisies dans Sekoly Enseignant.
                           </p>
                           {cloudStats && (
                             <div className="mt-2 text-[10px] text-slate-500">
                               Dernière synchronisation : {cloudStats.students} élèves · {cloudStats.teachers}{' '}
-                              enseignants · {cloudStats.assignments} affectations.
+                              enseignants · {cloudStats.assignments} affectations ·{' '}
+                              {cloudStats.attendanceAdded ?? 0} présence(s) reçue(s) ·{' '}
+                              {cloudStats.gradesChanged ?? 0} fiche(s) de notes mise(s) à jour.
                             </div>
                           )}
                         </div>
@@ -2117,7 +2131,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
                           className="button button--primary"
                         >
                           <RefreshCw className="w-4 h-4" />
-                          {cloudBusy ? 'Synchronisation…' : 'Synchroniser maintenant'}
+                          {cloudBusy ? 'Synchronisation…' : 'Synchroniser dans les deux sens'}
                         </button>
                       </div>
 
