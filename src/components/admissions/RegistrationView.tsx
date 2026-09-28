@@ -769,6 +769,18 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
         </button>
         <button
           type="button"
+          onClick={() => setActiveTab('ONLINE')}
+          className={`px-3 py-2 rounded-md text-[11.5px] font-semibold transition flex items-center gap-1.5 ${
+            activeTab === 'ONLINE'
+              ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
+              : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+          }`}
+        >
+          <QrCode className="w-3.5 h-3.5" />
+          Préinscriptions QR
+        </button>
+        <button
+          type="button"
           onClick={() => setActiveTab('LOG')}
           className={`px-3 py-2 rounded-md text-[11.5px] font-semibold transition ${
             activeTab === 'LOG'
@@ -1278,6 +1290,14 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
             </div>
           )}
         </div>
+      )}
+
+      {activeTab === 'ONLINE' && (
+        <OnlineEnrollmentPanel
+          db={db}
+          onShowToast={onShowToast}
+          onPrepare={prepareOnlineApplication}
+        />
       )}
 
       {/* Onglet : registre des admissions */}
