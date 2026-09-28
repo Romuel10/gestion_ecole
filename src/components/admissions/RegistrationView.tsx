@@ -11,12 +11,40 @@ import {
   Building,
   Calendar,
   Sparkles,
+  QrCode,
 } from 'lucide-react';
-import { DatabaseSchema, Student, TuitionPayment, PaymentMethod, StudentStatus } from '../../types/school';
+import {
+  DatabaseSchema,
+  Guardian,
+  Student,
+  StudentGuardianLink,
+  TuitionPayment,
+  PaymentMethod,
+  StudentStatus,
+} from '../../types/school';
 import { MatriculeService } from '../../services/matricule';
 import { CalculationService } from '../../services/calculations';
 import { StorageService } from '../../services/storage';
 import { PdfGeneratorService } from '../../services/pdfGenerator';
+import {
+  CloudSyncService,
+  EnrollmentQueueItem,
+  cloudUuid,
+} from '../../services/cloudSync';
+import { OnlineEnrollmentPanel } from './OnlineEnrollmentPanel';
+
+const splitGuardianName = (fullName: string) => {
+  const parts = fullName.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return { lastName: '', firstName: '' };
+  if (parts.length === 1) return { lastName: parts[0].toUpperCase(), firstName: '' };
+  return {
+    lastName: parts[0].toUpperCase(),
+    firstName: parts.slice(1).join(' '),
+  };
+};
+
+const normalizedIdentity = (value?: string) =>
+  (value || '').replace(/\s+/g, '').toUpperCase();
 
 interface RegistrationViewProps {
   db: DatabaseSchema;
@@ -29,7 +57,10 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
   onUpdateDb,
   onShowToast,
 }) => {
-  const [activeTab, setActiveTab] = useState<'NEW_ADMISSION' | 'RE_REGISTRATION' | 'LOG'>('NEW_ADMISSION');
+  const [activeTab, setActiveTab] = useState<
+    'NEW_ADMISSION' | 'RE_REGISTRATION' | 'ONLINE' | 'LOG'
+  >('NEW_ADMISSION');
+  const [pendingApplicationId, setPendingApplicationId] = useState<string | null>(null);
 
   // Form State for New Admission
   const [formData, setFormData] = useState({
@@ -43,14 +74,30 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
     neighborhood: '',
     city: 'Antananarivo',
     classId: db.classes[0]?.id || '',
+    birthCertificateNumber: '',
+    birthCertificateDate: '',
+    birthCertificatePlace: '',
     fatherName: '',
     fatherPhone: '',
     fatherJob: '',
+    fatherCinNumber: '',
+    fatherCinIssuedAt: '',
+    fatherCinIssuePlace: '',
+    fatherEmail: '',
     motherName: '',
     motherPhone: '',
     motherJob: '',
+    motherCinNumber: '',
+    motherCinIssuedAt: '',
+    motherCinIssuePlace: '',
+    motherEmail: '',
     guardianName: '',
     guardianPhone: '',
+    guardianJob: '',
+    guardianCinNumber: '',
+    guardianCinIssuedAt: '',
+    guardianCinIssuePlace: '',
+    guardianEmail: '',
     emergencyContact: '',
     emergencyPhone: '',
     bloodType: 'O+',
@@ -135,14 +182,30 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
       schoolYearId: db.currentSchoolYearId,
       status: 'INSCRIT',
       enrollmentDate: new Date().toISOString().slice(0, 10),
+      birthCertificateNumber: formData.birthCertificateNumber,
+      birthCertificateDate: formData.birthCertificateDate,
+      birthCertificatePlace: formData.birthCertificatePlace,
       fatherName: formData.fatherName,
       fatherPhone: formData.fatherPhone,
       fatherJob: formData.fatherJob,
+      fatherCinNumber: formData.fatherCinNumber,
+      fatherCinIssuedAt: formData.fatherCinIssuedAt,
+      fatherCinIssuePlace: formData.fatherCinIssuePlace,
+      fatherEmail: formData.fatherEmail,
       motherName: formData.motherName,
       motherPhone: formData.motherPhone,
       motherJob: formData.motherJob,
+      motherCinNumber: formData.motherCinNumber,
+      motherCinIssuedAt: formData.motherCinIssuedAt,
+      motherCinIssuePlace: formData.motherCinIssuePlace,
+      motherEmail: formData.motherEmail,
       guardianName: formData.guardianName,
       guardianPhone: formData.guardianPhone,
+      guardianJob: formData.guardianJob,
+      guardianCinNumber: formData.guardianCinNumber,
+      guardianCinIssuedAt: formData.guardianCinIssuedAt,
+      guardianCinIssuePlace: formData.guardianCinIssuePlace,
+      guardianEmail: formData.guardianEmail,
       emergencyContact: formData.emergencyContact || `${formData.fatherName || formData.motherName} (Parent)`,
       emergencyPhone: formData.emergencyPhone || formData.fatherPhone || formData.motherPhone || '',
       bloodType: formData.bloodType,
@@ -205,6 +268,110 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
       });
     }
 
+    const nextGuardians: Guardian[] = [...(db.guardians ?? [])];
+    const nextGuardianLinks: StudentGuardianLink[] = [
+      ...(db.studentGuardianLinks ?? []),
+    ];
+    let guardianSequence = 0;
+    let primaryAssigned = false;
+
+    const registerGuardian = (
+      relationship: StudentGuardianLink['relationship'],
+      values: {
+        name: string;
+        phone: string;
+        email?: string;
+        cinNumber?: string;
+        cinIssuedAt?: string;
+        cinIssuePlace?: string;
+        occupation?: string;
+      }
+    ) => {
+      if (!values.name.trim() && !values.phone.trim() && !values.cinNumber?.trim()) {
+        return;
+      }
+
+      const cinKey = normalizedIdentity(values.cinNumber);
+      const phoneKey = normalizedIdentity(values.phone);
+      const emailKey = (values.email || '').trim().toLowerCase();
+      let guardian = nextGuardians.find((item) => {
+        if (cinKey && normalizedIdentity(item.cinNumber) === cinKey) return true;
+        if (phoneKey && normalizedIdentity(item.phonePrimary) === phoneKey) return true;
+        if (emailKey && (item.email || '').trim().toLowerCase() === emailKey) return true;
+        return false;
+      });
+
+      const name = splitGuardianName(values.name);
+      if (!guardian) {
+        guardian = {
+          id: `gua-${Date.now()}-${guardianSequence++}`,
+          lastName: name.lastName || values.name.trim().toUpperCase(),
+          firstName: name.firstName,
+          phonePrimary: values.phone.trim(),
+          email: emailKey || undefined,
+          cinNumber: values.cinNumber?.trim() || undefined,
+          cinIssuedAt: values.cinIssuedAt || undefined,
+          cinIssuePlace: values.cinIssuePlace?.trim() || undefined,
+          occupation: values.occupation?.trim() || undefined,
+          address: formData.address || undefined,
+          city: formData.city || undefined,
+          nationality: 'Malgache',
+          status: 'ACTIVE',
+        };
+        nextGuardians.push(guardian);
+      } else {
+        Object.assign(guardian, {
+          phonePrimary: values.phone.trim() || guardian.phonePrimary,
+          email: emailKey || guardian.email,
+          cinNumber: values.cinNumber?.trim() || guardian.cinNumber,
+          cinIssuedAt: values.cinIssuedAt || guardian.cinIssuedAt,
+          cinIssuePlace: values.cinIssuePlace?.trim() || guardian.cinIssuePlace,
+          occupation: values.occupation?.trim() || guardian.occupation,
+        });
+      }
+
+      const isPrimary = !primaryAssigned;
+      if (isPrimary) primaryAssigned = true;
+      nextGuardianLinks.push({
+        id: `sg-${newStudentId}-${guardian.id}`,
+        studentId: newStudentId,
+        guardianId: guardian.id,
+        relationship,
+        isPrimary,
+        hasLegalCustody: true,
+        authorizedPickup: true,
+        emergencyPriority: isPrimary ? 1 : undefined,
+      });
+    };
+
+    registerGuardian('FATHER', {
+      name: formData.fatherName,
+      phone: formData.fatherPhone,
+      email: formData.fatherEmail,
+      cinNumber: formData.fatherCinNumber,
+      cinIssuedAt: formData.fatherCinIssuedAt,
+      cinIssuePlace: formData.fatherCinIssuePlace,
+      occupation: formData.fatherJob,
+    });
+    registerGuardian('MOTHER', {
+      name: formData.motherName,
+      phone: formData.motherPhone,
+      email: formData.motherEmail,
+      cinNumber: formData.motherCinNumber,
+      cinIssuedAt: formData.motherCinIssuedAt,
+      cinIssuePlace: formData.motherCinIssuePlace,
+      occupation: formData.motherJob,
+    });
+    registerGuardian('GUARDIAN', {
+      name: formData.guardianName,
+      phone: formData.guardianPhone,
+      email: formData.guardianEmail,
+      cinNumber: formData.guardianCinNumber,
+      cinIssuedAt: formData.guardianCinIssuedAt,
+      cinIssuePlace: formData.guardianCinIssuePlace,
+      occupation: formData.guardianJob,
+    });
+
     const updatedDb: DatabaseSchema = {
       ...db,
       matriculeConfig: {
@@ -212,6 +379,8 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
         currentCounter: updatedCounter,
       },
       students: [newStudent, ...db.students],
+      guardians: nextGuardians,
+      studentGuardianLinks: nextGuardianLinks,
       tuitionPayments: updatedPayments,
       cashTransactions: updatedTransactions,
     };
@@ -227,6 +396,31 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
     }
     PdfGeneratorService.generateEnrollmentCertificatePDF(newStudent, updatedDb);
 
+    if (pendingApplicationId && CloudSyncService.isConnected()) {
+      const applicationId = pendingApplicationId;
+      setPendingApplicationId(null);
+      void (async () => {
+        try {
+          await CloudSyncService.syncLocalStructure(updatedDb);
+          await CloudSyncService.updateEnrollmentApplication(
+            applicationId,
+            'APPROVED',
+            `Inscription confirmée — matricule ${matricule}`
+          );
+          onShowToast(
+            'Le dossier QR a été confirmé et synchronisé dans le Cloud.',
+            'success'
+          );
+        } catch (error) {
+          console.warn('Finalisation préinscription QR:', error);
+          onShowToast(
+            'Inscription enregistrée localement. La confirmation Cloud sera à reprendre après reconnexion.',
+            'info'
+          );
+        }
+      })();
+    }
+
     // Reset Form
     setFormData({
       lastName: '',
@@ -239,14 +433,30 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
       neighborhood: '',
       city: 'Antananarivo',
       classId: db.classes[0]?.id || '',
+      birthCertificateNumber: '',
+      birthCertificateDate: '',
+      birthCertificatePlace: '',
       fatherName: '',
       fatherPhone: '',
       fatherJob: '',
+      fatherCinNumber: '',
+      fatherCinIssuedAt: '',
+      fatherCinIssuePlace: '',
+      fatherEmail: '',
       motherName: '',
       motherPhone: '',
       motherJob: '',
+      motherCinNumber: '',
+      motherCinIssuedAt: '',
+      motherCinIssuePlace: '',
+      motherEmail: '',
       guardianName: '',
       guardianPhone: '',
+      guardianJob: '',
+      guardianCinNumber: '',
+      guardianCinIssuedAt: '',
+      guardianCinIssuePlace: '',
+      guardianEmail: '',
       emergencyContact: '',
       emergencyPhone: '',
       bloodType: 'O+',
@@ -397,6 +607,138 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
       s.matricule.toLowerCase().includes(q)
     );
   });
+
+  const prepareOnlineApplication = (application: EnrollmentQueueItem) => {
+    if (application.application_type === 'RE_REGISTRATION') {
+      setReRegSearch(application.existing_matricule || application.child_last_name);
+      setActiveTab('RE_REGISTRATION');
+      onShowToast(
+        'Dossier de réinscription chargé. Vérifiez l’élève puis confirmez sa nouvelle classe.',
+        'info'
+      );
+      return;
+    }
+
+    const family = application.family;
+    const primaryRelationship = family?.relationship || 'GUARDIAN';
+    setPendingApplicationId(application.id);
+    setFormData((current) => ({
+      ...current,
+      lastName: application.child_last_name,
+      firstName: application.child_first_name,
+      gender: application.child_gender || 'M',
+      birthDate: application.child_birth_date || current.birthDate,
+      birthPlace: application.child_birth_place || '',
+      nationality: application.child_nationality || 'Malgache',
+      address: application.child_address || family?.address || '',
+      neighborhood: application.child_neighborhood || '',
+      city: application.child_city || family?.city || '',
+      classId:
+        db.classes.find(
+          (item) =>
+            cloudUuid(
+              'class',
+              `${db.currentSchoolYearId}:${item.id}`
+            ) === application.desired_class_id
+        )?.id || current.classId,
+      previousSchool: application.previous_school || '',
+      birthCertificateNumber: application.birth_certificate_number || '',
+      birthCertificateDate: application.birth_certificate_date || '',
+      birthCertificatePlace: application.birth_certificate_place || '',
+      bloodType: application.blood_type || '',
+      medicalNotes: application.medical_notes || '',
+      fatherName:
+        primaryRelationship === 'FATHER'
+          ? `${family?.guardian_last_name || ''} ${family?.guardian_first_name || ''}`.trim()
+          : current.fatherName,
+      fatherPhone:
+        primaryRelationship === 'FATHER'
+          ? family?.phone_primary || ''
+          : current.fatherPhone,
+      fatherEmail:
+        primaryRelationship === 'FATHER' ? family?.email || '' : current.fatherEmail,
+      fatherCinNumber:
+        primaryRelationship === 'FATHER'
+          ? family?.cin_number || ''
+          : current.fatherCinNumber,
+      fatherCinIssuedAt:
+        primaryRelationship === 'FATHER'
+          ? family?.cin_issued_at || ''
+          : current.fatherCinIssuedAt,
+      fatherCinIssuePlace:
+        primaryRelationship === 'FATHER'
+          ? family?.cin_issue_place || ''
+          : current.fatherCinIssuePlace,
+      fatherJob:
+        primaryRelationship === 'FATHER'
+          ? family?.occupation || ''
+          : current.fatherJob,
+      motherName:
+        primaryRelationship === 'MOTHER'
+          ? `${family?.guardian_last_name || ''} ${family?.guardian_first_name || ''}`.trim()
+          : current.motherName,
+      motherPhone:
+        primaryRelationship === 'MOTHER'
+          ? family?.phone_primary || ''
+          : current.motherPhone,
+      motherEmail:
+        primaryRelationship === 'MOTHER' ? family?.email || '' : current.motherEmail,
+      motherCinNumber:
+        primaryRelationship === 'MOTHER'
+          ? family?.cin_number || ''
+          : current.motherCinNumber,
+      motherCinIssuedAt:
+        primaryRelationship === 'MOTHER'
+          ? family?.cin_issued_at || ''
+          : current.motherCinIssuedAt,
+      motherCinIssuePlace:
+        primaryRelationship === 'MOTHER'
+          ? family?.cin_issue_place || ''
+          : current.motherCinIssuePlace,
+      motherJob:
+        primaryRelationship === 'MOTHER'
+          ? family?.occupation || ''
+          : current.motherJob,
+      guardianName:
+        !['FATHER', 'MOTHER'].includes(primaryRelationship)
+          ? `${family?.guardian_last_name || ''} ${family?.guardian_first_name || ''}`.trim()
+          : current.guardianName,
+      guardianPhone:
+        !['FATHER', 'MOTHER'].includes(primaryRelationship)
+          ? family?.phone_primary || ''
+          : current.guardianPhone,
+      guardianEmail:
+        !['FATHER', 'MOTHER'].includes(primaryRelationship)
+          ? family?.email || ''
+          : current.guardianEmail,
+      guardianCinNumber:
+        !['FATHER', 'MOTHER'].includes(primaryRelationship)
+          ? family?.cin_number || ''
+          : current.guardianCinNumber,
+      guardianCinIssuedAt:
+        !['FATHER', 'MOTHER'].includes(primaryRelationship)
+          ? family?.cin_issued_at || ''
+          : current.guardianCinIssuedAt,
+      guardianCinIssuePlace:
+        !['FATHER', 'MOTHER'].includes(primaryRelationship)
+          ? family?.cin_issue_place || ''
+          : current.guardianCinIssuePlace,
+      guardianJob:
+        !['FATHER', 'MOTHER'].includes(primaryRelationship)
+          ? family?.occupation || ''
+          : current.guardianJob,
+      emergencyContact: family
+        ? `${family.guardian_last_name} ${family.guardian_first_name}`.trim()
+        : current.emergencyContact,
+      emergencyPhone: family?.phone_primary || current.emergencyPhone,
+      payFeeNow: false,
+    }));
+    setActiveTab('NEW_ADMISSION');
+    onShowToast(
+      'Dossier QR prérempli. Appelez la famille, vérifiez les pièces puis validez l’inscription.',
+      'info'
+    );
+  };
 
   const classMap = new Map(db.classes.map((c) => [c.id, c.name]));
 
