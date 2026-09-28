@@ -342,6 +342,7 @@ export const OnlineEnrollmentPanel: React.FC<OnlineEnrollmentPanelProps> = ({
                   <th>Classe souhaitée</th>
                   <th>Responsable</th>
                   <th>Téléphone</th>
+                  <th>Dossier</th>
                   <th>Statut</th>
                   <th className="text-right">Traitement</th>
                 </tr>
@@ -349,8 +350,15 @@ export const OnlineEnrollmentPanel: React.FC<OnlineEnrollmentPanelProps> = ({
               <tbody>
                 {applications.map((item) => (
                   <tr key={item.id}>
-                    <td className="font-mono font-semibold">
-                      {item.family?.reference_code || '—'}
+                    <td>
+                      <div className="font-mono font-semibold">
+                        {item.familyProfileCode || item.family?.reference_code || '—'}
+                      </div>
+                      {item.familyProfileCode && item.family?.reference_code && (
+                        <div className="mt-0.5 text-[9px] text-slate-400 font-mono">
+                          Demande {item.family.reference_code}
+                        </div>
+                      )}
                     </td>
                     <td>
                       <div className="font-semibold">
@@ -373,20 +381,98 @@ export const OnlineEnrollmentPanel: React.FC<OnlineEnrollmentPanelProps> = ({
                     </td>
                     <td className="font-mono">{item.family?.phone_primary || '—'}</td>
                     <td>
+                      <div className="space-y-1.5 min-w-[170px]">
+                        <div className="flex items-center gap-1.5 text-[10px]">
+                          <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>
+                            {item.checklist.filter((row) => row.required && row.status === 'VERIFIED').length}/
+                            {item.checklist.filter((row) => row.required).length} pièce(s) obligatoire(s)
+                          </span>
+                        </div>
+                        {item.documents.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {item.documents.slice(0, 3).map((document) => (
+                              <button
+                                key={document.id}
+                                type="button"
+                                className="px-1.5 py-1 rounded-md border border-slate-200 dark:border-slate-700 text-[9px] hover:bg-slate-50 dark:hover:bg-slate-800"
+                                title={document.original_name}
+                                onClick={() => void openDocument(document.id)}
+                              >
+                                <FileText className="inline w-3 h-3 mr-1" />
+                                {document.status === 'VERIFIED' ? 'Vérifié' : 'Pièce'}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        {item.checklist
+                          .filter((row) => row.required && row.status !== 'VERIFIED')
+                          .slice(0, 2)
+                          .map((row) => (
+                            <button
+                              key={row.id}
+                              type="button"
+                              onClick={() => void verifyChecklist(item, row.id)}
+                              className="block text-left text-[9px] text-amber-700 dark:text-amber-300 hover:underline"
+                              title="Marquer comme vérifié après contrôle"
+                            >
+                              • {row.label}
+                            </button>
+                          ))}
+                      </div>
+                    </td>
+                    <td>
                       <span className={`cloud-enrollment-status cloud-enrollment-status--${item.status.toLowerCase()}`}>
                         {statusLabel[item.status]}
                       </span>
+                      {item.appointment_at && (
+                        <div className="mt-1 text-[9px] text-slate-500">
+                          <CalendarClock className="inline w-3 h-3 mr-1" />
+                          {new Date(item.appointment_at).toLocaleString('fr-FR')}
+                        </div>
+                      )}
                     </td>
                     <td>
                       <div className="flex justify-end gap-1.5">
-                        {item.status === 'SUBMITTED' && (
+                        {['SUBMITTED', 'TO_CONTACT'].includes(item.status) && (
                           <button
                             type="button"
                             className="button button--secondary"
-                            onClick={() => void updateStatus(item, 'CONTACTED')}
+                            onClick={() => void markContacted(item)}
                           >
                             <PhoneCall className="w-3.5 h-3.5" />
-                            Contacté
+                            Appel fait
+                          </button>
+                        )}
+                        {item.status === 'CONTACTED' && (
+                          <button
+                            type="button"
+                            className="button button--secondary"
+                            onClick={() => void updateStatus(item, 'INCOMPLETE')}
+                          >
+                            Dossier incomplet
+                          </button>
+                        )}
+                        {['CONTACTED', 'INCOMPLETE'].includes(item.status) &&
+                          item.checklist
+                            .filter((row) => row.required)
+                            .every((row) => row.status === 'VERIFIED') && (
+                            <button
+                              type="button"
+                              className="button button--secondary"
+                              onClick={() => void updateStatus(item, 'COMPLETE')}
+                            >
+                              <ShieldCheck className="w-3.5 h-3.5" />
+                              Dossier complet
+                            </button>
+                          )}
+                        {item.status === 'COMPLETE' && (
+                          <button
+                            type="button"
+                            className="button button--secondary"
+                            onClick={() => void updateStatus(item, 'ACCEPTED')}
+                          >
+                            Accepté
                           </button>
                         )}
                         {!['APPROVED', 'REJECTED', 'WITHDRAWN'].includes(item.status) && (
