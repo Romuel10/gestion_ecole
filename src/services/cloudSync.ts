@@ -11,6 +11,7 @@ const SESSION_KEY = 'SEKOLY_CLOUD_SESSION_V2';
 const SCHOOL_KEY = 'SEKOLY_CLOUD_SCHOOL_ID_V2';
 const ADMIN_DEVICE_KEY = 'SEKOLY_ADMIN_DEVICE_ID_V1';
 const PULL_CURSOR_PREFIX = 'SEKOLY_CLOUD_PULL_CURSOR_V1';
+const ID_NAMESPACE_KEY = 'SEKOLY_CLOUD_ID_NAMESPACE_VERSION_V1';
 
 type CloudSession = {
   access_token: string;
@@ -257,6 +258,25 @@ export function cloudUuid(scope: string, value: string) {
   )}-${normalized.slice(16, 20)}-${normalized.slice(20, 32)}`;
 }
 
+export function cloudEntityUuid(scope: string, value: string) {
+  const base = cloudUuid(scope, value);
+  const schoolId =
+    typeof localStorage !== 'undefined'
+      ? localStorage.getItem(SCHOOL_KEY)
+      : null;
+  const version =
+    typeof localStorage !== 'undefined'
+      ? Number(localStorage.getItem(ID_NAMESPACE_KEY) || '1')
+      : 1;
+
+  if (!schoolId || version < 2) return base;
+
+  return cloudUuid(
+    `tenant-${scope}`,
+    `${schoolId}:${base}`
+  );
+}
+
 const getStoredSession = (): CloudSession | null => {
   const raw = localStorage.getItem(SESSION_KEY);
   if (!raw) return null;
@@ -464,7 +484,18 @@ export class CloudSyncService {
 
   static setSchoolId(id: string | null) {
     if (id) localStorage.setItem(SCHOOL_KEY, id);
-    else localStorage.removeItem(SCHOOL_KEY);
+    else {
+      localStorage.removeItem(SCHOOL_KEY);
+      localStorage.removeItem(ID_NAMESPACE_KEY);
+    }
+  }
+
+  static setIdNamespaceVersion(version: number) {
+    localStorage.setItem(ID_NAMESPACE_KEY, String(version >= 2 ? 2 : 1));
+  }
+
+  static getIdNamespaceVersion() {
+    return Number(localStorage.getItem(ID_NAMESPACE_KEY) || '1');
   }
 
   static getSession() {
@@ -565,7 +596,7 @@ export class CloudSyncService {
   static async memberships() {
     return restSelect<any>(
       'sekoly_memberships',
-      'select=school_id,role,status,sekoly_schools(id,name,slug,acronym)&status=eq.ACTIVE'
+      'select=school_id,role,status,sekoly_schools(id,name,slug,acronym,settings)&status=eq.ACTIVE'
     );
   }
 
@@ -595,10 +626,17 @@ export class CloudSyncService {
       }),
     });
 
-    const result = await parseResponse<{ school: { id: string; name: string } }>(
-      response
-    );
+    const result = await parseResponse<{
+      school: {
+        id: string;
+        name: string;
+        settings?: { id_namespace_version?: number };
+      };
+    }>(response);
     this.setSchoolId(result.school.id);
+    this.setIdNamespaceVersion(
+      Number(result.school.settings?.id_namespace_version || 2)
+    );
     return result.school;
   }
 
@@ -609,6 +647,11 @@ export class CloudSyncService {
     );
     if (adminMembership) {
       this.setSchoolId(adminMembership.school_id);
+      this.setIdNamespaceVersion(
+        Number(
+          adminMembership.sekoly_schools?.settings?.id_namespace_version || 1
+        )
+      );
       return adminMembership;
     }
     return null;
@@ -619,7 +662,7 @@ export class CloudSyncService {
     if (!schoolId) throw new Error("Aucun établissement Cloud n'est lié.");
 
     const years = db.schoolYears.map((year) => ({
-      id: cloudUuid('year', year.id),
+      id: cloudEntityUuid('year', year.id),
       school_id: schoolId,
       label: year.label,
       start_date: year.startDate,
@@ -632,9 +675,9 @@ export class CloudSyncService {
 
     const terms = db.schoolYears.flatMap((year) =>
       year.terms.map((term) => ({
-        id: cloudUuid('term', term.id),
+        id: cloudEntityUuid('term', term.id),
         school_id: schoolId,
-        school_year_id: cloudUuid('year', year.id),
+        school_year_id: cloudEntityUuid('year', year.id),
         code: term.code,
         label: term.label,
         start_date: term.startDate,
@@ -646,7 +689,7 @@ export class CloudSyncService {
     await restUpsert('sekoly_terms', terms, 'id');
 
     const subjects = db.subjects.map((subject) => ({
-      id: cloudUuid('subject', subject.id),
+      id: cloudEntityUuid('subject', subject.id),
       school_id: schoolId,
       code: subject.code,
       name: subject.name,
@@ -658,9 +701,9 @@ export class CloudSyncService {
 
     const classes = db.schoolYears.flatMap((year) =>
       db.classes.map((schoolClass) => ({
-        id: cloudUuid('class', `${year.id}:${schoolClass.id}`),
+        id: cloudEntityUuid('class', `${year.id}:${schoolClass.id}`),
         school_id: schoolId,
-        school_year_id: cloudUuid('year', year.id),
+        school_year_id: cloudEntityUuid('year', year.id),
         code: schoolClass.code,
         name: schoolClass.name,
         level: schoolClass.level,
@@ -674,7 +717,7 @@ export class CloudSyncService {
     const uniqueStudents = new Map<string, any>();
     db.students.forEach((student) => {
       uniqueStudents.set(student.matricule.toUpperCase(), {
-        id: cloudUuid('student', student.matricule.toUpperCase()),
+        id: cloudEntityUuid('student', student.matricule.toUpperCase()),
         school_id: schoolId,
         matricule: student.matricule,
         last_name: student.lastName,
@@ -704,7 +747,7 @@ export class CloudSyncService {
     );
 
     const guardians = (db.guardians ?? []).map((guardian) => ({
-      id: cloudUuid('guardian', guardian.id),
+      id: cloudEntityUuid('guardian', guardian.id),
       school_id: schoolId,
       last_name: guardian.lastName,
       first_name: guardian.firstName,
@@ -727,14 +770,14 @@ export class CloudSyncService {
     (db.studentGuardianLinks ?? []).forEach((link) => {
       const student = db.students.find((item) => item.id === link.studentId);
       if (!student) return;
-      const cloudStudentId = cloudUuid(
+      const cloudStudentId = cloudEntityUuid(
         'student',
         student.matricule.toUpperCase()
       );
-      const cloudGuardianId = cloudUuid('guardian', link.guardianId);
+      const cloudGuardianId = cloudEntityUuid('guardian', link.guardianId);
       const key = `${cloudStudentId}:${cloudGuardianId}`;
       guardianLinkMap.set(key, {
-        id: cloudUuid('student-guardian', key),
+        id: cloudEntityUuid('student-guardian', key),
         school_id: schoolId,
         student_id: cloudStudentId,
         guardian_id: cloudGuardianId,
@@ -750,14 +793,14 @@ export class CloudSyncService {
     await restUpsert('sekoly_student_guardians', guardianLinks, 'id');
 
     const enrollments = db.students.map((student) => ({
-      id: cloudUuid(
+      id: cloudEntityUuid(
         'enrollment',
         `${student.schoolYearId}:${student.matricule.toUpperCase()}`
       ),
       school_id: schoolId,
-      student_id: cloudUuid('student', student.matricule.toUpperCase()),
-      school_year_id: cloudUuid('year', student.schoolYearId),
-      class_id: cloudUuid(
+      student_id: cloudEntityUuid('student', student.matricule.toUpperCase()),
+      school_year_id: cloudEntityUuid('year', student.schoolYearId),
+      class_id: cloudEntityUuid(
         'class',
         `${student.schoolYearId}:${student.classId}`
       ),
@@ -769,7 +812,7 @@ export class CloudSyncService {
 
     const cloudEnrollments = await restSelect<{ id: string }>(
       'sekoly_enrollments',
-      `select=id&school_id=eq.${schoolId}&school_year_id=eq.${cloudUuid(
+      `select=id&school_id=eq.${schoolId}&school_year_id=eq.${cloudEntityUuid(
         'year',
         db.currentSchoolYearId
       )}`
@@ -784,7 +827,7 @@ export class CloudSyncService {
     );
 
     const teachers = db.teachers.map((teacher) => ({
-      id: cloudUuid('teacher', teacher.id),
+      id: cloudEntityUuid('teacher', teacher.id),
       school_id: schoolId,
       matricule: teacher.matricule || null,
       last_name: teacher.lastName,
@@ -811,18 +854,18 @@ export class CloudSyncService {
     const currentYearId = db.currentSchoolYearId;
     const classSubjects = db.classes.flatMap((schoolClass) =>
       schoolClass.subjects.map((config) => ({
-        id: cloudUuid(
+        id: cloudEntityUuid(
           'class-subject',
           `${currentYearId}:${schoolClass.id}:${config.subjectId}`
         ),
         school_id: schoolId,
-        class_id: cloudUuid(
+        class_id: cloudEntityUuid(
           'class',
           `${currentYearId}:${schoolClass.id}`
         ),
-        subject_id: cloudUuid('subject', config.subjectId),
+        subject_id: cloudEntityUuid('subject', config.subjectId),
         teacher_id: config.teacherId
-          ? cloudUuid('teacher', config.teacherId)
+          ? cloudEntityUuid('teacher', config.teacherId)
           : null,
         coefficient: config.coefficient,
         weekly_hours: config.weeklyHours || 2,
@@ -832,7 +875,7 @@ export class CloudSyncService {
 
     const currentClassIds = new Set(
       db.classes.map((schoolClass) =>
-        cloudUuid('class', `${currentYearId}:${schoolClass.id}`)
+        cloudEntityUuid('class', `${currentYearId}:${schoolClass.id}`)
       )
     );
     const cloudClassSubjects = await restSelect<{ id: string; class_id: string }>(
@@ -855,18 +898,18 @@ export class CloudSyncService {
       schoolClass.subjects
         .filter((config) => Boolean(config.teacherId))
         .map((config) => ({
-          id: cloudUuid(
+          id: cloudEntityUuid(
             'assignment',
             `${currentYearId}:${schoolClass.id}:${config.subjectId}:${config.teacherId}`
           ),
           school_id: schoolId,
-          school_year_id: cloudUuid('year', currentYearId),
-          teacher_id: cloudUuid('teacher', config.teacherId!),
-          class_id: cloudUuid(
+          school_year_id: cloudEntityUuid('year', currentYearId),
+          teacher_id: cloudEntityUuid('teacher', config.teacherId!),
+          class_id: cloudEntityUuid(
             'class',
             `${currentYearId}:${schoolClass.id}`
           ),
-          subject_id: cloudUuid('subject', config.subjectId),
+          subject_id: cloudEntityUuid('subject', config.subjectId),
           weekly_hours: config.weeklyHours || 2,
           active: true,
         }))
@@ -875,7 +918,7 @@ export class CloudSyncService {
 
     const cloudAssignments = await restSelect<{ id: string }>(
       'sekoly_teacher_assignments',
-      `select=id&school_id=eq.${schoolId}&school_year_id=eq.${cloudUuid(
+      `select=id&school_id=eq.${schoolId}&school_year_id=eq.${cloudEntityUuid(
         'year',
         currentYearId
       )}`
@@ -890,12 +933,12 @@ export class CloudSyncService {
     );
 
     const timetable = db.timetableSlots.map((slot) => ({
-      id: cloudUuid('timetable', slot.id),
+      id: cloudEntityUuid('timetable', slot.id),
       school_id: schoolId,
-      school_year_id: cloudUuid('year', currentYearId),
-      class_id: cloudUuid('class', `${currentYearId}:${slot.classId}`),
-      subject_id: cloudUuid('subject', slot.subjectId),
-      teacher_id: cloudUuid('teacher', slot.teacherId),
+      school_year_id: cloudEntityUuid('year', currentYearId),
+      class_id: cloudEntityUuid('class', `${currentYearId}:${slot.classId}`),
+      subject_id: cloudEntityUuid('subject', slot.subjectId),
+      teacher_id: cloudEntityUuid('teacher', slot.teacherId),
       day_of_week: slot.dayOfWeek,
       start_time: slot.startTime,
       end_time: slot.endTime,
@@ -905,7 +948,7 @@ export class CloudSyncService {
 
     const cloudTimetable = await restSelect<{ id: string }>(
       'sekoly_timetable_slots',
-      `select=id&school_id=eq.${schoolId}&school_year_id=eq.${cloudUuid(
+      `select=id&school_id=eq.${schoolId}&school_year_id=eq.${cloudEntityUuid(
         'year',
         currentYearId
       )}`
@@ -947,7 +990,7 @@ export class CloudSyncService {
 
     const rows = await restSelect<any>(
       'sekoly_enrollment_campaigns',
-      `select=*&school_id=eq.${schoolId}&school_year_id=eq.${cloudUuid(
+      `select=*&school_id=eq.${schoolId}&school_year_id=eq.${cloudEntityUuid(
         'year',
         db.currentSchoolYearId
       )}&status=eq.OPEN&order=created_at.desc&limit=1`
@@ -982,7 +1025,7 @@ export class CloudSyncService {
       'sekoly_enrollment_campaigns',
       {
         school_id: schoolId,
-        school_year_id: cloudUuid('year', db.currentSchoolYearId),
+        school_year_id: cloudEntityUuid('year', db.currentSchoolYearId),
         name: `Inscriptions ${currentYear.label}`,
         status: 'OPEN',
         allow_new_admission: true,
@@ -1218,7 +1261,7 @@ export class CloudSyncService {
       )}&school_id=eq.${schoolId}&limit=1`
     );
     const family = families[0];
-    const cloudStudentId = cloudUuid(
+    const cloudStudentId = cloudEntityUuid(
       'student',
       studentMatricule.trim().toUpperCase()
     );
@@ -1240,7 +1283,7 @@ export class CloudSyncService {
         'sekoly_family_students',
         [
           {
-            id: cloudUuid('family-student', linkKey),
+            id: cloudEntityUuid('family-student', linkKey),
             school_id: schoolId,
             family_id: family.family_profile_id,
             student_id: cloudStudentId,
@@ -1270,7 +1313,7 @@ export class CloudSyncService {
         method: 'POST',
         body: JSON.stringify({
           schoolId,
-          teacherId: cloudUuid('teacher', teacher.id),
+          teacherId: cloudEntityUuid('teacher', teacher.id),
           firstName: teacher.firstName,
           lastName: teacher.lastName,
           email: teacher.email,
@@ -1304,7 +1347,7 @@ export class CloudSyncService {
         method: 'POST',
         body: JSON.stringify({
           schoolId,
-          teacherId: cloudUuid('teacher', teacher.id),
+          teacherId: cloudEntityUuid('teacher', teacher.id),
           matricule: teacher.matricule,
           firstName: teacher.firstName,
           lastName: teacher.lastName,
@@ -1410,7 +1453,7 @@ export class CloudSyncService {
         method: 'POST',
         body: JSON.stringify({
           schoolId,
-          teacherId: cloudUuid('teacher', teacher.id),
+          teacherId: cloudEntityUuid('teacher', teacher.id),
         }),
       }
     );
@@ -1421,7 +1464,7 @@ export class CloudSyncService {
   static resetPullCursor(db: DatabaseSchema) {
     const schoolId = this.getSchoolId();
     if (!schoolId) throw new Error('Établissement Cloud non lié.');
-    const cloudYearId = cloudUuid('year', db.currentSchoolYearId);
+    const cloudYearId = cloudEntityUuid('year', db.currentSchoolYearId);
     localStorage.removeItem(
       `${PULL_CURSOR_PREFIX}:${schoolId}:${cloudYearId}`
     );
@@ -1434,7 +1477,7 @@ export class CloudSyncService {
     }
 
     const yearId = db.currentSchoolYearId;
-    const cloudYearId = cloudUuid('year', yearId);
+    const cloudYearId = cloudEntityUuid('year', yearId);
 
     const cursorKey = `${PULL_CURSOR_PREFIX}:${schoolId}:${cloudYearId}`;
     const previousCursor = localStorage.getItem(cursorKey);
@@ -1504,26 +1547,26 @@ export class CloudSyncService {
       db.students
         .filter((student) => student.schoolYearId === yearId)
         .map((student) => [
-          cloudUuid('student', student.matricule.toUpperCase()),
+          cloudEntityUuid('student', student.matricule.toUpperCase()),
           student,
         ])
     );
     const classByCloudId = new Map(
       db.classes.map((schoolClass) => [
-        cloudUuid('class', `${yearId}:${schoolClass.id}`),
+        cloudEntityUuid('class', `${yearId}:${schoolClass.id}`),
         schoolClass,
       ])
     );
     const subjectByCloudId = new Map(
       db.subjects.map((subject) => [
-        cloudUuid('subject', subject.id),
+        cloudEntityUuid('subject', subject.id),
         subject,
       ])
     );
     const termByCloudId = new Map(
       (
         db.schoolYears.find((year) => year.id === yearId)?.terms || []
-      ).map((term) => [cloudUuid('term', term.id), term])
+      ).map((term) => [cloudEntityUuid('term', term.id), term])
     );
     const sessionById = new Map(sessions.map((session) => [session.id, session]));
     const assessmentById = new Map(
@@ -1674,7 +1717,7 @@ export class CloudSyncService {
       const next: GradeEntry = {
         id:
           existing?.id ??
-          `cloud-grade-${cloudUuid(
+          `cloud-grade-${cloudEntityUuid(
             'grade',
             `${bucket.studentId}:${bucket.subjectId}:${bucket.termCode}`
           )}`,
