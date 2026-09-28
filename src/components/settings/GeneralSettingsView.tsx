@@ -37,7 +37,7 @@ import { StorageService } from '../../services/storage';
 import { MatriculeService } from '../../services/matricule';
 import { CalculationService } from '../../services/calculations';
 import { SchoolYearClosureService } from '../../services/schoolYearClosure';
-import { CloudSyncService } from '../../services/cloudSync';
+import { CloudSyncService, PilotStatus } from '../../services/cloudSync';
 import { Modal } from '../common/Modal';
 
 interface GeneralSettingsViewProps {
@@ -115,6 +115,8 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
     email: string;
     temporaryPassword: string;
   } | null>(null);
+  const [pilotStatus, setPilotStatus] = useState<PilotStatus | null>(null);
+  const [pilotStatusBusy, setPilotStatusBusy] = useState(false);
 
   useEffect(() => {
     if (!cloudConnected || cloudSchoolId) return;
@@ -285,6 +287,27 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
       );
     } finally {
       setCloudBusy(false);
+    }
+  };
+
+  const handlePilotStatus = async () => {
+    setPilotStatusBusy(true);
+    try {
+      const status = await CloudSyncService.pilotStatus();
+      setPilotStatus(status);
+      onShowToast(
+        status.mobileReady
+          ? 'Pilote mobile prêt pour les tests.'
+          : 'Diagnostic pilote actualisé.',
+        status.mobileReady ? 'success' : 'info'
+      );
+    } catch (error) {
+      onShowToast(
+        error instanceof Error ? error.message : 'Diagnostic pilote impossible.',
+        'error'
+      );
+    } finally {
+      setPilotStatusBusy(false);
     }
   };
 
@@ -2096,6 +2119,63 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
                           <RefreshCw className="w-4 h-4" />
                           {cloudBusy ? 'Synchronisation…' : 'Synchroniser maintenant'}
                         </button>
+                      </div>
+
+                      <div className="border border-slate-200 dark:border-slate-700 p-4">
+                        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                          <div>
+                            <div className="text-[11px] font-semibold">Diagnostic du pilote</div>
+                            <p className="mt-1 text-[10.5px] text-slate-500">
+                              Vérifie automatiquement que les données Cloud, les affectations et au moins un accès enseignant sont prêts.
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={handlePilotStatus}
+                            disabled={pilotStatusBusy}
+                            className="button button--secondary"
+                          >
+                            <RefreshCw className="w-4 h-4" />
+                            {pilotStatusBusy ? 'Vérification…' : 'Vérifier le pilote'}
+                          </button>
+                        </div>
+
+                        {pilotStatus && (
+                          <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-2 text-[10px]">
+                            <div className="cloud-info-cell">
+                              <span>Données Cloud</span>
+                              <strong>{pilotStatus.dataReady ? 'Prêtes' : 'Incomplètes'}</strong>
+                            </div>
+                            <div className="cloud-info-cell">
+                              <span>Accès enseignant</span>
+                              <strong>{pilotStatus.counts.teachersWithAccess} actif(s)</strong>
+                            </div>
+                            <div className="cloud-info-cell">
+                              <span>Pilote mobile</span>
+                              <strong>{pilotStatus.mobileReady ? 'Prêt' : 'À compléter'}</strong>
+                            </div>
+                            <div className="cloud-info-cell">
+                              <span>Resend</span>
+                              <strong>{pilotStatus.resendConfigured ? 'Configuré' : 'Non configuré'}</strong>
+                            </div>
+                            <div className="cloud-info-cell">
+                              <span>Élèves</span>
+                              <strong>{pilotStatus.counts.students}</strong>
+                            </div>
+                            <div className="cloud-info-cell">
+                              <span>Enseignants</span>
+                              <strong>{pilotStatus.counts.teachers}</strong>
+                            </div>
+                            <div className="cloud-info-cell">
+                              <span>Affectations</span>
+                              <strong>{pilotStatus.counts.assignments}</strong>
+                            </div>
+                            <div className="cloud-info-cell">
+                              <span>Cours planifiés</span>
+                              <strong>{pilotStatus.counts.timetable}</strong>
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       <div className="page-panel overflow-hidden">
