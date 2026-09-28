@@ -37,7 +37,7 @@ import { StorageService } from '../../services/storage';
 import { MatriculeService } from '../../services/matricule';
 import { CalculationService } from '../../services/calculations';
 import { SchoolYearClosureService } from '../../services/schoolYearClosure';
-import { CloudSyncService, PilotStatus } from '../../services/cloudSync';
+import { CloudSyncService, PilotSmokeTest, PilotStatus } from '../../services/cloudSync';
 import { Modal } from '../common/Modal';
 
 interface GeneralSettingsViewProps {
@@ -117,6 +117,8 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
   } | null>(null);
   const [pilotStatus, setPilotStatus] = useState<PilotStatus | null>(null);
   const [pilotStatusBusy, setPilotStatusBusy] = useState(false);
+  const [pilotSmokeTest, setPilotSmokeTest] = useState<PilotSmokeTest | null>(null);
+  const [pilotSmokeBusy, setPilotSmokeBusy] = useState(false);
 
   useEffect(() => {
     if (!cloudConnected || cloudSchoolId) return;
@@ -320,6 +322,27 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
       );
     } finally {
       setPilotStatusBusy(false);
+    }
+  };
+
+  const handlePilotSmokeTest = async () => {
+    setPilotSmokeBusy(true);
+    try {
+      const result = await CloudSyncService.runPilotSmokeTest();
+      setPilotSmokeTest(result);
+      onShowToast(
+        result.ready
+          ? 'Test pilote réussi : le parcours mobile peut être testé.'
+          : `Test pilote : ${result.blocking.length} prérequis obligatoire(s) à compléter.`,
+        result.ready ? 'success' : 'info'
+      );
+    } catch (error) {
+      onShowToast(
+        error instanceof Error ? error.message : 'Test pilote impossible.',
+        'error'
+      );
+    } finally {
+      setPilotSmokeBusy(false);
     }
   };
 
@@ -2187,6 +2210,76 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
                             <div className="cloud-info-cell">
                               <span>Cours planifiés</span>
                               <strong>{pilotStatus.counts.timetable}</strong>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="border border-slate-200 dark:border-slate-700 p-4">
+                        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                          <div>
+                            <div className="text-[11px] font-semibold">Test pilote de bout en bout</div>
+                            <p className="mt-1 text-[10.5px] text-slate-500">
+                              Contrôle sans modifier les données qu’un enseignant mobile possède tout le nécessaire
+                              pour faire l’appel et saisir des notes.
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={handlePilotSmokeTest}
+                            disabled={pilotSmokeBusy}
+                            className="button button--primary"
+                          >
+                            <ListChecks className="w-4 h-4" />
+                            {pilotSmokeBusy ? 'Test en cours…' : 'Lancer le test pilote'}
+                          </button>
+                        </div>
+
+                        {pilotSmokeTest && (
+                          <div className="mt-4">
+                            <div
+                              className={`p-3 border text-[10.5px] ${
+                                pilotSmokeTest.ready
+                                  ? 'border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-200'
+                                  : 'border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950/20 dark:text-amber-200'
+                              }`}
+                            >
+                              <strong>
+                                {pilotSmokeTest.ready
+                                  ? 'Pilote prêt pour un test réel sur téléphone.'
+                                  : 'Pilote pas encore prêt : complétez les éléments obligatoires ci-dessous.'}
+                              </strong>
+                            </div>
+
+                            <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2">
+                              {pilotSmokeTest.checks.map((check) => (
+                                <div
+                                  key={check.key}
+                                  className="border border-slate-200 dark:border-slate-700 p-3 text-[10px]"
+                                >
+                                  <div className="flex items-center justify-between gap-3">
+                                    <strong>{check.label}</strong>
+                                    <span
+                                      className={
+                                        check.ok
+                                          ? 'text-emerald-700 dark:text-emerald-300'
+                                          : check.required
+                                          ? 'text-rose-700 dark:text-rose-300'
+                                          : 'text-amber-700 dark:text-amber-300'
+                                      }
+                                    >
+                                      {check.ok ? 'OK' : check.required ? 'À corriger' : 'Optionnel'}
+                                    </span>
+                                  </div>
+                                  <div className="mt-1 text-slate-500">{check.detail}</div>
+                                </div>
+                              ))}
+                            </div>
+
+                            <div className="mt-3 text-[10px] text-slate-500">
+                              Dernier contrôle : {new Date(pilotSmokeTest.checkedAt).toLocaleString('fr-FR')} ·{' '}
+                              {pilotSmokeTest.stats.attendanceSessions} séance(s) d’appel Cloud ·{' '}
+                              {pilotSmokeTest.stats.assessments} évaluation(s) Cloud.
                             </div>
                           </div>
                         )}
