@@ -1,10 +1,13 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
+  CalendarClock,
   CheckCircle2,
   ExternalLink,
+  FileText,
   PhoneCall,
   QrCode,
   RefreshCw,
+  ShieldCheck,
   UserRoundCheck,
   XCircle,
 } from 'lucide-react';
@@ -22,8 +25,14 @@ interface OnlineEnrollmentPanelProps {
 }
 
 const statusLabel: Record<EnrollmentQueueItem['status'], string> = {
-  SUBMITTED: 'À contacter',
+  SUBMITTED: 'Reçue',
+  TO_CONTACT: 'À contacter',
   CONTACTED: 'Contacté',
+  APPOINTMENT_SCHEDULED: 'Rendez-vous prévu',
+  INCOMPLETE: 'Dossier incomplet',
+  COMPLETE: 'Dossier complet',
+  ACCEPTED: 'Accepté',
+  PAYMENT_PENDING: 'Paiement attendu',
   APPROVED: 'Inscrit',
   REJECTED: 'Refusé',
   WITHDRAWN: 'Retiré',
@@ -98,9 +107,75 @@ export const OnlineEnrollmentPanel: React.FC<OnlineEnrollmentPanelProps> = ({
     }
   };
 
+  const markContacted = async (application: EnrollmentQueueItem) => {
+    try {
+      await CloudSyncService.logEnrollmentContact(
+        application.id,
+        'CALL',
+        'Famille contactée depuis la file des admissions.'
+      );
+      await CloudSyncService.updateEnrollmentApplication(
+        application.id,
+        'CONTACTED'
+      );
+      await load();
+      onShowToast('Appel enregistré et dossier marqué comme contacté.', 'success');
+    } catch (error) {
+      onShowToast(
+        error instanceof Error ? error.message : 'Impossible d’enregistrer le contact.',
+        'error'
+      );
+    }
+  };
+
+  const openDocument = async (documentId: string) => {
+    try {
+      const url = await CloudSyncService.getEnrollmentDocumentUrl(documentId);
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } catch (error) {
+      onShowToast(
+        error instanceof Error ? error.message : 'Document indisponible.',
+        'error'
+      );
+    }
+  };
+
+  const verifyChecklist = async (
+    application: EnrollmentQueueItem,
+    checklistId: string
+  ) => {
+    try {
+      await CloudSyncService.updateEnrollmentChecklistItem(
+        checklistId,
+        'VERIFIED',
+        'Vérifié par l’établissement.'
+      );
+      const refreshed = await CloudSyncService.listEnrollmentApplications();
+      setApplications(refreshed);
+      const current = refreshed.find((item) => item.id === application.id);
+      if (
+        current &&
+        current.checklist
+          .filter((item) => item.required)
+          .every((item) => item.status === 'VERIFIED')
+      ) {
+        await CloudSyncService.updateEnrollmentApplication(
+          application.id,
+          'COMPLETE'
+        );
+        await load();
+      }
+    } catch (error) {
+      onShowToast(
+        error instanceof Error ? error.message : 'Vérification impossible.',
+        'error'
+      );
+    }
+  };
+
   const prepare = async (application: EnrollmentQueueItem) => {
     try {
-      if (application.status === 'SUBMITTED') {
+      if (['SUBMITTED', 'TO_CONTACT'].includes(application.status)) {
         await CloudSyncService.updateEnrollmentApplication(
           application.id,
           'CONTACTED'
@@ -244,8 +319,9 @@ export const OnlineEnrollmentPanel: React.FC<OnlineEnrollmentPanelProps> = ({
           <div>
             <h3 className="page-panel__title">Demandes reçues</h3>
             <p className="page-panel__subtitle">
-              {applications.filter((item) => item.status === 'SUBMITTED').length} dossier(s)
-              à contacter · {applications.length} au total
+              {applications.filter((item) =>
+                ['SUBMITTED', 'TO_CONTACT'].includes(item.status)
+              ).length} dossier(s) à contacter · {applications.length} enfant(s) au total
             </p>
           </div>
           <UserRoundCheck className="w-4 h-4 text-slate-400" />
