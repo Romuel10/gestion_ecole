@@ -585,6 +585,33 @@ function renderPage(ctx: any, publicCode: string, familyAccess: any = null) {
     ? `<div class="notice">${htmlEscape(ctx.campaign.instructions)}</div>`
     : "";
 
+  const familyBootstrap = familyAccess
+    ? {
+        token: clean(familyAccess.tokenRow ? "" : "", 1),
+        guardian: familyAccess.primaryGuardian
+          ? {
+              lastName: familyAccess.primaryGuardian.last_name ?? "",
+              firstName: familyAccess.primaryGuardian.first_name ?? "",
+              phonePrimary: familyAccess.primaryGuardian.phone_primary ?? "",
+              phoneSecondary: familyAccess.primaryGuardian.phone_secondary ?? "",
+              email: familyAccess.primaryGuardian.email ?? "",
+              cinNumber: familyAccess.primaryGuardian.cin_number ?? "",
+              cinIssuedAt: familyAccess.primaryGuardian.cin_issued_at ?? "",
+              cinIssuePlace: familyAccess.primaryGuardian.cin_issue_place ?? "",
+              occupation: familyAccess.primaryGuardian.occupation ?? "",
+              address: familyAccess.primaryGuardian.address ?? "",
+              city: familyAccess.primaryGuardian.city ?? "",
+            }
+          : null,
+        students: (familyAccess.students ?? []).map((student: any) => ({
+          matricule: student.matricule,
+          lastName: student.last_name,
+          firstName: student.first_name,
+          birthDate: student.birth_date,
+        })),
+      }
+    : null;
+
   return `<!doctype html>
 <html lang="fr">
 <head>
