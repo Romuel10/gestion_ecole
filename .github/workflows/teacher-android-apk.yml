@@ -2,6 +2,14 @@ name: Teacher Android APK
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "apps/teacher-mobile/**"
+      - ".github/workflows/teacher-android-apk.yml"
+      - "supabase/functions/sekoly-provision-teacher/**"
+      - "src/services/cloudSync.ts"
+      - "src/components/settings/GeneralSettingsView.tsx"
   pull_request:
     branches: [main]
     paths:
