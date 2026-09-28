@@ -10,6 +10,7 @@ const DEFAULT_KEY =
 const SESSION_KEY = 'SEKOLY_CLOUD_SESSION_V2';
 const SCHOOL_KEY = 'SEKOLY_CLOUD_SCHOOL_ID_V2';
 const ADMIN_DEVICE_KEY = 'SEKOLY_ADMIN_DEVICE_ID_V1';
+const PULL_CURSOR_PREFIX = 'SEKOLY_CLOUD_PULL_CURSOR_V1';
 
 type CloudSession = {
   access_token: string;
@@ -289,6 +290,33 @@ async function restSelect<T>(table: string, query = ''): Promise<T[]> {
     }
   );
   return parseResponse<T[]>(response);
+}
+
+async function restSelectPaged<T>(
+  table: string,
+  query = '',
+  pageSize = 1000
+): Promise<T[]> {
+  const rows: T[] = [];
+  for (let page = 0; page < 100; page += 1) {
+    const offset = page * pageSize;
+    const response = await authRequest(
+      `/rest/v1/${table}?${query}`,
+      {
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+          Range: `${offset}-${offset + pageSize - 1}`,
+        },
+      }
+    );
+    const chunk = await parseResponse<T[]>(response);
+    rows.push(...chunk);
+    if (chunk.length < pageSize) return rows;
+  }
+  throw new Error(
+    `Volume Cloud trop important pour ${table}. Une synchronisation complète est requise.`
+  );
 }
 
 async function restUpsert(
@@ -1158,24 +1186,69 @@ export class CloudSyncService {
     const yearId = db.currentSchoolYearId;
     const cloudYearId = cloudUuid('year', yearId);
 
-    const [sessions, entries, assessments, scores] = await Promise.all([
-      restSelect<any>(
-        'sekoly_attendance_sessions',
-        `select=*&school_id=eq.${schoolId}&school_year_id=eq.${cloudYearId}`
-      ),
-      restSelect<any>(
-        'sekoly_attendance_entries',
-        `select=*&school_id=eq.${schoolId}`
-      ),
-      restSelect<any>(
-        'sekoly_assessments',
-        `select=*&school_id=eq.${schoolId}&school_year_id=eq.${cloudYearId}`
-      ),
-      restSelect<any>(
-        'sekoly_assessment_scores',
-        `select=*&school_id=eq.${schoolId}`
-      ),
-    ]);
+    const cursorKey = `${PULL_CURSOR_PREFIX}:${schoolId}:${cloudYearId}`;
+    const previousCursor = localStorage.getItem(cursorKey);
+    const nextCursor = new Date(Date.now() - 5000).toISOString();
+
+    let sessions: any[] = [];
+    let entries: any[] = [];
+    let assessments: any[] = [];
+    let scores: any[] = [];
+
+    if (!previousCursor) {
+      [sessions, entries, assessments, scores] = await Promise.all([
+        restSelectPaged<any>(
+          'sekoly_attendance_sessions',
+          `select=*&school_id=eq.${schoolId}&school_year_id=eq.${cloudYearId}`
+        ),
+        restSelectPaged<any>(
+          'sekoly_attendance_entries',
+          `select=*&school_id=eq.${schoolId}`
+        ),
+        restSelectPaged<any>(
+          'sekoly_assessments',
+          `select=*&school_id=eq.${schoolId}&school_year_id=eq.${cloudYearId}`
+        ),
+        restSelectPaged<any>(
+          'sekoly_assessment_scores',
+          `select=*&school_id=eq.${schoolId}`
+        ),
+      ]);
+    } else {
+      const cursor = encodeURIComponent(previousCursor);
+      [entries, scores] = await Promise.all([
+        restSelectPaged<any>(
+          'sekoly_attendance_entries',
+          `select=*&school_id=eq.${schoolId}&recorded_at=gte.${cursor}`
+        ),
+        restSelectPaged<any>(
+          'sekoly_assessment_scores',
+          `select=*&school_id=eq.${schoolId}&updated_at=gte.${cursor}`
+        ),
+      ]);
+
+      const sessionIds = Array.from(
+        new Set(entries.map((item) => String(item.session_id)).filter(Boolean))
+      );
+      const assessmentIds = Array.from(
+        new Set(scores.map((item) => String(item.assessment_id)).filter(Boolean))
+      );
+
+      [sessions, assessments] = await Promise.all([
+        sessionIds.length > 0
+          ? restSelectPaged<any>(
+              'sekoly_attendance_sessions',
+              `select=*&school_id=eq.${schoolId}&id=in.(${sessionIds.join(',')})`
+            )
+          : Promise.resolve([]),
+        assessmentIds.length > 0
+          ? restSelectPaged<any>(
+              'sekoly_assessments',
+              `select=*&school_id=eq.${schoolId}&school_year_id=eq.${cloudYearId}&id=in.(${assessmentIds.join(',')})`
+            )
+          : Promise.resolve([]),
+      ]);
+    }
 
     const studentByCloudId = new Map(
       db.students
@@ -1386,9 +1459,11 @@ export class CloudSyncService {
     }
 
     if (attendanceAdded === 0 && gradesChanged === 0 && gradeConflicts === 0) {
+      localStorage.setItem(cursorKey, nextCursor);
       return { db, attendanceAdded, gradesChanged, gradeConflicts };
     }
 
+    localStorage.setItem(cursorKey, nextCursor);
     return {
       db: {
         ...db,
