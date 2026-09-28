@@ -37,7 +37,7 @@ import { StorageService } from '../../services/storage';
 import { MatriculeService } from '../../services/matricule';
 import { CalculationService } from '../../services/calculations';
 import { SchoolYearClosureService } from '../../services/schoolYearClosure';
-import { CloudSyncService, PilotSmokeTest, PilotStatus } from '../../services/cloudSync';
+import { CloudSyncService, PilotSmokeTest, PilotStatus, SyncMonitor } from '../../services/cloudSync';
 import { Modal } from '../common/Modal';
 
 interface GeneralSettingsViewProps {
@@ -119,6 +119,8 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
   const [pilotStatusBusy, setPilotStatusBusy] = useState(false);
   const [pilotSmokeTest, setPilotSmokeTest] = useState<PilotSmokeTest | null>(null);
   const [pilotSmokeBusy, setPilotSmokeBusy] = useState(false);
+  const [syncMonitor, setSyncMonitor] = useState<SyncMonitor | null>(null);
+  const [syncMonitorBusy, setSyncMonitorBusy] = useState(false);
 
   useEffect(() => {
     if (!cloudConnected || cloudSchoolId) return;
@@ -343,6 +345,22 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
       );
     } finally {
       setPilotSmokeBusy(false);
+    }
+  };
+
+  const handleSyncMonitor = async () => {
+    setSyncMonitorBusy(true);
+    try {
+      const monitor = await CloudSyncService.syncMonitor();
+      setSyncMonitor(monitor);
+      onShowToast('Supervision des synchronisations actualisée.', 'success');
+    } catch (error) {
+      onShowToast(
+        error instanceof Error ? error.message : 'Supervision Cloud impossible.',
+        'error'
+      );
+    } finally {
+      setSyncMonitorBusy(false);
     }
   };
 
