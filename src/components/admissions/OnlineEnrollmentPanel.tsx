@@ -215,6 +215,24 @@ export const OnlineEnrollmentPanel: React.FC<OnlineEnrollmentPanelProps> = ({
                 >
                   Copier le lien
                 </button>
+                <button
+                  type="button"
+                  className="button button--secondary"
+                  onClick={async () => {
+                    try {
+                      await CloudSyncService.closeEnrollmentCampaign(campaign.id);
+                      setCampaign(null);
+                      onShowToast('Campagne QR fermée. Le lien public est désormais inactif.', 'info');
+                    } catch (error) {
+                      onShowToast(
+                        error instanceof Error ? error.message : 'Impossible de fermer la campagne.',
+                        'error'
+                      );
+                    }
+                  }}
+                >
+                  Fermer la campagne
+                </button>
               </div>
             </div>
           </div>
