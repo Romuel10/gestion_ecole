@@ -152,6 +152,8 @@ async function findOrCreatePersistentFamily(
   admin: any,
   schoolId: string,
   guardian: any,
+  forcedFamilyId?: string,
+  forcedGuardianId?: string,
 ) {
   const cinNumber = nullable(guardian.cinNumber, 80);
   const phonePrimary = clean(guardian.phonePrimary, 40);
@@ -159,7 +161,17 @@ async function findOrCreatePersistentFamily(
   const firstName = clean(guardian.firstName, 120);
 
   let guardianRow: any = null;
-  if (cinNumber) {
+  if (forcedGuardianId) {
+    const { data, error } = await admin
+      .from("sekoly_guardians")
+      .select("*")
+      .eq("school_id", schoolId)
+      .eq("id", forcedGuardianId)
+      .maybeSingle();
+    if (error) throw error;
+    guardianRow = data;
+  }
+  if (!guardianRow && cinNumber) {
     const { data } = await admin
       .from("sekoly_guardians")
       .select("*")
@@ -222,7 +234,17 @@ async function findOrCreatePersistentFamily(
   if (linkLookupError) throw linkLookupError;
 
   let family: any = null;
-  if (existingLinks?.[0]) {
+  if (forcedFamilyId) {
+    const { data, error } = await admin
+      .from("sekoly_families")
+      .select("*")
+      .eq("school_id", schoolId)
+      .eq("id", forcedFamilyId)
+      .maybeSingle();
+    if (error) throw error;
+    family = data;
+  }
+  if (!family && existingLinks?.[0]) {
     const { data, error } = await admin
       .from("sekoly_families")
       .select("*")
@@ -265,6 +287,37 @@ async function findOrCreatePersistentFamily(
       });
     if (linkError) throw linkError;
   }
+
+  const primaryRelationship = ["FATHER", "MOTHER", "GUARDIAN", "OTHER"].includes(
+    clean(guardian.relationship, 20),
+  )
+    ? clean(guardian.relationship, 20)
+    : "GUARDIAN";
+
+  const { error: primaryLinkError } = await admin
+    .from("sekoly_family_guardians")
+    .upsert(
+      {
+        school_id: schoolId,
+        family_id: family.id,
+        guardian_id: guardianRow.id,
+        is_primary: true,
+        relationship: primaryRelationship,
+      },
+      { onConflict: "family_id,guardian_id" },
+    );
+  if (primaryLinkError) throw primaryLinkError;
+
+  await admin
+    .from("sekoly_families")
+    .update({
+      display_name: "Famille " + lastName,
+      address: nullable(guardian.address, 250),
+      city: nullable(guardian.city, 120),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", family.id)
+    .eq("school_id", schoolId);
 
   const secondary = guardian.secondary ?? null;
   if (secondary) {
@@ -1557,10 +1610,13 @@ Deno.serve(async (req) => {
         tokenAccess &&
         tokenAccess.family.school_id === context.campaign.school_id
       ) {
-        persistent = {
-          family: tokenAccess.family,
-          guardian: tokenAccess.primaryGuardian,
-        };
+        persistent = await findOrCreatePersistentFamily(
+          admin,
+          context.campaign.school_id,
+          guardian,
+          tokenAccess.family.id,
+          tokenAccess.primaryGuardian?.id,
+        );
       }
     }
 
