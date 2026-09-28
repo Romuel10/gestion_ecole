@@ -17,6 +17,7 @@ import {
   EnrollmentCampaign,
   EnrollmentQueueItem,
 } from '../../services/cloudSync';
+import { Modal } from '../common/Modal';
 
 interface OnlineEnrollmentPanelProps {
   db: DatabaseSchema;
@@ -46,6 +47,10 @@ export const OnlineEnrollmentPanel: React.FC<OnlineEnrollmentPanelProps> = ({
   const [campaign, setCampaign] = useState<EnrollmentCampaign | null>(null);
   const [applications, setApplications] = useState<EnrollmentQueueItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [appointmentApplication, setAppointmentApplication] =
+    useState<EnrollmentQueueItem | null>(null);
+  const [appointmentAt, setAppointmentAt] = useState('');
+  const [appointmentNote, setAppointmentNote] = useState('');
 
   const load = useCallback(async () => {
     if (!CloudSyncService.isConnected() || !CloudSyncService.getSchoolId()) {
@@ -168,6 +173,38 @@ export const OnlineEnrollmentPanel: React.FC<OnlineEnrollmentPanelProps> = ({
     } catch (error) {
       onShowToast(
         error instanceof Error ? error.message : 'Vérification impossible.',
+        'error'
+      );
+    }
+  };
+
+  const scheduleAppointment = async () => {
+    if (!appointmentApplication || !appointmentAt) {
+      onShowToast('Choisissez une date et une heure de rendez-vous.', 'error');
+      return;
+    }
+    try {
+      const iso = new Date(appointmentAt).toISOString();
+      await CloudSyncService.logEnrollmentContact(
+        appointmentApplication.id,
+        'APPOINTMENT',
+        appointmentNote,
+        iso
+      );
+      await CloudSyncService.updateEnrollmentApplication(
+        appointmentApplication.id,
+        'APPOINTMENT_SCHEDULED',
+        appointmentNote,
+        { appointmentAt: iso }
+      );
+      setAppointmentApplication(null);
+      setAppointmentAt('');
+      setAppointmentNote('');
+      await load();
+      onShowToast('Rendez-vous enregistré dans le dossier.', 'success');
+    } catch (error) {
+      onShowToast(
+        error instanceof Error ? error.message : 'Rendez-vous impossible à enregistrer.',
         'error'
       );
     }
@@ -444,6 +481,20 @@ export const OnlineEnrollmentPanel: React.FC<OnlineEnrollmentPanelProps> = ({
                             Appel fait
                           </button>
                         )}
+                        {['CONTACTED', 'INCOMPLETE'].includes(item.status) && (
+                          <button
+                            type="button"
+                            className="button button--secondary"
+                            onClick={() => {
+                              setAppointmentApplication(item);
+                              setAppointmentAt('');
+                              setAppointmentNote('');
+                            }}
+                          >
+                            <CalendarClock className="w-3.5 h-3.5" />
+                            Rendez-vous
+                          </button>
+                        )}
                         {item.status === 'CONTACTED' && (
                           <button
                             type="button"
@@ -475,6 +526,22 @@ export const OnlineEnrollmentPanel: React.FC<OnlineEnrollmentPanelProps> = ({
                             Accepté
                           </button>
                         )}
+                        {item.status === 'ACCEPTED' && (
+                          <button
+                            type="button"
+                            className="button button--secondary"
+                            onClick={() =>
+                              void CloudSyncService.updateEnrollmentApplication(
+                                item.id,
+                                'PAYMENT_PENDING',
+                                undefined,
+                                { paymentStatus: 'PENDING' }
+                              ).then(load)
+                            }
+                          >
+                            Paiement attendu
+                          </button>
+                        )}
                         {!['APPROVED', 'REJECTED', 'WITHDRAWN'].includes(item.status) && (
                           <button
                             type="button"
@@ -504,6 +571,60 @@ export const OnlineEnrollmentPanel: React.FC<OnlineEnrollmentPanelProps> = ({
           </div>
         )}
       </section>
+
+      <Modal
+        isOpen={Boolean(appointmentApplication)}
+        onClose={() => setAppointmentApplication(null)}
+        title="Planifier un rendez-vous"
+        subtitle={
+          appointmentApplication
+            ? `${appointmentApplication.child_last_name} ${appointmentApplication.child_first_name} · ${appointmentApplication.family?.phone_primary || ''}`
+            : undefined
+        }
+        maxWidth="md"
+        actions={
+          <>
+            <button
+              type="button"
+              className="button button--secondary"
+              onClick={() => setAppointmentApplication(null)}
+            >
+              Annuler
+            </button>
+            <button
+              type="button"
+              className="button button--primary"
+              onClick={() => void scheduleAppointment()}
+            >
+              Enregistrer le rendez-vous
+            </button>
+          </>
+        }
+      >
+        <div>
+          <label className="block text-[10px] uppercase font-bold tracking-wide text-slate-500 mb-1.5">
+            Date et heure
+          </label>
+          <input
+            type="datetime-local"
+            value={appointmentAt}
+            onChange={(event) => setAppointmentAt(event.target.value)}
+            className="settings-input"
+          />
+        </div>
+        <div>
+          <label className="block text-[10px] uppercase font-bold tracking-wide text-slate-500 mb-1.5">
+            Note pour le rendez-vous
+          </label>
+          <textarea
+            value={appointmentNote}
+            onChange={(event) => setAppointmentNote(event.target.value)}
+            rows={4}
+            placeholder="Pièces à apporter, personne à rencontrer, observations…"
+            className="settings-input resize-y"
+          />
+        </div>
+      </Modal>
     </div>
   );
 };
