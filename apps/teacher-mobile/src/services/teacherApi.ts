@@ -405,6 +405,12 @@ export const teacherApi = {
         entries,
         'session_id,student_id'
       );
+      void recordSyncEvent(args.context, 'ATTENDANCE_SAVED', 'OK', {
+        classId: args.assignment.class_id,
+        subjectId: args.assignment.subject_id,
+        sessionDate: args.sessionDate,
+        entries: entries.length,
+      });
       return { queued: false };
     } catch (error) {
       offlineStore.enqueue(
@@ -418,6 +424,18 @@ export const teacherApi = {
         'upsert',
         entries,
         'session_id,student_id'
+      );
+      void recordSyncEvent(
+        args.context,
+        'QUEUE_UPDATED',
+        'WARNING',
+        {
+          source: 'attendance',
+          classId: args.assignment.class_id,
+          subjectId: args.assignment.subject_id,
+          queuedMutations: offlineStore.queueCount(),
+        },
+        error instanceof Error ? error.message : String(error)
       );
       return { queued: true };
     }
@@ -553,13 +571,29 @@ export const teacherApi = {
         rows,
         'assessment_id,student_id'
       );
+      void recordSyncEvent(context, 'SCORES_SAVED', 'OK', {
+        assessmentId,
+        scores: rows.length,
+        graded: rows.filter((row) => row.score !== null).length,
+      });
       return { queued: false };
-    } catch {
+    } catch (error) {
       offlineStore.enqueue(
         'sekoly_assessment_scores',
         'upsert',
         rows,
         'assessment_id,student_id'
+      );
+      void recordSyncEvent(
+        context,
+        'QUEUE_UPDATED',
+        'WARNING',
+        {
+          source: 'scores',
+          assessmentId,
+          queuedMutations: offlineStore.queueCount(),
+        },
+        error instanceof Error ? error.message : String(error)
       );
       return { queued: true };
     }
