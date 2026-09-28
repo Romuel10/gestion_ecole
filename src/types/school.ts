@@ -409,8 +409,8 @@ export interface DatabaseSchema {
   subjects: Subject[];
   classes: SchoolClass[];
   students: Student[];
-  guardians: Guardian[];
-  studentGuardianLinks: StudentGuardianLink[];
+  guardians?: Guardian[];
+  studentGuardianLinks?: StudentGuardianLink[];
   teachers: Teacher[];
   grades: GradeEntry[];
   tuitionPayments: TuitionPayment[];
