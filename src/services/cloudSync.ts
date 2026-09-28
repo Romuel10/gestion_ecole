@@ -22,6 +22,7 @@ type PullResult = {
   db: DatabaseSchema;
   attendanceAdded: number;
   gradesChanged: number;
+  gradeConflicts: number;
 };
 
 export type PilotStatus = {
@@ -772,7 +773,7 @@ export class CloudSyncService {
   static async pullTeacherChanges(db: DatabaseSchema): Promise<PullResult> {
     const schoolId = this.getSchoolId();
     if (!schoolId || !this.isConnected()) {
-      return { db, attendanceAdded: 0, gradesChanged: 0 };
+      return { db, attendanceAdded: 0, gradesChanged: 0, gradeConflicts: 0 };
     }
 
     const yearId = db.currentSchoolYearId;
@@ -860,8 +861,8 @@ export class CloudSyncService {
       classId: string;
       subjectId: string;
       termCode: string;
-      evaluations: Array<{ date: string; score: number }>;
-      exam?: { date: string; score: number };
+      evaluations: Array<{ assessmentId: string; date: string; score: number }>;
+      exam?: { assessmentId: string; date: string; score: number };
       comments: string[];
     };
 
@@ -891,12 +892,17 @@ export class CloudSyncService {
         } satisfies GradeBucket);
 
       if (assessment.assessment_type === 'EXAM') {
-        bucket.exam = {
+        const candidateExam = {
+          assessmentId: assessment.id,
           date: assessment.assessment_date,
           score: Number(score.score),
         };
+        if (!bucket.exam || candidateExam.date >= bucket.exam.date) {
+          bucket.exam = candidateExam;
+        }
       } else {
         bucket.evaluations.push({
+          assessmentId: assessment.id,
           date: assessment.assessment_date,
           score: Number(score.score),
         });
@@ -908,13 +914,9 @@ export class CloudSyncService {
 
     const nextGrades = [...db.grades];
     let gradesChanged = 0;
+    let gradeConflicts = 0;
 
     for (const bucket of buckets.values()) {
-      const evaluations = bucket.evaluations
-        .sort((a, b) => a.date.localeCompare(b.date))
-        .map((item) => item.score);
-      const examGrade = bucket.exam?.score;
-
       const existingIndex = nextGrades.findIndex(
         (grade) =>
           grade.studentId === bucket.studentId &&
@@ -923,14 +925,57 @@ export class CloudSyncService {
           grade.schoolYearId === yearId
       );
 
+      const existing = existingIndex >= 0 ? nextGrades[existingIndex] : undefined;
+      const evaluations = [...(existing?.evaluations ?? [])];
+      const cloudEvaluationIds = [
+        ...(existing?.cloudEvaluationIds ??
+          Array.from({ length: evaluations.length }, () => null)),
+      ];
+
+      while (cloudEvaluationIds.length < evaluations.length) {
+        cloudEvaluationIds.push(null);
+      }
+
+      for (const item of bucket.evaluations.sort((a, b) =>
+        a.date.localeCompare(b.date)
+      )) {
+        const cloudIndex = cloudEvaluationIds.indexOf(item.assessmentId);
+        if (cloudIndex >= 0) {
+          evaluations[cloudIndex] = item.score;
+        } else {
+          evaluations.push(item.score);
+          cloudEvaluationIds.push(item.assessmentId);
+        }
+      }
+
+      let examGrade = existing?.examGrade;
+      let cloudExamAssessmentId = existing?.cloudExamAssessmentId;
+      const ignoredExamIds = [...(existing?.cloudIgnoredExamAssessmentIds ?? [])];
+      let cloudSyncConflict = existing?.cloudSyncConflict;
+
+      if (bucket.exam) {
+        if (cloudExamAssessmentId === bucket.exam.assessmentId) {
+          examGrade = bucket.exam.score;
+          cloudSyncConflict = undefined;
+        } else if (examGrade === undefined) {
+          examGrade = bucket.exam.score;
+          cloudExamAssessmentId = bucket.exam.assessmentId;
+          cloudSyncConflict = undefined;
+        } else if (!ignoredExamIds.includes(bucket.exam.assessmentId)) {
+          ignoredExamIds.push(bucket.exam.assessmentId);
+          gradeConflicts += 1;
+          cloudSyncConflict =
+            "Un examen saisi sur mobile n'a pas remplacé l'examen local déjà présent.";
+        }
+      }
+
       const next: GradeEntry = {
         id:
-          existingIndex >= 0
-            ? nextGrades[existingIndex].id
-            : `cloud-grade-${cloudUuid(
-                'grade',
-                `${bucket.studentId}:${bucket.subjectId}:${bucket.termCode}`
-              )}`,
+          existing?.id ??
+          `cloud-grade-${cloudUuid(
+            'grade',
+            `${bucket.studentId}:${bucket.subjectId}:${bucket.termCode}`
+          )}`,
         studentId: bucket.studentId,
         classId: bucket.classId,
         subjectId: bucket.subjectId,
@@ -944,14 +989,16 @@ export class CloudSyncService {
           db.schoolConfig.continuousAssessmentWeight ?? 1,
           db.schoolConfig.examWeight ?? 2
         ),
-        teacherComment: bucket.comments.at(-1) || undefined,
+        teacherComment: bucket.comments.at(-1) || existing?.teacherComment,
         updatedAt: new Date().toISOString().slice(0, 10),
+        cloudEvaluationIds,
+        cloudExamAssessmentId,
+        cloudIgnoredExamAssessmentIds:
+          ignoredExamIds.length > 0 ? ignoredExamIds : undefined,
+        cloudSyncConflict,
       };
 
-      if (
-        existingIndex < 0 ||
-        JSON.stringify(nextGrades[existingIndex]) !== JSON.stringify(next)
-      ) {
+      if (!existing || JSON.stringify(existing) !== JSON.stringify(next)) {
         gradesChanged += 1;
       }
 
@@ -959,8 +1006,8 @@ export class CloudSyncService {
       else nextGrades.push(next);
     }
 
-    if (attendanceAdded === 0 && gradesChanged === 0) {
-      return { db, attendanceAdded, gradesChanged };
+    if (attendanceAdded === 0 && gradesChanged === 0 && gradeConflicts === 0) {
+      return { db, attendanceAdded, gradesChanged, gradeConflicts };
     }
 
     return {
@@ -971,6 +1018,7 @@ export class CloudSyncService {
       },
       attendanceAdded,
       gradesChanged,
+      gradeConflicts,
     };
   }
 }
