@@ -29,13 +29,34 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
     birthPlace: 'Antananarivo',
     nationality: 'Malgache',
     address: '',
+    neighborhood: '',
     city: 'Antananarivo',
     classId: db.classes[0]?.id || '',
     status: 'INSCRIT',
+    birthCertificateNumber: '',
+    birthCertificateDate: '',
+    birthCertificatePlace: '',
     fatherName: '',
     fatherPhone: '',
+    fatherJob: '',
+    fatherCinNumber: '',
+    fatherCinIssuedAt: '',
+    fatherCinIssuePlace: '',
+    fatherEmail: '',
     motherName: '',
     motherPhone: '',
+    motherJob: '',
+    motherCinNumber: '',
+    motherCinIssuedAt: '',
+    motherCinIssuePlace: '',
+    motherEmail: '',
+    guardianName: '',
+    guardianPhone: '',
+    guardianJob: '',
+    guardianCinNumber: '',
+    guardianCinIssuedAt: '',
+    guardianCinIssuePlace: '',
+    guardianEmail: '',
     emergencyContact: '',
     emergencyPhone: '',
     bloodType: 'O+',
@@ -115,9 +136,58 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
           ? ({ ...s, ...formData, matricule: normalizedMatricule } as Student)
           : s
       );
+      const linkedGuardianIds = new Map(
+        (db.studentGuardianLinks ?? [])
+          .filter((link) => link.studentId === student.id)
+          .map((link) => [link.guardianId, link.relationship] as const)
+      );
+      const updatedGuardians = (db.guardians ?? []).map((guardian) => {
+        const relationship = linkedGuardianIds.get(guardian.id);
+        if (!relationship) return guardian;
+
+        if (relationship === 'FATHER') {
+          return {
+            ...guardian,
+            phonePrimary: formData.fatherPhone || guardian.phonePrimary,
+            email: formData.fatherEmail || guardian.email,
+            cinNumber: formData.fatherCinNumber || guardian.cinNumber,
+            cinIssuedAt: formData.fatherCinIssuedAt || guardian.cinIssuedAt,
+            cinIssuePlace:
+              formData.fatherCinIssuePlace || guardian.cinIssuePlace,
+            occupation: formData.fatherJob || guardian.occupation,
+          };
+        }
+        if (relationship === 'MOTHER') {
+          return {
+            ...guardian,
+            phonePrimary: formData.motherPhone || guardian.phonePrimary,
+            email: formData.motherEmail || guardian.email,
+            cinNumber: formData.motherCinNumber || guardian.cinNumber,
+            cinIssuedAt: formData.motherCinIssuedAt || guardian.cinIssuedAt,
+            cinIssuePlace:
+              formData.motherCinIssuePlace || guardian.cinIssuePlace,
+            occupation: formData.motherJob || guardian.occupation,
+          };
+        }
+        if (relationship === 'GUARDIAN') {
+          return {
+            ...guardian,
+            phonePrimary: formData.guardianPhone || guardian.phonePrimary,
+            email: formData.guardianEmail || guardian.email,
+            cinNumber: formData.guardianCinNumber || guardian.cinNumber,
+            cinIssuedAt: formData.guardianCinIssuedAt || guardian.cinIssuedAt,
+            cinIssuePlace:
+              formData.guardianCinIssuePlace || guardian.cinIssuePlace,
+            occupation: formData.guardianJob || guardian.occupation,
+          };
+        }
+        return guardian;
+      });
+
       const updatedDb: DatabaseSchema = {
         ...db,
         students: updatedStudents,
+        guardians: updatedGuardians,
       };
       StorageService.saveDatabase(updatedDb);
       onUpdateDb(updatedDb);
@@ -241,6 +311,77 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
               onChange={(e) => setFormData({ ...formData, emergencyContact: e.target.value })}
               className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
             />
+          </div>
+          <div>
+            <label className="block font-semibold mb-1">Téléphone d'urgence</label>
+            <input
+              type="text"
+              value={formData.emergencyPhone || ''}
+              onChange={(e) => setFormData({ ...formData, emergencyPhone: e.target.value })}
+              className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+            />
+          </div>
+          <div>
+            <label className="block font-semibold mb-1">Fokontany / quartier</label>
+            <input
+              type="text"
+              value={formData.neighborhood || ''}
+              onChange={(e) => setFormData({ ...formData, neighborhood: e.target.value })}
+              className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+            />
+          </div>
+          <div>
+            <label className="block font-semibold mb-1">N° acte de naissance</label>
+            <input
+              type="text"
+              value={formData.birthCertificateNumber || ''}
+              onChange={(e) => setFormData({ ...formData, birthCertificateNumber: e.target.value })}
+              className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+            />
+          </div>
+          <div>
+            <label className="block font-semibold mb-1">Date acte de naissance</label>
+            <input
+              type="date"
+              value={formData.birthCertificateDate || ''}
+              onChange={(e) => setFormData({ ...formData, birthCertificateDate: e.target.value })}
+              className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+            />
+          </div>
+          <div>
+            <label className="block font-semibold mb-1">Lieu acte de naissance</label>
+            <input
+              type="text"
+              value={formData.birthCertificatePlace || ''}
+              onChange={(e) => setFormData({ ...formData, birthCertificatePlace: e.target.value })}
+              className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+            />
+          </div>
+        </div>
+
+        <div className="pt-3 border-t border-slate-200 dark:border-slate-700">
+          <div className="font-bold mb-3">Responsables légaux & CIN</div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
+              <div className="font-semibold">Père</div>
+              <input type="text" placeholder="Nom complet" value={formData.fatherName || ''} onChange={(e) => setFormData({ ...formData, fatherName: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" />
+              <input type="text" placeholder="Téléphone" value={formData.fatherPhone || ''} onChange={(e) => setFormData({ ...formData, fatherPhone: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" />
+              <input type="text" placeholder="N° CIN" value={formData.fatherCinNumber || ''} onChange={(e) => setFormData({ ...formData, fatherCinNumber: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" />
+              <input type="date" value={formData.fatherCinIssuedAt || ''} onChange={(e) => setFormData({ ...formData, fatherCinIssuedAt: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" />
+              <input type="text" placeholder="Lieu CIN" value={formData.fatherCinIssuePlace || ''} onChange={(e) => setFormData({ ...formData, fatherCinIssuePlace: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" />
+              <input type="email" placeholder="Email" value={formData.fatherEmail || ''} onChange={(e) => setFormData({ ...formData, fatherEmail: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" />
+              <input type="text" placeholder="Profession" value={formData.fatherJob || ''} onChange={(e) => setFormData({ ...formData, fatherJob: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" />
+            </div>
+            <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
+              <div className="font-semibold">Mère</div>
+              <input type="text" placeholder="Nom complet" value={formData.motherName || ''} onChange={(e) => setFormData({ ...formData, motherName: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" />
+              <input type="text" placeholder="Téléphone" value={formData.motherPhone || ''} onChange={(e) => setFormData({ ...formData, motherPhone: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" />
+              <input type="text" placeholder="N° CIN" value={formData.motherCinNumber || ''} onChange={(e) => setFormData({ ...formData, motherCinNumber: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" />
+              <input type="date" value={formData.motherCinIssuedAt || ''} onChange={(e) => setFormData({ ...formData, motherCinIssuedAt: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" />
+              <input type="text" placeholder="Lieu CIN" value={formData.motherCinIssuePlace || ''} onChange={(e) => setFormData({ ...formData, motherCinIssuePlace: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" />
+              <input type="email" placeholder="Email" value={formData.motherEmail || ''} onChange={(e) => setFormData({ ...formData, motherEmail: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" />
+              <input type="text" placeholder="Profession" value={formData.motherJob || ''} onChange={(e) => setFormData({ ...formData, motherJob: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" />
+            </div>
           </div>
         </div>
       </form>
