@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { DatabaseSchema, Student, StudentStatus } from '../../types/school';
+import { DatabaseSchema, Guardian, Student, StudentGuardianLink, StudentStatus } from '../../types/school';
 import { Modal } from '../common/Modal';
 import { StorageService } from '../../services/storage';
 
@@ -76,13 +76,34 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
         birthPlace: 'Antananarivo',
         nationality: 'Malgache',
         address: '',
+        neighborhood: '',
         city: 'Antananarivo',
         classId: db.classes[0]?.id || '',
         status: 'INSCRIT',
+        birthCertificateNumber: '',
+        birthCertificateDate: '',
+        birthCertificatePlace: '',
         fatherName: '',
         fatherPhone: '',
+        fatherJob: '',
+        fatherCinNumber: '',
+        fatherCinIssuedAt: '',
+        fatherCinIssuePlace: '',
+        fatherEmail: '',
         motherName: '',
         motherPhone: '',
+        motherJob: '',
+        motherCinNumber: '',
+        motherCinIssuedAt: '',
+        motherCinIssuePlace: '',
+        motherEmail: '',
+        guardianName: '',
+        guardianPhone: '',
+        guardianJob: '',
+        guardianCinNumber: '',
+        guardianCinIssuedAt: '',
+        guardianCinIssuePlace: '',
+        guardianEmail: '',
         emergencyContact: '',
         emergencyPhone: '',
         bloodType: 'O+',
@@ -136,58 +157,156 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
           ? ({ ...s, ...formData, matricule: normalizedMatricule } as Student)
           : s
       );
-      const linkedGuardianIds = new Map(
-        (db.studentGuardianLinks ?? [])
-          .filter((link) => link.studentId === student.id)
-          .map((link) => [link.guardianId, link.relationship] as const)
+      const existingLinks = (db.studentGuardianLinks ?? []).filter(
+        (link) => link.studentId === student.id
       );
-      const updatedGuardians = (db.guardians ?? []).map((guardian) => {
-        const relationship = linkedGuardianIds.get(guardian.id);
-        if (!relationship) return guardian;
+      const updatedGuardians: Guardian[] = [...(db.guardians ?? [])];
+      const updatedLinks: StudentGuardianLink[] = [
+        ...(db.studentGuardianLinks ?? []),
+      ];
 
-        if (relationship === 'FATHER') {
-          return {
-            ...guardian,
-            phonePrimary: formData.fatherPhone || guardian.phonePrimary,
-            email: formData.fatherEmail || guardian.email,
-            cinNumber: formData.fatherCinNumber || guardian.cinNumber,
-            cinIssuedAt: formData.fatherCinIssuedAt || guardian.cinIssuedAt,
-            cinIssuePlace:
-              formData.fatherCinIssuePlace || guardian.cinIssuePlace,
-            occupation: formData.fatherJob || guardian.occupation,
-          };
+      const compact = (value?: string) =>
+        (value || '').replace(/\s+/g, '').toUpperCase();
+      const splitName = (value?: string) => {
+        const parts = (value || '').trim().split(/\s+/).filter(Boolean);
+        return {
+          lastName: (parts.shift() || '').toUpperCase(),
+          firstName: parts.join(' '),
+        };
+      };
+
+      const ensureGuardian = (
+        relationship: StudentGuardianLink['relationship'],
+        values: {
+          name?: string;
+          phone?: string;
+          email?: string;
+          cinNumber?: string;
+          cinIssuedAt?: string;
+          cinIssuePlace?: string;
+          occupation?: string;
         }
-        if (relationship === 'MOTHER') {
-          return {
-            ...guardian,
-            phonePrimary: formData.motherPhone || guardian.phonePrimary,
-            email: formData.motherEmail || guardian.email,
-            cinNumber: formData.motherCinNumber || guardian.cinNumber,
-            cinIssuedAt: formData.motherCinIssuedAt || guardian.cinIssuedAt,
-            cinIssuePlace:
-              formData.motherCinIssuePlace || guardian.cinIssuePlace,
-            occupation: formData.motherJob || guardian.occupation,
-          };
+      ) => {
+        if (
+          !values.name?.trim() &&
+          !values.phone?.trim() &&
+          !values.cinNumber?.trim() &&
+          !values.email?.trim()
+        ) {
+          return;
         }
-        if (relationship === 'GUARDIAN') {
-          return {
-            ...guardian,
-            phonePrimary: formData.guardianPhone || guardian.phonePrimary,
-            email: formData.guardianEmail || guardian.email,
-            cinNumber: formData.guardianCinNumber || guardian.cinNumber,
-            cinIssuedAt: formData.guardianCinIssuedAt || guardian.cinIssuedAt,
-            cinIssuePlace:
-              formData.guardianCinIssuePlace || guardian.cinIssuePlace,
-            occupation: formData.guardianJob || guardian.occupation,
-          };
+
+        const existingLink = existingLinks.find(
+          (link) => link.relationship === relationship
+        );
+        let guardian = existingLink
+          ? updatedGuardians.find((item) => item.id === existingLink.guardianId)
+          : undefined;
+
+        if (!guardian) {
+          const cinKey = compact(values.cinNumber);
+          const phoneKey = compact(values.phone);
+          const emailKey = (values.email || '').trim().toLowerCase();
+          guardian = updatedGuardians.find((item) => {
+            if (cinKey && compact(item.cinNumber) === cinKey) return true;
+            if (phoneKey && compact(item.phonePrimary) === phoneKey) return true;
+            if (
+              emailKey &&
+              (item.email || '').trim().toLowerCase() === emailKey
+            ) {
+              return true;
+            }
+            return false;
+          });
         }
-        return guardian;
+
+        const parsedName = splitName(values.name);
+        if (!guardian) {
+          guardian = {
+            id: `gua-${Date.now()}-${relationship.toLowerCase()}`,
+            lastName: parsedName.lastName || 'RESPONSABLE',
+            firstName: parsedName.firstName,
+            phonePrimary: values.phone?.trim() || '',
+            email: values.email?.trim().toLowerCase() || undefined,
+            cinNumber: values.cinNumber?.trim() || undefined,
+            cinIssuedAt: values.cinIssuedAt || undefined,
+            cinIssuePlace: values.cinIssuePlace?.trim() || undefined,
+            occupation: values.occupation?.trim() || undefined,
+            address: formData.address || undefined,
+            city: formData.city || undefined,
+            nationality: 'Malgache',
+            status: 'ACTIVE',
+          };
+          updatedGuardians.push(guardian);
+        } else {
+          guardian.lastName =
+            parsedName.lastName || guardian.lastName;
+          guardian.firstName =
+            parsedName.firstName || guardian.firstName;
+          guardian.phonePrimary =
+            values.phone?.trim() || guardian.phonePrimary;
+          guardian.email =
+            values.email?.trim().toLowerCase() || guardian.email;
+          guardian.cinNumber =
+            values.cinNumber?.trim() || guardian.cinNumber;
+          guardian.cinIssuedAt =
+            values.cinIssuedAt || guardian.cinIssuedAt;
+          guardian.cinIssuePlace =
+            values.cinIssuePlace?.trim() || guardian.cinIssuePlace;
+          guardian.occupation =
+            values.occupation?.trim() || guardian.occupation;
+        }
+
+        if (!existingLink) {
+          const hasPrimary = updatedLinks.some(
+            (link) => link.studentId === student.id && link.isPrimary
+          );
+          updatedLinks.push({
+            id: `sg-${student.id}-${guardian.id}`,
+            studentId: student.id,
+            guardianId: guardian.id,
+            relationship,
+            isPrimary: !hasPrimary,
+            hasLegalCustody: true,
+            authorizedPickup: true,
+            emergencyPriority: !hasPrimary ? 1 : undefined,
+          });
+        }
+      };
+
+      ensureGuardian('FATHER', {
+        name: formData.fatherName,
+        phone: formData.fatherPhone,
+        email: formData.fatherEmail,
+        cinNumber: formData.fatherCinNumber,
+        cinIssuedAt: formData.fatherCinIssuedAt,
+        cinIssuePlace: formData.fatherCinIssuePlace,
+        occupation: formData.fatherJob,
+      });
+      ensureGuardian('MOTHER', {
+        name: formData.motherName,
+        phone: formData.motherPhone,
+        email: formData.motherEmail,
+        cinNumber: formData.motherCinNumber,
+        cinIssuedAt: formData.motherCinIssuedAt,
+        cinIssuePlace: formData.motherCinIssuePlace,
+        occupation: formData.motherJob,
+      });
+      ensureGuardian('GUARDIAN', {
+        name: formData.guardianName,
+        phone: formData.guardianPhone,
+        email: formData.guardianEmail,
+        cinNumber: formData.guardianCinNumber,
+        cinIssuedAt: formData.guardianCinIssuedAt,
+        cinIssuePlace: formData.guardianCinIssuePlace,
+        occupation: formData.guardianJob,
       });
 
       const updatedDb: DatabaseSchema = {
         ...db,
         students: updatedStudents,
         guardians: updatedGuardians,
+        studentGuardianLinks: updatedLinks,
       };
       StorageService.saveDatabase(updatedDb);
       onUpdateDb(updatedDb);
