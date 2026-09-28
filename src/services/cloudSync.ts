@@ -22,6 +22,7 @@ type PullResult = {
   db: DatabaseSchema;
   attendanceAdded: number;
   gradesChanged: number;
+  gradeConflicts: number;
 };
 
 export type PilotStatus = {
@@ -245,6 +246,47 @@ async function restUpsert(
     }
   );
   if (!response.ok) await parseResponse(response);
+}
+
+async function restPatch(
+  table: string,
+  query: string,
+  values: Record<string, unknown>
+) {
+  const response = await authRequest(`/rest/v1/${table}?${query}`, {
+    method: 'PATCH',
+    headers: { Prefer: 'return=minimal' },
+    body: JSON.stringify(values),
+  });
+  if (!response.ok) await parseResponse(response);
+}
+
+async function restDelete(table: string, query: string) {
+  const response = await authRequest(`/rest/v1/${table}?${query}`, {
+    method: 'DELETE',
+    headers: { Prefer: 'return=minimal' },
+  });
+  if (!response.ok) await parseResponse(response);
+}
+
+async function patchIds(
+  table: string,
+  ids: string[],
+  values: Record<string, unknown>
+) {
+  for (let offset = 0; offset < ids.length; offset += 100) {
+    const chunk = ids.slice(offset, offset + 100);
+    if (chunk.length === 0) continue;
+    await restPatch(table, `id=in.(${chunk.join(',')})`, values);
+  }
+}
+
+async function deleteIds(table: string, ids: string[]) {
+  for (let offset = 0; offset < ids.length; offset += 100) {
+    const chunk = ids.slice(offset, offset + 100);
+    if (chunk.length === 0) continue;
+    await restDelete(table, `id=in.(${chunk.join(',')})`);
+  }
 }
 
 function enrollmentStatus(status: string) {
@@ -520,6 +562,22 @@ export class CloudSyncService {
     }));
     await restUpsert('sekoly_enrollments', enrollments, 'id');
 
+    const cloudEnrollments = await restSelect<{ id: string }>(
+      'sekoly_enrollments',
+      `select=id&school_id=eq.${schoolId}&school_year_id=eq.${cloudUuid(
+        'year',
+        db.currentSchoolYearId
+      )}`
+    );
+    const localEnrollmentIds = new Set(enrollments.map((item) => item.id));
+    await patchIds(
+      'sekoly_enrollments',
+      cloudEnrollments
+        .map((item) => item.id)
+        .filter((id) => !localEnrollmentIds.has(id)),
+      { status: 'DROPPED' }
+    );
+
     const teachers = db.teachers.map((teacher) => ({
       id: cloudUuid('teacher', teacher.id),
       school_id: schoolId,
@@ -531,6 +589,19 @@ export class CloudSyncService {
       status: 'ACTIVE',
     }));
     await restUpsert('sekoly_teachers', teachers, 'id');
+
+    const cloudTeachers = await restSelect<{ id: string }>(
+      'sekoly_teachers',
+      `select=id&school_id=eq.${schoolId}`
+    );
+    const localTeacherIds = new Set(teachers.map((item) => item.id));
+    await patchIds(
+      'sekoly_teachers',
+      cloudTeachers
+        .map((item) => item.id)
+        .filter((id) => !localTeacherIds.has(id)),
+      { status: 'INACTIVE' }
+    );
 
     const currentYearId = db.currentSchoolYearId;
     const classSubjects = db.classes.flatMap((schoolClass) =>
@@ -554,6 +625,27 @@ export class CloudSyncService {
     );
     await restUpsert('sekoly_class_subjects', classSubjects, 'id');
 
+    const currentClassIds = new Set(
+      db.classes.map((schoolClass) =>
+        cloudUuid('class', `${currentYearId}:${schoolClass.id}`)
+      )
+    );
+    const cloudClassSubjects = await restSelect<{ id: string; class_id: string }>(
+      'sekoly_class_subjects',
+      `select=id,class_id&school_id=eq.${schoolId}`
+    );
+    const localClassSubjectIds = new Set(classSubjects.map((item) => item.id));
+    await deleteIds(
+      'sekoly_class_subjects',
+      cloudClassSubjects
+        .filter(
+          (item) =>
+            currentClassIds.has(item.class_id) &&
+            !localClassSubjectIds.has(item.id)
+        )
+        .map((item) => item.id)
+    );
+
     const assignments = db.classes.flatMap((schoolClass) =>
       schoolClass.subjects
         .filter((config) => Boolean(config.teacherId))
@@ -576,6 +668,22 @@ export class CloudSyncService {
     );
     await restUpsert('sekoly_teacher_assignments', assignments, 'id');
 
+    const cloudAssignments = await restSelect<{ id: string }>(
+      'sekoly_teacher_assignments',
+      `select=id&school_id=eq.${schoolId}&school_year_id=eq.${cloudUuid(
+        'year',
+        currentYearId
+      )}`
+    );
+    const localAssignmentIds = new Set(assignments.map((item) => item.id));
+    await patchIds(
+      'sekoly_teacher_assignments',
+      cloudAssignments
+        .map((item) => item.id)
+        .filter((id) => !localAssignmentIds.has(id)),
+      { active: false }
+    );
+
     const timetable = db.timetableSlots.map((slot) => ({
       id: cloudUuid('timetable', slot.id),
       school_id: schoolId,
@@ -589,6 +697,21 @@ export class CloudSyncService {
       room: slot.room,
     }));
     await restUpsert('sekoly_timetable_slots', timetable, 'id');
+
+    const cloudTimetable = await restSelect<{ id: string }>(
+      'sekoly_timetable_slots',
+      `select=id&school_id=eq.${schoolId}&school_year_id=eq.${cloudUuid(
+        'year',
+        currentYearId
+      )}`
+    );
+    const localTimetableIds = new Set(timetable.map((item) => item.id));
+    await deleteIds(
+      'sekoly_timetable_slots',
+      cloudTimetable
+        .map((item) => item.id)
+        .filter((id) => !localTimetableIds.has(id))
+    );
 
     return {
       years: years.length,
@@ -772,7 +895,7 @@ export class CloudSyncService {
   static async pullTeacherChanges(db: DatabaseSchema): Promise<PullResult> {
     const schoolId = this.getSchoolId();
     if (!schoolId || !this.isConnected()) {
-      return { db, attendanceAdded: 0, gradesChanged: 0 };
+      return { db, attendanceAdded: 0, gradesChanged: 0, gradeConflicts: 0 };
     }
 
     const yearId = db.currentSchoolYearId;
@@ -860,8 +983,8 @@ export class CloudSyncService {
       classId: string;
       subjectId: string;
       termCode: string;
-      evaluations: Array<{ date: string; score: number }>;
-      exam?: { date: string; score: number };
+      evaluations: Array<{ assessmentId: string; date: string; score: number }>;
+      exam?: { assessmentId: string; date: string; score: number };
       comments: string[];
     };
 
@@ -891,12 +1014,17 @@ export class CloudSyncService {
         } satisfies GradeBucket);
 
       if (assessment.assessment_type === 'EXAM') {
-        bucket.exam = {
+        const candidateExam = {
+          assessmentId: assessment.id,
           date: assessment.assessment_date,
           score: Number(score.score),
         };
+        if (!bucket.exam || candidateExam.date >= bucket.exam.date) {
+          bucket.exam = candidateExam;
+        }
       } else {
         bucket.evaluations.push({
+          assessmentId: assessment.id,
           date: assessment.assessment_date,
           score: Number(score.score),
         });
@@ -908,13 +1036,9 @@ export class CloudSyncService {
 
     const nextGrades = [...db.grades];
     let gradesChanged = 0;
+    let gradeConflicts = 0;
 
     for (const bucket of buckets.values()) {
-      const evaluations = bucket.evaluations
-        .sort((a, b) => a.date.localeCompare(b.date))
-        .map((item) => item.score);
-      const examGrade = bucket.exam?.score;
-
       const existingIndex = nextGrades.findIndex(
         (grade) =>
           grade.studentId === bucket.studentId &&
@@ -923,14 +1047,57 @@ export class CloudSyncService {
           grade.schoolYearId === yearId
       );
 
+      const existing = existingIndex >= 0 ? nextGrades[existingIndex] : undefined;
+      const evaluations = [...(existing?.evaluations ?? [])];
+      const cloudEvaluationIds = [
+        ...(existing?.cloudEvaluationIds ??
+          Array.from({ length: evaluations.length }, () => null)),
+      ];
+
+      while (cloudEvaluationIds.length < evaluations.length) {
+        cloudEvaluationIds.push(null);
+      }
+
+      for (const item of bucket.evaluations.sort((a, b) =>
+        a.date.localeCompare(b.date)
+      )) {
+        const cloudIndex = cloudEvaluationIds.indexOf(item.assessmentId);
+        if (cloudIndex >= 0) {
+          evaluations[cloudIndex] = item.score;
+        } else {
+          evaluations.push(item.score);
+          cloudEvaluationIds.push(item.assessmentId);
+        }
+      }
+
+      let examGrade = existing?.examGrade;
+      let cloudExamAssessmentId = existing?.cloudExamAssessmentId;
+      const ignoredExamIds = [...(existing?.cloudIgnoredExamAssessmentIds ?? [])];
+      let cloudSyncConflict = existing?.cloudSyncConflict;
+
+      if (bucket.exam) {
+        if (cloudExamAssessmentId === bucket.exam.assessmentId) {
+          examGrade = bucket.exam.score;
+          cloudSyncConflict = undefined;
+        } else if (examGrade === undefined) {
+          examGrade = bucket.exam.score;
+          cloudExamAssessmentId = bucket.exam.assessmentId;
+          cloudSyncConflict = undefined;
+        } else if (!ignoredExamIds.includes(bucket.exam.assessmentId)) {
+          ignoredExamIds.push(bucket.exam.assessmentId);
+          gradeConflicts += 1;
+          cloudSyncConflict =
+            "Un examen saisi sur mobile n'a pas remplacé l'examen local déjà présent.";
+        }
+      }
+
       const next: GradeEntry = {
         id:
-          existingIndex >= 0
-            ? nextGrades[existingIndex].id
-            : `cloud-grade-${cloudUuid(
-                'grade',
-                `${bucket.studentId}:${bucket.subjectId}:${bucket.termCode}`
-              )}`,
+          existing?.id ??
+          `cloud-grade-${cloudUuid(
+            'grade',
+            `${bucket.studentId}:${bucket.subjectId}:${bucket.termCode}`
+          )}`,
         studentId: bucket.studentId,
         classId: bucket.classId,
         subjectId: bucket.subjectId,
@@ -944,14 +1111,16 @@ export class CloudSyncService {
           db.schoolConfig.continuousAssessmentWeight ?? 1,
           db.schoolConfig.examWeight ?? 2
         ),
-        teacherComment: bucket.comments.at(-1) || undefined,
+        teacherComment: bucket.comments.at(-1) || existing?.teacherComment,
         updatedAt: new Date().toISOString().slice(0, 10),
+        cloudEvaluationIds,
+        cloudExamAssessmentId,
+        cloudIgnoredExamAssessmentIds:
+          ignoredExamIds.length > 0 ? ignoredExamIds : undefined,
+        cloudSyncConflict,
       };
 
-      if (
-        existingIndex < 0 ||
-        JSON.stringify(nextGrades[existingIndex]) !== JSON.stringify(next)
-      ) {
+      if (!existing || JSON.stringify(existing) !== JSON.stringify(next)) {
         gradesChanged += 1;
       }
 
@@ -959,8 +1128,8 @@ export class CloudSyncService {
       else nextGrades.push(next);
     }
 
-    if (attendanceAdded === 0 && gradesChanged === 0) {
-      return { db, attendanceAdded, gradesChanged };
+    if (attendanceAdded === 0 && gradesChanged === 0 && gradeConflicts === 0) {
+      return { db, attendanceAdded, gradesChanged, gradeConflicts };
     }
 
     return {
@@ -971,6 +1140,7 @@ export class CloudSyncService {
       },
       attendanceAdded,
       gradesChanged,
+      gradeConflicts,
     };
   }
 }

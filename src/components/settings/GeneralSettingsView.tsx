@@ -285,7 +285,11 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
       const stats = await CloudSyncService.syncLocalStructure(db);
       const pulled = await CloudSyncService.pullTeacherChanges(db);
 
-      if (pulled.attendanceAdded > 0 || pulled.gradesChanged > 0) {
+      if (
+        pulled.attendanceAdded > 0 ||
+        pulled.gradesChanged > 0 ||
+        pulled.gradeConflicts > 0
+      ) {
         StorageService.saveDatabase(pulled.db);
         onUpdateDb(pulled.db);
       }
@@ -294,6 +298,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
         ...stats,
         attendanceAdded: pulled.attendanceAdded,
         gradesChanged: pulled.gradesChanged,
+        gradeConflicts: pulled.gradeConflicts,
       });
 
       void CloudSyncService.recordAdminSyncEvent('SYNC_SUCCESS', 'OK', {
@@ -302,11 +307,14 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
         assignments: stats.assignments,
         attendanceAdded: pulled.attendanceAdded,
         gradesChanged: pulled.gradesChanged,
+        gradeConflicts: pulled.gradeConflicts,
       });
 
       onShowToast(
-        `Synchronisation bidirectionnelle terminée : ${stats.students} élève(s), ${stats.teachers} enseignant(s), ${pulled.attendanceAdded} présence(s) reçue(s), ${pulled.gradesChanged} fiche(s) de notes mise(s) à jour.`,
-        'success'
+        pulled.gradeConflicts > 0
+          ? `Synchronisation terminée : ${pulled.attendanceAdded} présence(s), ${pulled.gradesChanged} fiche(s) de notes, ${pulled.gradeConflicts} conflit(s) protégé(s) sans écrasement.`
+          : `Synchronisation bidirectionnelle terminée : ${stats.students} élève(s), ${stats.teachers} enseignant(s), ${pulled.attendanceAdded} présence(s) reçue(s), ${pulled.gradesChanged} fiche(s) de notes mise(s) à jour.`,
+        pulled.gradeConflicts > 0 ? 'info' : 'success'
       );
     } catch (error) {
       const message =

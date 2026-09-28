@@ -578,6 +578,11 @@ export const teacherApi = {
     }
 
     for (const mutation of queue) {
+      if (mutation.attempts >= 5) {
+        lastError = mutation.last_error || 'Operation retry limit reached.';
+        continue;
+      }
+
       try {
         await executeMutation(
           mutation.table_name,
@@ -590,7 +595,7 @@ export const teacherApi = {
       } catch (error) {
         lastError = error instanceof Error ? error.message : String(error);
         offlineStore.markFailed(mutation.id, lastError);
-        break;
+        continue;
       }
     }
 
@@ -605,6 +610,7 @@ export const teacherApi = {
           synced,
           remaining: health.total,
           failed: health.failed,
+          blocked: health.blocked,
         },
         lastError || health.lastError
       );
