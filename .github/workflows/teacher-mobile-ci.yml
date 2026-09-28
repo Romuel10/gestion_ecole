@@ -36,5 +36,10 @@ jobs:
       - name: TypeScript
         run: npm run typecheck
 
+      - name: Generate Sekoly Android icons
+        run: |
+          npm install --no-save --no-audit --no-fund sharp
+          node scripts/generate-icons.mjs
+
       - name: Expo doctor
         run: npx expo-doctor
