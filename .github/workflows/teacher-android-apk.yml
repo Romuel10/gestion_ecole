@@ -51,17 +51,26 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
+      - name: Generate Sekoly Android icons
+        run: |
+          npm install --no-save --no-audit --no-fund sharp
+          node scripts/generate-icons.mjs
+
       - name: Generate Android project
         run: npx expo prebuild --platform android --non-interactive
 
-      - name: Build debug APK
+      - name: Build standalone APK
         run: |
           chmod +x android/gradlew
           cd android
-          ./gradlew assembleDebug --no-daemon
+          ./gradlew assembleRelease --no-daemon
+
+      - name: Verify embedded JavaScript bundle
+        run: |
+          unzip -l android/app/build/outputs/apk/release/app-release.apk | grep -q "assets/index.android.bundle"
 
       - name: Rename APK
-        run: cp android/app/build/outputs/apk/debug/app-debug.apk Sekoly-Enseignant-pilote.apk
+        run: cp android/app/build/outputs/apk/release/app-release.apk Sekoly-Enseignant-pilote.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
