@@ -6,7 +6,11 @@
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "android": {
-      "package": "mg.sekoly.teacher"
+      "package": "mg.sekoly.teacher",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#F8FAF8"
+      }
     },
     "ios": {
       "bundleIdentifier": "mg.sekoly.teacher",
@@ -20,6 +24,7 @@
         "projectId": "REPLACE_WITH_EXPO_PROJECT_ID"
       }
     },
-    "scheme": "sekoly-teacher"
+    "scheme": "sekoly-teacher",
+    "icon": "./assets/icon.png"
   }
 }
