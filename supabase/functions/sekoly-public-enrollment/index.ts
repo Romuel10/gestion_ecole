@@ -432,6 +432,138 @@ async function loadCampaign(admin: any, publicCode: string) {
   return { campaign, school, year, classes: classes ?? [] };
 }
 
+async function loadPortalData(admin: any, token: string) {
+  const access = await familyFromToken(admin, token);
+  if (!access) return null;
+
+  const { data: school, error: schoolError } = await admin
+    .from("sekoly_schools")
+    .select("id,name,acronym,city")
+    .eq("id", access.family.school_id)
+    .single();
+  if (schoolError) throw schoolError;
+
+  const { data: familyStudents, error: familyStudentsError } = await admin
+    .from("sekoly_family_students")
+    .select("student_id")
+    .eq("school_id", access.family.school_id)
+    .eq("family_id", access.family.id);
+  if (familyStudentsError) throw familyStudentsError;
+
+  const studentIds = (familyStudents ?? []).map((item: any) => item.student_id);
+  let students: any[] = [];
+  if (studentIds.length > 0) {
+    const { data, error } = await admin
+      .from("sekoly_students")
+      .select("id,matricule,last_name,first_name,birth_date,status")
+      .eq("school_id", access.family.school_id)
+      .in("id", studentIds);
+    if (error) throw error;
+    students = data ?? [];
+  }
+
+  const { data: enrollmentFamilies, error: enrollmentFamiliesError } = await admin
+    .from("sekoly_enrollment_families")
+    .select("id,campaign_id,reference_code")
+    .eq("school_id", access.family.school_id)
+    .eq("family_profile_id", access.family.id);
+  if (enrollmentFamiliesError) throw enrollmentFamiliesError;
+
+  const enrollmentFamilyIds = (enrollmentFamilies ?? []).map((item: any) => item.id);
+  let applications: any[] = [];
+  if (enrollmentFamilyIds.length > 0) {
+    const { data, error } = await admin
+      .from("sekoly_enrollment_applications")
+      .select("id,family_id,application_type,status,existing_matricule,child_last_name,child_first_name,child_birth_date,created_at")
+      .eq("school_id", access.family.school_id)
+      .in("family_id", enrollmentFamilyIds)
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    applications = data ?? [];
+  }
+
+  const { data: campaigns, error: campaignsError } = await admin
+    .from("sekoly_enrollment_campaigns")
+    .select("id,public_code,name,school_year_id")
+    .eq("school_id", access.family.school_id)
+    .eq("status", "OPEN")
+    .order("created_at", { ascending: false })
+    .limit(1);
+  if (campaignsError) throw campaignsError;
+
+  return {
+    ...access,
+    school,
+    students,
+    applications,
+    campaign: campaigns?.[0] ?? null,
+  };
+}
+
+function renderPortalPage(ctx: any, token: string, basePath: string) {
+  const statusLabels: Record<string, string> = {
+    SUBMITTED: "Demande reçue",
+    TO_CONTACT: "À contacter",
+    CONTACTED: "Famille contactée",
+    APPOINTMENT_SCHEDULED: "Rendez-vous prévu",
+    INCOMPLETE: "Dossier incomplet",
+    COMPLETE: "Dossier complet",
+    ACCEPTED: "Accepté",
+    PAYMENT_PENDING: "Paiement à effectuer",
+    APPROVED: "Inscription confirmée",
+    REJECTED: "Non retenu",
+    WITHDRAWN: "Retiré",
+  };
+
+  const childrenHtml = (ctx.students ?? []).length
+    ? (ctx.students ?? []).map((student: any) =>
+        '<div class="row"><div><strong>' +
+        htmlEscape(student.last_name) + ' ' + htmlEscape(student.first_name) +
+        '</strong><small>' + htmlEscape(student.matricule) + '</small></div>' +
+        '<span class="pill ok">' + htmlEscape(student.status) + '</span></div>'
+      ).join("")
+    : '<div class="empty">Aucun enfant déjà inscrit n’est encore lié à ce dossier familial.</div>';
+
+  const requestsHtml = (ctx.applications ?? []).length
+    ? (ctx.applications ?? []).map((app: any) =>
+        '<div class="row"><div><strong>' +
+        htmlEscape(app.child_last_name) + ' ' + htmlEscape(app.child_first_name) +
+        '</strong><small>' +
+        (app.application_type === "RE_REGISTRATION" ? "Réinscription" : "Nouvelle inscription") +
+        '</small></div><span class="pill">' +
+        htmlEscape(statusLabels[app.status] ?? app.status) + '</span></div>'
+      ).join("")
+    : '<div class="empty">Aucune demande récente.</div>';
+
+  const campaignAction = ctx.campaign
+    ? '<a class="primary" href="' + basePath + '?code=' +
+      encodeURIComponent(ctx.campaign.public_code) + '&family=' +
+      encodeURIComponent(token) + '">Inscrire ou réinscrire un enfant</a>'
+    : '<div class="notice">Aucune campagne d’inscription n’est ouverte actuellement.</div>';
+
+  return '<!doctype html><html lang="fr"><head><meta charset="utf-8">' +
+    '<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">' +
+    '<title>Portail famille · ' + htmlEscape(ctx.school.name) + '</title><style>' +
+    ':root{--bg:#f3f7f7;--card:#fff;--ink:#17232a;--muted:#66757d;--line:#dbe5e7;--brand:#173f49;--accent:#2f7a54}' +
+    '*{box-sizing:border-box}body{margin:0;background:linear-gradient(180deg,#eaf3f2,#f5f8f8 420px);color:var(--ink);font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif}' +
+    'main{max-width:820px;margin:auto;padding:18px 14px 70px}.hero{padding:26px;border-radius:24px;background:linear-gradient(145deg,#173f49,#245f6b);color:#fff;box-shadow:0 18px 55px rgba(20,60,70,.18)}' +
+    '.brand{font-size:11px;font-weight:900;letter-spacing:.18em;opacity:.82}.hero h1{margin:10px 0 4px;font-size:28px}.hero p{margin:0;color:#d7e5e8}.code{display:inline-block;margin-top:14px;padding:7px 10px;border:1px solid rgba(255,255,255,.24);border-radius:999px;font-size:11px}' +
+    '.card{margin-top:14px;padding:20px;border:1px solid var(--line);border-radius:18px;background:var(--card);box-shadow:0 8px 26px rgba(20,55,64,.05)}h2{margin:0 0 12px;font-size:15px}' +
+    '.row{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:12px 0;border-bottom:1px solid var(--line)}.row:last-child{border-bottom:0}.row small{display:block;margin-top:3px;color:var(--muted)}' +
+    '.pill{font-size:10px;font-weight:850;padding:6px 9px;border-radius:999px;background:#eef4f4;color:var(--brand);text-align:right}.pill.ok{background:#eaf5ef;color:var(--accent)}' +
+    '.primary{display:block;margin-top:14px;padding:14px 16px;border-radius:12px;background:var(--brand);color:#fff;text-decoration:none;text-align:center;font-weight:850}.notice,.empty{padding:12px;border-radius:10px;background:#f5f8f8;color:var(--muted);font-size:12px}' +
+    '.security{margin:16px 3px;color:var(--muted);font-size:10px;line-height:1.6}@media(max-width:620px){.hero{padding:20px}.hero h1{font-size:22px}.card{padding:16px}}' +
+    '</style></head><body><main>' +
+    '<section class="hero"><div class="brand">SEKOLY · PORTAIL FAMILLE</div><h1>' +
+    htmlEscape(ctx.family.display_name || "Votre famille") + '</h1><p>' +
+    htmlEscape(ctx.school.name) + '</p><div class="code">Référence famille · ' +
+    htmlEscape(ctx.family.family_code) + '</div></section>' +
+    '<section class="card"><h2>Mes enfants inscrits</h2>' + childrenHtml + '</section>' +
+    '<section class="card"><h2>Mes demandes</h2>' + requestsHtml + campaignAction + '</section>' +
+    '<p class="security">Ce lien est personnel. Conservez-le pour les prochaines inscriptions et réinscriptions. Ne le partagez pas.</p>' +
+    '</main></body></html>';
+}
+
 function renderPage(ctx: any, publicCode: string) {
   const classOptions = ctx.classes
     .map(
@@ -643,6 +775,26 @@ Deno.serve(async (req) => {
         req,
         clean(url.searchParams.get("family"), 160),
       );
+    }
+
+    const portalToken = clean(url.searchParams.get("portal"), 160);
+    if (portalToken && req.method === "GET") {
+      const portal = await loadPortalData(admin, portalToken);
+      if (!portal) {
+        return new Response("Lien famille invalide ou expiré.", {
+          status: 404,
+          headers: { "Content-Type": "text/plain; charset=utf-8" },
+        });
+      }
+      return new Response(renderPortalPage(portal, portalToken, url.pathname), {
+        headers: {
+          "Content-Type": "text/html; charset=utf-8",
+          "Cache-Control": "no-store",
+          "X-Content-Type-Options": "nosniff",
+          "Referrer-Policy": "no-referrer",
+          "X-Frame-Options": "DENY",
+        },
+      });
     }
 
     const publicCode = clean(url.searchParams.get("code"), 64);
