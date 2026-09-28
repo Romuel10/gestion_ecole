@@ -556,9 +556,21 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
       schoolYearId: db.currentSchoolYearId,
     };
 
+    const carriedGuardianLinks = (db.studentGuardianLinks ?? [])
+      .filter((link) => link.studentId === selectedStudentForReReg.id)
+      .map((link) => ({
+        ...link,
+        id: `sg-${newEnrollmentStudent.id}-${link.guardianId}`,
+        studentId: newEnrollmentStudent.id,
+      }));
+
     const updatedDb: DatabaseSchema = {
       ...db,
       students: [newEnrollmentStudent, ...db.students],
+      studentGuardianLinks: [
+        ...(db.studentGuardianLinks ?? []),
+        ...carriedGuardianLinks,
+      ],
       tuitionPayments: [newPayment, ...db.tuitionPayments],
       cashTransactions: [newTransaction, ...db.cashTransactions],
     };
