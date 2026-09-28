@@ -999,7 +999,7 @@ function readChildren(){
 function guardianDraft(){
   const fd=new FormData(form);
   const result={};
-  ['guardianLastName','guardianFirstName','relationship','phonePrimary','phoneSecondary','email','cinNumber','cinIssuedAt','cinIssuePlace','occupation','address','city','preferredContact'].forEach(function(name){
+  ['guardianLastName','guardianFirstName','relationship','phonePrimary','phoneSecondary','email','cinNumber','cinIssuedAt','cinIssuePlace','occupation','address','city','preferredContact','secondaryRelationship','secondaryLastName','secondaryFirstName','secondaryPhonePrimary','secondaryEmail','secondaryCinNumber','secondaryCinIssuedAt','secondaryCinIssuePlace','secondaryOccupation'].forEach(function(name){
     result[name]=String(fd.get(name)||'');
   });
   return result;
@@ -1022,8 +1022,32 @@ function applyGuardian(values){
 function restoreDraft(){
   let draft=null;
   try{draft=JSON.parse(localStorage.getItem(DRAFT_KEY)||'null')}catch{}
-  if(FAMILY_BOOT&&FAMILY_BOOT.guardian) applyGuardian(FAMILY_BOOT.guardian);
-  else if(draft&&draft.guardian) applyGuardian(draft.guardian);
+  if(FAMILY_BOOT&&FAMILY_BOOT.guardian) {
+    applyGuardian(FAMILY_BOOT.guardian);
+    if(FAMILY_BOOT.guardian.relationship && form.elements.relationship) {
+      form.elements.relationship.value=FAMILY_BOOT.guardian.relationship;
+    }
+  } else if(draft&&draft.guardian) {
+    applyGuardian(draft.guardian);
+  }
+
+  if(FAMILY_BOOT&&FAMILY_BOOT.secondaryGuardian) {
+    const secondary=FAMILY_BOOT.secondaryGuardian;
+    const values={
+      secondaryRelationship:secondary.relationship,
+      secondaryLastName:secondary.lastName,
+      secondaryFirstName:secondary.firstName,
+      secondaryPhonePrimary:secondary.phonePrimary,
+      secondaryEmail:secondary.email,
+      secondaryCinNumber:secondary.cinNumber,
+      secondaryCinIssuedAt:secondary.cinIssuedAt,
+      secondaryCinIssuePlace:secondary.cinIssuePlace,
+      secondaryOccupation:secondary.occupation
+    };
+    applyGuardian(values);
+    const box=document.getElementById('secondGuardianBox');
+    if(box) box.open=true;
+  }
 
   const savedChildren=draft&&Array.isArray(draft.children)?draft.children:[];
   if(savedChildren.length) savedChildren.forEach(addChild);
@@ -1171,7 +1195,18 @@ form.addEventListener('submit',async function(event){
           occupation:String(fd.get('occupation')||''),
           address:String(fd.get('address')||''),
           city:String(fd.get('city')||''),
-          preferredContact:String(fd.get('preferredContact')||'PHONE')
+          preferredContact:String(fd.get('preferredContact')||'PHONE'),
+          secondary:{
+            relationship:String(fd.get('secondaryRelationship')||'OTHER'),
+            lastName:String(fd.get('secondaryLastName')||''),
+            firstName:String(fd.get('secondaryFirstName')||''),
+            phonePrimary:String(fd.get('secondaryPhonePrimary')||''),
+            email:String(fd.get('secondaryEmail')||''),
+            cinNumber:String(fd.get('secondaryCinNumber')||''),
+            cinIssuedAt:String(fd.get('secondaryCinIssuedAt')||''),
+            cinIssuePlace:String(fd.get('secondaryCinIssuePlace')||''),
+            occupation:String(fd.get('secondaryOccupation')||'')
+          }
         },
         children:childrenPayload
       })
