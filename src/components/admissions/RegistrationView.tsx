@@ -915,6 +915,50 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
                     />
                   </div>
                 </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-3 border-t border-slate-100 dark:border-slate-800">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      N° acte de naissance
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.birthCertificateNumber}
+                      onChange={(e) =>
+                        setFormData({ ...formData, birthCertificateNumber: e.target.value })
+                      }
+                      placeholder="Référence de l'acte"
+                      className="w-full text-xs px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Date de l'acte
+                    </label>
+                    <input
+                      type="date"
+                      value={formData.birthCertificateDate}
+                      onChange={(e) =>
+                        setFormData({ ...formData, birthCertificateDate: e.target.value })
+                      }
+                      className="w-full text-xs px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Lieu de délivrance
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.birthCertificatePlace}
+                      onChange={(e) =>
+                        setFormData({ ...formData, birthCertificatePlace: e.target.value })
+                      }
+                      placeholder="Commune / arrondissement"
+                      className="w-full text-xs px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+                    />
+                  </div>
+                </div>
               </div>
 
               {/* Parents / Tuteurs Box */}
@@ -974,6 +1018,151 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
                       value={formData.motherPhone}
                       onChange={(e) => setFormData({ ...formData, motherPhone: e.target.value })}
                       className="w-full text-xs px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pt-3 border-t border-slate-100 dark:border-slate-800">
+                  <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-4 space-y-3">
+                    <div className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
+                      Pièces & coordonnées du père
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <input
+                        type="text"
+                        placeholder="N° CIN père"
+                        value={formData.fatherCinNumber}
+                        onChange={(e) => setFormData({ ...formData, fatherCinNumber: e.target.value })}
+                        className="w-full text-xs px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+                      />
+                      <input
+                        type="date"
+                        title="Date de délivrance CIN père"
+                        value={formData.fatherCinIssuedAt}
+                        onChange={(e) => setFormData({ ...formData, fatherCinIssuedAt: e.target.value })}
+                        className="w-full text-xs px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Lieu de délivrance CIN"
+                        value={formData.fatherCinIssuePlace}
+                        onChange={(e) => setFormData({ ...formData, fatherCinIssuePlace: e.target.value })}
+                        className="w-full text-xs px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+                      />
+                      <input
+                        type="email"
+                        placeholder="Email père"
+                        value={formData.fatherEmail}
+                        onChange={(e) => setFormData({ ...formData, fatherEmail: e.target.value })}
+                        className="w-full text-xs px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Profession du père"
+                        value={formData.fatherJob}
+                        onChange={(e) => setFormData({ ...formData, fatherJob: e.target.value })}
+                        className="sm:col-span-2 w-full text-xs px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-4 space-y-3">
+                    <div className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
+                      Pièces & coordonnées de la mère
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <input
+                        type="text"
+                        placeholder="N° CIN mère"
+                        value={formData.motherCinNumber}
+                        onChange={(e) => setFormData({ ...formData, motherCinNumber: e.target.value })}
+                        className="w-full text-xs px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+                      />
+                      <input
+                        type="date"
+                        title="Date de délivrance CIN mère"
+                        value={formData.motherCinIssuedAt}
+                        onChange={(e) => setFormData({ ...formData, motherCinIssuedAt: e.target.value })}
+                        className="w-full text-xs px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Lieu de délivrance CIN"
+                        value={formData.motherCinIssuePlace}
+                        onChange={(e) => setFormData({ ...formData, motherCinIssuePlace: e.target.value })}
+                        className="w-full text-xs px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+                      />
+                      <input
+                        type="email"
+                        placeholder="Email mère"
+                        value={formData.motherEmail}
+                        onChange={(e) => setFormData({ ...formData, motherEmail: e.target.value })}
+                        className="w-full text-xs px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Profession de la mère"
+                        value={formData.motherJob}
+                        onChange={(e) => setFormData({ ...formData, motherJob: e.target.value })}
+                        className="sm:col-span-2 w-full text-xs px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-dashed border-slate-300 dark:border-slate-700 p-4 space-y-3">
+                  <div className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
+                    Tuteur / responsable légal si différent des parents
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    <input
+                      type="text"
+                      placeholder="Nom complet"
+                      value={formData.guardianName}
+                      onChange={(e) => setFormData({ ...formData, guardianName: e.target.value })}
+                      className="w-full text-xs px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Téléphone"
+                      value={formData.guardianPhone}
+                      onChange={(e) => setFormData({ ...formData, guardianPhone: e.target.value })}
+                      className="w-full text-xs px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+                    />
+                    <input
+                      type="text"
+                      placeholder="N° CIN"
+                      value={formData.guardianCinNumber}
+                      onChange={(e) => setFormData({ ...formData, guardianCinNumber: e.target.value })}
+                      className="w-full text-xs px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+                    />
+                    <input
+                      type="email"
+                      placeholder="Email"
+                      value={formData.guardianEmail}
+                      onChange={(e) => setFormData({ ...formData, guardianEmail: e.target.value })}
+                      className="w-full text-xs px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+                    />
+                    <input
+                      type="date"
+                      title="Date de délivrance CIN tuteur"
+                      value={formData.guardianCinIssuedAt}
+                      onChange={(e) => setFormData({ ...formData, guardianCinIssuedAt: e.target.value })}
+                      className="w-full text-xs px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Lieu CIN"
+                      value={formData.guardianCinIssuePlace}
+                      onChange={(e) => setFormData({ ...formData, guardianCinIssuePlace: e.target.value })}
+                      className="w-full text-xs px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Profession"
+                      value={formData.guardianJob}
+                      onChange={(e) => setFormData({ ...formData, guardianJob: e.target.value })}
+                      className="sm:col-span-2 w-full text-xs px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
                     />
                   </div>
                 </div>
