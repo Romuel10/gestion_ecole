@@ -375,16 +375,47 @@ async function uploadEnrollmentDocument(
     CIN_GUARDIAN: "CIN_PRIMARY",
   };
   const checklistCode = checklistMap[documentType];
-  if (application?.id && checklistCode) {
-    await admin
-      .from("sekoly_enrollment_checklist_items")
-      .update({
-        status: "PROVIDED",
-        document_id: document.id,
-        note: "Document transmis par la famille.",
-      })
-      .eq("application_id", application.id)
-      .eq("code", checklistCode);
+  if (checklistCode) {
+    let targetApplicationIds: string[] = [];
+    if (application?.id) {
+      targetApplicationIds = [application.id];
+    } else {
+      const { data: campaignFamilies, error: campaignFamiliesError } = await admin
+        .from("sekoly_enrollment_families")
+        .select("id")
+        .eq("school_id", access.family.school_id)
+        .eq("family_profile_id", access.family.id);
+      if (campaignFamiliesError) throw campaignFamiliesError;
+
+      const campaignFamilyIds = (campaignFamilies ?? []).map(
+        (item: any) => item.id,
+      );
+      if (campaignFamilyIds.length > 0) {
+        const { data: familyApplications, error: familyApplicationsError } =
+          await admin
+            .from("sekoly_enrollment_applications")
+            .select("id,status")
+            .eq("school_id", access.family.school_id)
+            .in("family_id", campaignFamilyIds)
+            .not("status", "in", '("APPROVED","REJECTED","WITHDRAWN")');
+        if (familyApplicationsError) throw familyApplicationsError;
+        targetApplicationIds = (familyApplications ?? []).map(
+          (item: any) => item.id,
+        );
+      }
+    }
+
+    if (targetApplicationIds.length > 0) {
+      await admin
+        .from("sekoly_enrollment_checklist_items")
+        .update({
+          status: "PROVIDED",
+          document_id: document.id,
+          note: "Document transmis par la famille.",
+        })
+        .in("application_id", targetApplicationIds)
+        .eq("code", checklistCode);
+    }
   }
 
   return jsonResponse({ ok: true, document }, 201);
