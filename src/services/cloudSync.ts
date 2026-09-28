@@ -1014,37 +1014,80 @@ export class CloudSyncService {
     const schoolId = this.getSchoolId();
     if (!schoolId) throw new Error('Établissement Cloud non lié.');
 
-    const [applications, families, classes] = await Promise.all([
-      restSelect<any>(
-        'sekoly_enrollment_applications',
-        `select=*&school_id=eq.${schoolId}&order=created_at.desc&limit=500`
-      ),
-      restSelect<any>(
-        'sekoly_enrollment_families',
-        `select=*&school_id=eq.${schoolId}&order=submitted_at.desc&limit=500`
-      ),
-      restSelect<any>(
-        'sekoly_classes',
-        `select=id,name&school_id=eq.${schoolId}`
-      ),
-    ]);
+    const [applications, families, classes, profiles, checklist, documents] =
+      await Promise.all([
+        restSelect<any>(
+          'sekoly_enrollment_applications',
+          `select=*&school_id=eq.${schoolId}&order=created_at.desc&limit=500`
+        ),
+        restSelect<any>(
+          'sekoly_enrollment_families',
+          `select=*&school_id=eq.${schoolId}&order=submitted_at.desc&limit=500`
+        ),
+        restSelect<any>(
+          'sekoly_classes',
+          `select=id,name&school_id=eq.${schoolId}`
+        ),
+        restSelect<any>(
+          'sekoly_families',
+          `select=id,family_code,display_name&school_id=eq.${schoolId}&limit=500`
+        ),
+        restSelect<any>(
+          'sekoly_enrollment_checklist_items',
+          `select=*&school_id=eq.${schoolId}&order=sort_order.asc&limit=5000`
+        ),
+        restSelect<any>(
+          'sekoly_enrollment_documents',
+          `select=id,family_id,application_id,document_type,original_name,mime_type,file_size,status,verification_note,created_at&school_id=eq.${schoolId}&order=created_at.desc&limit=5000`
+        ),
+      ]);
 
     const familyMap = new Map(families.map((item) => [item.id, item]));
     const classMap = new Map(classes.map((item) => [item.id, item.name]));
+    const profileMap = new Map(profiles.map((item) => [item.id, item]));
+    const checklistMap = new Map<string, EnrollmentChecklistItem[]>();
+    const documentMap = new Map<string, EnrollmentDocument[]>();
 
-    return applications.map((item) => ({
-      ...item,
-      family: familyMap.get(item.family_id) || null,
-      desiredClassName: item.desired_class_id
-        ? classMap.get(item.desired_class_id) || null
-        : null,
-    })) as EnrollmentQueueItem[];
+    checklist.forEach((item) => {
+      const rows = checklistMap.get(item.application_id) ?? [];
+      rows.push(item as EnrollmentChecklistItem);
+      checklistMap.set(item.application_id, rows);
+    });
+    documents.forEach((item) => {
+      if (!item.application_id) return;
+      const rows = documentMap.get(item.application_id) ?? [];
+      rows.push(item as EnrollmentDocument);
+      documentMap.set(item.application_id, rows);
+    });
+
+    return applications.map((item) => {
+      const family = familyMap.get(item.family_id) || null;
+      const profile = family?.family_profile_id
+        ? profileMap.get(family.family_profile_id)
+        : null;
+
+      return {
+        ...item,
+        family,
+        familyProfileCode: profile?.family_code || null,
+        desiredClassName: item.desired_class_id
+          ? classMap.get(item.desired_class_id) || null
+          : null,
+        checklist: checklistMap.get(item.id) ?? [],
+        documents: documentMap.get(item.id) ?? [],
+      };
+    }) as EnrollmentQueueItem[];
   }
 
   static async updateEnrollmentApplication(
     applicationId: string,
     status: EnrollmentQueueItem['status'],
-    contactNote?: string
+    contactNote?: string,
+    options?: {
+      appointmentAt?: string | null;
+      decisionNote?: string | null;
+      paymentStatus?: EnrollmentQueueItem['payment_status'];
+    }
   ) {
     const session = this.getSession();
     const values: Record<string, unknown> = {
@@ -1053,13 +1096,160 @@ export class CloudSyncService {
       reviewed_by: session?.user?.id || null,
     };
     if (status === 'CONTACTED') values.contacted_at = new Date().toISOString();
+    if (status === 'APPOINTMENT_SCHEDULED') {
+      values.appointment_at = options?.appointmentAt || null;
+    }
     if (status === 'APPROVED') values.approved_at = new Date().toISOString();
+    if (options?.decisionNote !== undefined) {
+      values.decision_note = options.decisionNote?.trim() || null;
+    }
+    if (options?.paymentStatus) values.payment_status = options.paymentStatus;
 
     await restPatch(
       'sekoly_enrollment_applications',
       `id=eq.${encodeURIComponent(applicationId)}`,
       values
     );
+  }
+
+  static async logEnrollmentContact(
+    applicationId: string,
+    contactType: 'CALL' | 'WHATSAPP' | 'SMS' | 'EMAIL' | 'IN_PERSON' | 'APPOINTMENT',
+    note?: string,
+    scheduledAt?: string
+  ) {
+    const schoolId = this.getSchoolId();
+    const session = this.getSession();
+    if (!schoolId) throw new Error('Établissement Cloud non lié.');
+
+    await restInsertReturning<any>('sekoly_enrollment_contacts', {
+      school_id: schoolId,
+      application_id: applicationId,
+      contact_type: contactType,
+      note: note?.trim() || null,
+      scheduled_at: scheduledAt || null,
+      completed_at: contactType === 'APPOINTMENT' ? null : new Date().toISOString(),
+      created_by: session?.user?.id || null,
+    });
+  }
+
+  static async updateEnrollmentChecklistItem(
+    checklistId: string,
+    status: EnrollmentChecklistItem['status'],
+    note?: string
+  ) {
+    await restPatch(
+      'sekoly_enrollment_checklist_items',
+      `id=eq.${encodeURIComponent(checklistId)}`,
+      { status, note: note?.trim() || null }
+    );
+  }
+
+  static async verifyEnrollmentDocument(
+    documentId: string,
+    status: EnrollmentDocument['status'],
+    note?: string
+  ) {
+    const session = this.getSession();
+    await restPatch(
+      'sekoly_enrollment_documents',
+      `id=eq.${encodeURIComponent(documentId)}`,
+      {
+        status,
+        verification_note: note?.trim() || null,
+        verified_by: status === 'UPLOADED' ? null : session?.user?.id || null,
+        verified_at: status === 'UPLOADED' ? null : new Date().toISOString(),
+      }
+    );
+  }
+
+  static async getEnrollmentDocumentUrl(documentId: string) {
+    const schoolId = this.getSchoolId();
+    if (!schoolId) throw new Error('Établissement Cloud non lié.');
+
+    const rows = await restSelect<{ storage_path: string; original_name: string }>(
+      'sekoly_enrollment_documents',
+      `select=storage_path,original_name&id=eq.${encodeURIComponent(
+        documentId
+      )}&school_id=eq.${schoolId}&limit=1`
+    );
+    const document = rows[0];
+    if (!document) throw new Error('Document introuvable.');
+
+    const encodedPath = document.storage_path
+      .split('/')
+      .map((segment) => encodeURIComponent(segment))
+      .join('/');
+    const response = await authRequest(
+      `/storage/v1/object/sign/sekoly-enrollment-documents/${encodedPath}`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ expiresIn: 300 }),
+      }
+    );
+    const signed = await parseResponse<{ signedURL?: string; signedUrl?: string }>(
+      response
+    );
+    const relative = signed.signedURL || signed.signedUrl;
+    if (!relative) throw new Error('Lien temporaire du document indisponible.');
+    return relative.startsWith('http') ? relative : `${DEFAULT_URL}${relative}`;
+  }
+
+  static async finalizeEnrollmentApplication(
+    applicationId: string,
+    studentMatricule: string
+  ) {
+    const schoolId = this.getSchoolId();
+    if (!schoolId) throw new Error('Établissement Cloud non lié.');
+
+    const applications = await restSelect<any>(
+      'sekoly_enrollment_applications',
+      `select=id,family_id&id=eq.${encodeURIComponent(
+        applicationId
+      )}&school_id=eq.${schoolId}&limit=1`
+    );
+    const application = applications[0];
+    if (!application) throw new Error('Demande QR introuvable.');
+
+    const families = await restSelect<any>(
+      'sekoly_enrollment_families',
+      `select=id,family_profile_id&id=eq.${encodeURIComponent(
+        application.family_id
+      )}&school_id=eq.${schoolId}&limit=1`
+    );
+    const family = families[0];
+    const cloudStudentId = cloudUuid(
+      'student',
+      studentMatricule.trim().toUpperCase()
+    );
+
+    await restPatch(
+      'sekoly_enrollment_applications',
+      `id=eq.${encodeURIComponent(applicationId)}`,
+      {
+        status: 'APPROVED',
+        final_student_id: cloudStudentId,
+        approved_at: new Date().toISOString(),
+        payment_status: 'PAID',
+      }
+    );
+
+    if (family?.family_profile_id) {
+      const linkKey = `${family.family_profile_id}:${cloudStudentId}`;
+      await restUpsert(
+        'sekoly_family_students',
+        [
+          {
+            id: cloudUuid('family-student', linkKey),
+            school_id: schoolId,
+            family_id: family.family_profile_id,
+            student_id: cloudStudentId,
+            relationship_label: 'ENFANT',
+          },
+        ],
+        'id'
+      );
+    }
   }
 
   static async provisionTeacherPilot(db: DatabaseSchema, teacherId: string) {
