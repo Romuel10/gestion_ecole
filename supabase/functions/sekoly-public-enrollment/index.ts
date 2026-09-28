@@ -627,8 +627,6 @@ document.getElementById('form').addEventListener('submit',async(e)=>{
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   const url = new URL(req.url);
-  const publicCode = clean(url.searchParams.get("code"), 64);
-  if (!publicCode) return jsonResponse({ error: "Code d'inscription manquant." }, 400);
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
@@ -638,6 +636,17 @@ Deno.serve(async (req) => {
     const admin = createClient(supabaseUrl, secret, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
+
+    if (url.searchParams.get("action") === "upload" && req.method === "POST") {
+      return await uploadEnrollmentDocument(
+        admin,
+        req,
+        clean(url.searchParams.get("family"), 160),
+      );
+    }
+
+    const publicCode = clean(url.searchParams.get("code"), 64);
+    if (!publicCode) return jsonResponse({ error: "Code d'inscription manquant." }, 400);
 
     const context = await loadCampaign(admin, publicCode);
     if (!context) {
@@ -776,11 +785,18 @@ Deno.serve(async (req) => {
       }
     }
 
+    const persistent = await findOrCreatePersistentFamily(
+      admin,
+      context.campaign.school_id,
+      guardian,
+    );
+
     const { data: family, error: familyError } = await admin
       .from("sekoly_enrollment_families")
       .insert({
         school_id: context.campaign.school_id,
         campaign_id: context.campaign.id,
+        family_profile_id: persistent.family.id,
         guardian_last_name: guardianLastName.toUpperCase(),
         guardian_first_name: guardianFirstName,
         relationship: ["FATHER", "MOTHER", "GUARDIAN", "OTHER"].includes(clean(guardian.relationship, 20))
@@ -805,7 +821,7 @@ Deno.serve(async (req) => {
 
     if (familyError) throw familyError;
 
-    const { error: appError } = await admin
+    const { data: applications, error: appError } = await admin
       .from("sekoly_enrollment_applications")
       .insert(
         normalizedChildren.map((child: any) => ({
@@ -813,18 +829,34 @@ Deno.serve(async (req) => {
           school_id: context.campaign.school_id,
           campaign_id: context.campaign.id,
           family_id: family.id,
-          status: "SUBMITTED",
+          status: "TO_CONTACT",
         })),
-      );
+      )
+      .select("id,child_last_name,child_first_name,application_type");
 
     if (appError) {
       await admin.from("sekoly_enrollment_families").delete().eq("id", family.id);
       throw appError;
     }
 
+    const familyToken = await issuePortalToken(
+      admin,
+      context.campaign.school_id,
+      persistent.family.id,
+    );
+    const portalUrl =
+      url.origin +
+      url.pathname +
+      "?portal=" +
+      encodeURIComponent(familyToken);
+
     return jsonResponse({
       ok: true,
       referenceCode: family.reference_code,
+      familyCode: persistent.family.family_code,
+      familyToken,
+      portalUrl,
+      applications: applications ?? [],
       children: normalizedChildren.length,
     }, 201);
   } catch (error) {
