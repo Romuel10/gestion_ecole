@@ -5,6 +5,8 @@ import {
   FileSpreadsheet,
   Printer,
   HeartPulse,
+  IdCard,
+  UsersRound,
 } from 'lucide-react';
 import { DatabaseSchema, Student } from '../../types/school';
 import { Modal } from '../common/Modal';
@@ -52,6 +54,16 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
       (!studentYear ||
         (attendance.date >= studentYear.startDate && attendance.date <= studentYear.endDate))
   );
+
+  const guardianLinks = (db.studentGuardianLinks ?? []).filter(
+    (link) => link.studentId === student.id
+  );
+  const linkedGuardians = guardianLinks
+    .map((link) => ({
+      link,
+      guardian: (db.guardians ?? []).find((item) => item.id === link.guardianId),
+    }))
+    .filter((item) => Boolean(item.guardian));
 
   return (
     <Modal
@@ -165,8 +177,14 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                 <strong className="text-slate-800 dark:text-slate-200">{student.address || 'Non renseigné'}</strong>
               </div>
               <div>
-                <span className="text-slate-400">Fokontany / Ville :</span>{' '}
-                <strong className="text-slate-800 dark:text-slate-200">{student.city || 'Antananarivo'}</strong>
+                <span className="text-slate-400">Fokontany / quartier :</span>{' '}
+                <strong className="text-slate-800 dark:text-slate-200">
+                  {student.neighborhood || 'Non renseigné'}
+                </strong>
+              </div>
+              <div>
+                <span className="text-slate-400">Ville / Commune :</span>{' '}
+                <strong className="text-slate-800 dark:text-slate-200">{student.city || 'Non renseigné'}</strong>
               </div>
               <div>
                 <span className="text-slate-400">Établissement d'origine :</span>{' '}
@@ -176,21 +194,80 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
 
             <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/60 space-y-2.5">
               <div className="font-bold text-slate-800 dark:text-slate-200 flex items-center space-x-1.5 text-purple-600 dark:text-purple-400">
-                <Phone className="w-3.5 h-3.5" />
-                <span>Parents & Contacts d'Urgence</span>
+                <UsersRound className="w-3.5 h-3.5" />
+                <span>Famille & Responsables légaux</span>
               </div>
               <div>
                 <span className="text-slate-400">Père :</span>{' '}
-                <strong>{student.fatherName || '-'}</strong> {student.fatherPhone && `(${student.fatherPhone})`}
+                <strong>{student.fatherName || '-'}</strong>
+                {student.fatherPhone && <> · <span className="font-mono">{student.fatherPhone}</span></>}
+                {student.fatherCinNumber && <> · CIN <span className="font-mono">{student.fatherCinNumber}</span></>}
               </div>
               <div>
                 <span className="text-slate-400">Mère :</span>{' '}
-                <strong>{student.motherName || '-'}</strong> {student.motherPhone && `(${student.motherPhone})`}
+                <strong>{student.motherName || '-'}</strong>
+                {student.motherPhone && <> · <span className="font-mono">{student.motherPhone}</span></>}
+                {student.motherCinNumber && <> · CIN <span className="font-mono">{student.motherCinNumber}</span></>}
               </div>
+              {student.guardianName && (
+                <div>
+                  <span className="text-slate-400">Tuteur :</span>{' '}
+                  <strong>{student.guardianName}</strong>
+                  {student.guardianPhone && <> · <span className="font-mono">{student.guardianPhone}</span></>}
+                  {student.guardianCinNumber && <> · CIN <span className="font-mono">{student.guardianCinNumber}</span></>}
+                </div>
+              )}
+              {linkedGuardians.length > 0 && (
+                <div className="pt-2 border-t border-slate-200 dark:border-slate-700 space-y-1.5">
+                  {linkedGuardians.map(({ link, guardian }) => guardian && (
+                    <div key={link.id} className="flex items-start justify-between gap-3">
+                      <div>
+                        <strong>{guardian.lastName} {guardian.firstName}</strong>
+                        <span className="ml-2 text-[10px] text-slate-400">
+                          {link.relationship === 'FATHER'
+                            ? 'Père'
+                            : link.relationship === 'MOTHER'
+                            ? 'Mère'
+                            : link.relationship === 'GUARDIAN'
+                            ? 'Tuteur'
+                            : 'Responsable'}
+                          {link.isPrimary ? ' · principal' : ''}
+                        </span>
+                      </div>
+                      <div className="text-right text-[10px] text-slate-500">
+                        <div className="font-mono">{guardian.phonePrimary || '—'}</div>
+                        {guardian.cinNumber && <div>CIN {guardian.cinNumber}</div>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
               <div className="pt-1 border-t border-slate-200 dark:border-slate-700">
+                <Phone className="inline w-3 h-3 mr-1" />
                 <span className="text-slate-400">Urgence :</span>{' '}
                 <strong className="text-rose-600 dark:text-rose-400">{student.emergencyContact}</strong> —{' '}
                 <span className="font-mono">{student.emergencyPhone}</span>
+              </div>
+            </div>
+
+            <div className="md:col-span-2 p-4 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/60 space-y-2">
+              <div className="font-bold text-slate-800 dark:text-slate-200 flex items-center space-x-1.5 text-indigo-600 dark:text-indigo-400">
+                <IdCard className="w-3.5 h-3.5" />
+                <span>Pièces d’état civil</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <div>
+                  <span className="text-slate-400">Acte de naissance :</span>{' '}
+                  <strong>{student.birthCertificateNumber || 'Non renseigné'}</strong>
+                </div>
+                <div>
+                  <span className="text-slate-400">Date :</span>{' '}
+                  <strong>{student.birthCertificateDate || '—'}</strong>
+                </div>
+                <div>
+                  <span className="text-slate-400">Lieu :</span>{' '}
+                  <strong>{student.birthCertificatePlace || '—'}</strong>
+                </div>
               </div>
             </div>
 
