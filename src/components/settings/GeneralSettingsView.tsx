@@ -277,6 +277,10 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
 
   const handleCloudSync = async () => {
     setCloudBusy(true);
+    void CloudSyncService.recordAdminSyncEvent('SYNC_START', 'OK', {
+      source: 'manual_bidirectional_sync',
+    });
+
     try {
       const stats = await CloudSyncService.syncLocalStructure(db);
       const pulled = await CloudSyncService.pullTeacherChanges(db);
@@ -292,15 +296,30 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
         gradesChanged: pulled.gradesChanged,
       });
 
+      void CloudSyncService.recordAdminSyncEvent('SYNC_SUCCESS', 'OK', {
+        students: stats.students,
+        teachers: stats.teachers,
+        assignments: stats.assignments,
+        attendanceAdded: pulled.attendanceAdded,
+        gradesChanged: pulled.gradesChanged,
+      });
+
       onShowToast(
         `Synchronisation bidirectionnelle terminée : ${stats.students} élève(s), ${stats.teachers} enseignant(s), ${pulled.attendanceAdded} présence(s) reçue(s), ${pulled.gradesChanged} fiche(s) de notes mise(s) à jour.`,
         'success'
       );
     } catch (error) {
-      onShowToast(
-        error instanceof Error ? error.message : 'Synchronisation Cloud impossible.',
-        'error'
+      const message =
+        error instanceof Error ? error.message : 'Synchronisation Cloud impossible.';
+
+      void CloudSyncService.recordAdminSyncEvent(
+        'SYNC_ERROR',
+        'ERROR',
+        { source: 'manual_bidirectional_sync' },
+        message
       );
+
+      onShowToast(message, 'error');
     } finally {
       setCloudBusy(false);
     }
