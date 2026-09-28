@@ -1412,6 +1412,126 @@ textarea {
   font-weight: 700;
 }
 
+.attendance-year-header {
+  align-items: center;
+}
+
+.attendance-year-summary {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.attendance-year-summary > span {
+  min-width: 92px;
+  padding: 6px 9px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-muted);
+}
+
+.attendance-year-summary em {
+  display: block;
+  color: var(--text-muted);
+  font-size: 8px;
+  line-height: 1;
+  font-style: normal;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+
+.attendance-year-summary strong {
+  display: block;
+  margin-top: 4px;
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1;
+  font-weight: 760;
+}
+
+.attendance-year-scroll {
+  max-height: min(58vh, 620px);
+}
+
+.attendance-year-table {
+  table-layout: fixed;
+  min-width: 760px;
+}
+
+.attendance-year-table th:first-child,
+.attendance-year-table td:first-child {
+  width: 52%;
+}
+
+.attendance-year-table th:not(:first-child),
+.attendance-year-table td:not(:first-child) {
+  width: 16%;
+  text-align: center !important;
+}
+
+.attendance-year-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  box-shadow: inset 0 -1px 0 var(--border);
+}
+
+.attendance-year-table tbody tr {
+  transition: background .14s ease;
+}
+
+.attendance-number-cell {
+  text-align: center !important;
+}
+
+.attendance-count {
+  min-width: 30px;
+  height: 26px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10.5px;
+  font-weight: 750;
+}
+
+.attendance-count--justified {
+  background: rgba(47, 125, 93, .12);
+  color: var(--success);
+}
+
+.attendance-count--unjustified {
+  background: rgba(181, 71, 71, .12);
+  color: var(--danger);
+}
+
+.attendance-count--late {
+  background: rgba(155, 107, 34, .14);
+  color: var(--warning);
+}
+
+.attendance-count.is-zero {
+  background: var(--surface-muted);
+  color: var(--text-soft);
+  font-weight: 650;
+}
+
+@media (max-width: 900px) {
+  .attendance-year-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .attendance-year-summary {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
 @media (max-width: 1100px) {
   .year-closure-summary {
     grid-template-columns: repeat(3, minmax(0, 1fr));
