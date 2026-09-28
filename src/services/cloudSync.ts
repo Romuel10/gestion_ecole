@@ -871,7 +871,6 @@ export class CloudSyncService {
       familyMap.set(cloudFamilyId, {
         id: cloudFamilyId,
         school_id: schoolId,
-        family_code: cloudFamilyId.replaceAll('-', '').slice(0, 10).toUpperCase(),
         display_name: `Famille ${primaryGuardian.lastName}`,
         address: primaryGuardian.address || student.address || null,
         city: primaryGuardian.city || student.city || null,
