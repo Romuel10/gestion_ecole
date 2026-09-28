@@ -146,7 +146,18 @@ export type EnrollmentQueueItem = {
   campaign_id: string;
   family_id: string;
   application_type: 'NEW' | 'RE_REGISTRATION';
-  status: 'SUBMITTED' | 'CONTACTED' | 'APPROVED' | 'REJECTED' | 'WITHDRAWN';
+  status:
+    | 'SUBMITTED'
+    | 'TO_CONTACT'
+    | 'CONTACTED'
+    | 'APPOINTMENT_SCHEDULED'
+    | 'INCOMPLETE'
+    | 'COMPLETE'
+    | 'ACCEPTED'
+    | 'PAYMENT_PENDING'
+    | 'APPROVED'
+    | 'REJECTED'
+    | 'WITHDRAWN';
   existing_matricule: string | null;
   desired_class_id: string | null;
   child_last_name: string;
@@ -167,10 +178,15 @@ export type EnrollmentQueueItem = {
   contact_note: string | null;
   contacted_at: string | null;
   approved_at: string | null;
+  appointment_at: string | null;
+  decision_note: string | null;
+  payment_status: 'NOT_REQUIRED' | 'PENDING' | 'PAID' | 'WAIVED';
+  final_student_id: string | null;
   created_at: string;
   family: {
     id: string;
     reference_code: string;
+    family_profile_id: string | null;
     guardian_last_name: string;
     guardian_first_name: string;
     relationship: 'FATHER' | 'MOTHER' | 'GUARDIAN' | 'OTHER';
@@ -186,7 +202,36 @@ export type EnrollmentQueueItem = {
     preferred_contact: string;
   } | null;
   desiredClassName: string | null;
+  familyProfileCode: string | null;
+  checklist: EnrollmentChecklistItem[];
+  documents: EnrollmentDocument[];
 };
+
+export type EnrollmentChecklistItem = {
+  id: string;
+  application_id: string;
+  code: string;
+  label: string;
+  required: boolean;
+  status: 'MISSING' | 'PROVIDED' | 'VERIFIED' | 'NOT_REQUIRED';
+  document_id: string | null;
+  note: string | null;
+  sort_order: number;
+};
+
+export type EnrollmentDocument = {
+  id: string;
+  family_id: string;
+  application_id: string | null;
+  document_type: string;
+  original_name: string;
+  mime_type: string;
+  file_size: number;
+  status: 'UPLOADED' | 'VERIFIED' | 'REJECTED';
+  verification_note: string | null;
+  created_at: string;
+};
+
 
 function hash32(input: string, seed: number) {
   let hash = seed >>> 0;
