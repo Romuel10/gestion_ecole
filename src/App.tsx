@@ -73,14 +73,18 @@ export function App() {
         const result = await CloudSyncService.pullTeacherChanges(dbRef.current);
         if (
           !cancelled &&
-          (result.attendanceAdded > 0 || result.gradesChanged > 0)
+          (result.attendanceAdded > 0 ||
+            result.gradesChanged > 0 ||
+            result.gradeConflicts > 0)
         ) {
           StorageService.saveDatabase(result.db);
           dbRef.current = result.db;
           setDb(result.db);
           showToast(
-            `Cloud : ${result.attendanceAdded} présence(s), ${result.gradesChanged} fiche(s) de notes mise(s) à jour.`,
-            'success'
+            result.gradeConflicts > 0
+              ? `Cloud : ${result.attendanceAdded} présence(s), ${result.gradesChanged} fiche(s) de notes mise(s) à jour, ${result.gradeConflicts} conflit(s) protégé(s).`
+              : `Cloud : ${result.attendanceAdded} présence(s), ${result.gradesChanged} fiche(s) de notes mise(s) à jour.`,
+            result.gradeConflicts > 0 ? 'info' : 'success'
           );
         }
       } catch (error) {
