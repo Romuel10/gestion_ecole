@@ -436,15 +436,28 @@ async function uploadEnrollmentDocument(
     });
   if (uploadError) throw uploadError;
 
+  let documentGuardianId: string | null = null;
+  if (documentType.startsWith("CIN_")) {
+    const wantedRelationship =
+      documentType === "CIN_FATHER"
+        ? "FATHER"
+        : documentType === "CIN_MOTHER"
+          ? "MOTHER"
+          : "GUARDIAN";
+    const guardianLink =
+      access.links.find(
+        (item: any) => item.relationship === wantedRelationship,
+      ) ?? access.links.find((item: any) => item.is_primary);
+    documentGuardianId = guardianLink?.guardian_id ?? null;
+  }
+
   const { data: document, error: docError } = await admin
     .from("sekoly_enrollment_documents")
     .insert({
       school_id: access.family.school_id,
       family_id: access.family.id,
       application_id: application?.id ?? null,
-      guardian_id: documentType.startsWith("CIN_")
-        ? access.primaryGuardian?.id ?? null
-        : null,
+      guardian_id: documentGuardianId,
       document_type: documentType,
       storage_path: storagePath,
       original_name: file.name.slice(0, 250),
@@ -951,6 +964,7 @@ ${instructions}
 </div>
 <div class="doc-grid">
 <label class="doc"><strong>CIN du responsable principal</strong><small>PDF, JPG, PNG ou WEBP</small><input type="file" data-family-doc="CIN_PRIMARY" accept=".pdf,image/jpeg,image/png,image/webp"></label>
+<label class="doc"><strong>CIN du deuxième parent / responsable</strong><small>Si un deuxième responsable a été renseigné</small><input type="file" data-family-doc="CIN_SECONDARY" accept=".pdf,image/jpeg,image/png,image/webp"></label>
 <label class="doc"><strong>Justificatif de domicile</strong><small>Facultatif selon l’établissement</small><input type="file" data-family-doc="RESIDENCE_CERTIFICATE" accept=".pdf,image/jpeg,image/png,image/webp"></label>
 </div>
 <div id="childDocs"></div>
@@ -1168,6 +1182,13 @@ function primaryCinType(){
   return 'CIN_GUARDIAN';
 }
 
+function secondaryCinType(){
+  const relationship=String(form.elements.secondaryRelationship.value||'OTHER');
+  if(relationship==='FATHER')return 'CIN_FATHER';
+  if(relationship==='MOTHER')return 'CIN_MOTHER';
+  return 'CIN_GUARDIAN';
+}
+
 function renderDocuments(){
   const list=readChildren();
   childDocs.innerHTML=list.map(function(child,index){
@@ -1209,7 +1230,13 @@ async function uploadDocuments(result){
   qa('[data-family-doc]').forEach(function(input){
     const file=input.files&&input.files[0];
     if(!file)return;
-    const type=input.dataset.familyDoc==='CIN_PRIMARY'?primaryCinType():input.dataset.familyDoc;
+    const type=
+      input.dataset.familyDoc==='CIN_PRIMARY'
+        ? primaryCinType()
+        : input.dataset.familyDoc==='CIN_SECONDARY'
+          ? secondaryCinType()
+          : input.dataset.familyDoc;
+    if(input.dataset.familyDoc==='CIN_SECONDARY' && !String(form.elements.secondaryLastName.value||'').trim()) return;
     jobs.push(uploadOne(file,'',type,result.familyToken));
   });
   qa('[data-doc-type]').forEach(function(input){
