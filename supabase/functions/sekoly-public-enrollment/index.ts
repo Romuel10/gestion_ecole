@@ -266,6 +266,103 @@ async function findOrCreatePersistentFamily(
     if (linkError) throw linkError;
   }
 
+  const secondary = guardian.secondary ?? null;
+  if (secondary) {
+    const secondaryLastName = clean(secondary.lastName, 120).toUpperCase();
+    const secondaryFirstName = clean(secondary.firstName, 120);
+    const secondaryPhone = clean(secondary.phonePrimary, 40);
+    const secondaryCin = nullable(secondary.cinNumber, 80);
+    const secondaryEmail = nullable(secondary.email, 160)?.toLowerCase() ?? null;
+
+    if (
+      secondaryLastName ||
+      secondaryPhone ||
+      secondaryCin ||
+      secondaryEmail
+    ) {
+      let secondaryGuardian: any = null;
+
+      if (secondaryCin) {
+        const { data } = await admin
+          .from("sekoly_guardians")
+          .select("*")
+          .eq("school_id", schoolId)
+          .ilike("cin_number", secondaryCin)
+          .maybeSingle();
+        secondaryGuardian = data;
+      }
+
+      if (!secondaryGuardian && secondaryPhone) {
+        const { data } = await admin
+          .from("sekoly_guardians")
+          .select("*")
+          .eq("school_id", schoolId)
+          .eq("phone_primary", secondaryPhone)
+          .limit(1);
+        secondaryGuardian = data?.[0] ?? null;
+      }
+
+      const secondaryValues = {
+        last_name: secondaryLastName || "RESPONSABLE",
+        first_name: secondaryFirstName,
+        phone_primary: secondaryPhone || null,
+        phone_secondary: nullable(secondary.phoneSecondary, 40),
+        email: secondaryEmail,
+        cin_number: secondaryCin,
+        cin_issued_at: nullable(secondary.cinIssuedAt, 10),
+        cin_issue_place: nullable(secondary.cinIssuePlace, 160),
+        occupation: nullable(secondary.occupation, 160),
+        address: nullable(guardian.address, 250),
+        city: nullable(guardian.city, 120),
+        status: "ACTIVE",
+      };
+
+      if (secondaryGuardian) {
+        const { data, error } = await admin
+          .from("sekoly_guardians")
+          .update(secondaryValues)
+          .eq("id", secondaryGuardian.id)
+          .select("*")
+          .single();
+        if (error) throw error;
+        secondaryGuardian = data;
+      } else {
+        const { data, error } = await admin
+          .from("sekoly_guardians")
+          .insert({ school_id: schoolId, ...secondaryValues })
+          .select("*")
+          .single();
+        if (error) throw error;
+        secondaryGuardian = data;
+      }
+
+      if (secondaryGuardian.id !== guardianRow.id) {
+        const secondaryRelationship = [
+          "FATHER",
+          "MOTHER",
+          "GUARDIAN",
+          "OTHER",
+        ].includes(clean(secondary.relationship, 20))
+          ? clean(secondary.relationship, 20)
+          : "OTHER";
+
+        const { error: secondaryLinkError } = await admin
+          .from("sekoly_family_guardians")
+          .upsert(
+            {
+              school_id: schoolId,
+              family_id: family.id,
+              guardian_id: secondaryGuardian.id,
+              is_primary: false,
+              relationship: secondaryRelationship,
+            },
+            { onConflict: "family_id,guardian_id" },
+          );
+        if (secondaryLinkError) throw secondaryLinkError;
+      }
+    }
+  }
+
   return { family, guardian: guardianRow };
 }
 
