@@ -1625,3 +1625,35 @@ textarea {
   font-weight: 700;
   overflow-wrap: anywhere;
 }
+
+.cloud-enrollment-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 9.5px;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.cloud-enrollment-status--submitted {
+  background: rgba(155, 107, 34, .14);
+  color: var(--warning);
+}
+
+.cloud-enrollment-status--contacted {
+  background: rgba(36, 63, 90, .12);
+  color: var(--primary);
+}
+
+.cloud-enrollment-status--approved {
+  background: rgba(47, 125, 93, .14);
+  color: var(--success);
+}
+
+.cloud-enrollment-status--rejected,
+.cloud-enrollment-status--withdrawn {
+  background: rgba(181, 71, 71, .12);
+  color: var(--danger);
+}
