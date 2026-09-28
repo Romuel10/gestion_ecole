@@ -610,6 +610,33 @@ async function loadPortalData(admin: any, token: string) {
     applications = data ?? [];
   }
 
+  const applicationIds = applications.map((item: any) => item.id);
+  let checklist: any[] = [];
+  let documents: any[] = [];
+  if (applicationIds.length > 0) {
+    const [
+      { data: checklistRows, error: checklistError },
+      { data: documentRows, error: documentError },
+    ] = await Promise.all([
+      admin
+        .from("sekoly_enrollment_checklist_items")
+        .select("id,application_id,code,label,required,status,document_id,note,sort_order")
+        .eq("school_id", access.family.school_id)
+        .in("application_id", applicationIds)
+        .order("sort_order"),
+      admin
+        .from("sekoly_enrollment_documents")
+        .select("id,application_id,document_type,original_name,status,created_at")
+        .eq("school_id", access.family.school_id)
+        .eq("family_id", access.family.id)
+        .order("created_at", { ascending: false }),
+    ]);
+    if (checklistError) throw checklistError;
+    if (documentError) throw documentError;
+    checklist = checklistRows ?? [];
+    documents = documentRows ?? [];
+  }
+
   const { data: campaigns, error: campaignsError } = await admin
     .from("sekoly_enrollment_campaigns")
     .select("id,public_code,name,school_year_id")
@@ -624,6 +651,8 @@ async function loadPortalData(admin: any, token: string) {
     school,
     students,
     applications,
+    checklist,
+    documents,
     campaign: campaigns?.[0] ?? null,
   };
 }
