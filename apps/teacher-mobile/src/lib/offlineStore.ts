@@ -112,4 +112,40 @@ export const offlineStore = {
     );
     return row?.total ?? 0;
   },
+
+  queueHealth() {
+    const row = db.getFirstSync<{
+      total: number;
+      failed: number;
+      last_error: string | null;
+    }>(
+      `SELECT
+         COUNT(*) AS total,
+         SUM(CASE WHEN attempts > 0 THEN 1 ELSE 0 END) AS failed,
+         (
+           SELECT last_error
+           FROM mutation_queue
+           WHERE last_error IS NOT NULL
+           ORDER BY created_at DESC
+           LIMIT 1
+         ) AS last_error
+       FROM mutation_queue`
+    );
+
+    return {
+      total: row?.total ?? 0,
+      failed: row?.failed ?? 0,
+      lastError: row?.last_error ?? null,
+    };
+  },
+
+  deviceId() {
+    const key = 'device-id-v1';
+    const existing = this.getCache<string>(key);
+    if (existing) return existing;
+
+    const id = uuid();
+    this.setCache(key, id);
+    return id;
+  },
 };
