@@ -382,6 +382,19 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
               <input type="email" placeholder="Email" value={formData.motherEmail || ''} onChange={(e) => setFormData({ ...formData, motherEmail: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" />
               <input type="text" placeholder="Profession" value={formData.motherJob || ''} onChange={(e) => setFormData({ ...formData, motherJob: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" />
             </div>
+
+            <div className="sm:col-span-2 p-3 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 space-y-2">
+              <div className="font-semibold">Tuteur / responsable légal (si différent)</div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <input type="text" placeholder="Nom complet" value={formData.guardianName || ''} onChange={(e) => setFormData({ ...formData, guardianName: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" />
+                <input type="text" placeholder="Téléphone" value={formData.guardianPhone || ''} onChange={(e) => setFormData({ ...formData, guardianPhone: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" />
+                <input type="text" placeholder="N° CIN" value={formData.guardianCinNumber || ''} onChange={(e) => setFormData({ ...formData, guardianCinNumber: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" />
+                <input type="date" value={formData.guardianCinIssuedAt || ''} onChange={(e) => setFormData({ ...formData, guardianCinIssuedAt: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" />
+                <input type="text" placeholder="Lieu CIN" value={formData.guardianCinIssuePlace || ''} onChange={(e) => setFormData({ ...formData, guardianCinIssuePlace: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" />
+                <input type="email" placeholder="Email" value={formData.guardianEmail || ''} onChange={(e) => setFormData({ ...formData, guardianEmail: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" />
+                <input type="text" placeholder="Profession" value={formData.guardianJob || ''} onChange={(e) => setFormData({ ...formData, guardianJob: e.target.value })} className="sm:col-span-2 w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" />
+              </div>
+            </div>
           </div>
         </div>
       </form>
