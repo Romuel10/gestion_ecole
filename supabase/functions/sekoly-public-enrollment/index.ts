@@ -729,8 +729,33 @@ function renderPage(ctx: any, publicCode: string, familyAccess: any = null) {
               occupation: familyAccess.primaryGuardian.occupation ?? "",
               address: familyAccess.primaryGuardian.address ?? "",
               city: familyAccess.primaryGuardian.city ?? "",
+              relationship:
+                familyAccess.links.find(
+                  (link: any) =>
+                    link.guardian_id === familyAccess.primaryGuardian.id,
+                )?.relationship ?? "GUARDIAN",
             }
           : null,
+        secondaryGuardian: (() => {
+          const secondary = (familyAccess.guardians ?? []).find(
+            (item: any) => item.id !== familyAccess.primaryGuardian?.id,
+          );
+          if (!secondary) return null;
+          return {
+            lastName: secondary.last_name ?? "",
+            firstName: secondary.first_name ?? "",
+            phonePrimary: secondary.phone_primary ?? "",
+            email: secondary.email ?? "",
+            cinNumber: secondary.cin_number ?? "",
+            cinIssuedAt: secondary.cin_issued_at ?? "",
+            cinIssuePlace: secondary.cin_issue_place ?? "",
+            occupation: secondary.occupation ?? "",
+            relationship:
+              familyAccess.links.find(
+                (link: any) => link.guardian_id === secondary.id,
+              )?.relationship ?? "OTHER",
+          };
+        })(),
         students: (familyAccess.students ?? []).map((student: any) => ({
           matricule: student.matricule,
           lastName: student.last_name,
@@ -803,6 +828,23 @@ ${instructions}
 <div class="field"><label>Contact préféré</label><select name="preferredContact"><option value="PHONE">Appel</option><option value="WHATSAPP">WhatsApp</option><option value="SMS">SMS</option><option value="EMAIL">Email</option></select></div>
 <div class="honeypot"><label>Site</label><input name="website" autocomplete="off"></div>
 </div>
+
+<details id="secondGuardianBox" style="margin-top:16px;border:1px solid var(--line);border-radius:14px;padding:12px 14px;background:#fafcfc">
+<summary style="cursor:pointer;font-size:12px;font-weight:850;color:var(--brand)">Ajouter le deuxième parent / responsable</summary>
+<p class="fine">Facultatif, mais recommandé pour un dossier familial complet.</p>
+<div class="grid" style="margin-top:12px">
+<div class="field"><label>Lien</label><select name="secondaryRelationship"><option value="MOTHER">Mère</option><option value="FATHER">Père</option><option value="GUARDIAN">Tuteur</option><option value="OTHER">Autre</option></select></div>
+<div class="field"><label>Nom</label><input name="secondaryLastName" maxlength="120"></div>
+<div class="field"><label>Prénoms</label><input name="secondaryFirstName" maxlength="120"></div>
+<div class="field"><label>Téléphone</label><input name="secondaryPhonePrimary" inputmode="tel" maxlength="40"></div>
+<div class="field"><label>Email</label><input name="secondaryEmail" type="email" maxlength="160"></div>
+<div class="field"><label>N° CIN</label><input name="secondaryCinNumber" maxlength="80"></div>
+<div class="field"><label>Date CIN</label><input name="secondaryCinIssuedAt" type="date"></div>
+<div class="field"><label>Lieu CIN</label><input name="secondaryCinIssuePlace" maxlength="160"></div>
+<div class="field span2"><label>Profession</label><input name="secondaryOccupation" maxlength="160"></div>
+</div>
+</details>
+
 <div class="actions"><span></span><button type="button" class="btn btn-primary" data-next>Continuer</button></div>
 </section>
 
