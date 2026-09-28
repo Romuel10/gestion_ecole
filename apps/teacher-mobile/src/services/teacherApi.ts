@@ -269,7 +269,7 @@ export const teacherApi = {
       const { data, error } = await supabase
         .from('sekoly_teacher_assignments')
         .select(
-          'id,class_id,subject_id,weekly_hours,sekoly_classes(id,name,code),sekoly_subjects(id,name,code)'
+          'id,class_id,subject_id,weekly_hours,sekoly_classes!sekoly_assignments_same_school_year_class_fk(id,name,code),sekoly_subjects!sekoly_assignments_same_school_subject_fk(id,name,code)'
         )
         .eq('school_id', context.schoolId)
         .eq('school_year_id', context.schoolYearId)
@@ -294,7 +294,7 @@ export const teacherApi = {
       const { data, error } = await supabase
         .from('sekoly_timetable_slots')
         .select(
-          'id,day_of_week,start_time,end_time,room,class_id,subject_id,sekoly_classes(name),sekoly_subjects(name)'
+          'id,day_of_week,start_time,end_time,room,class_id,subject_id,sekoly_classes!sekoly_timetable_same_school_year_class_fk(name),sekoly_subjects!sekoly_timetable_same_school_subject_fk(name)'
         )
         .eq('school_id', context.schoolId)
         .eq('school_year_id', context.schoolYearId)
@@ -320,7 +320,7 @@ export const teacherApi = {
     try {
       const { data, error } = await supabase
         .from('sekoly_enrollments')
-        .select('sekoly_students(id,matricule,last_name,first_name)')
+        .select('sekoly_students!sekoly_enrollments_same_school_student_fk(id,matricule,last_name,first_name)')
         .eq('school_id', context.schoolId)
         .eq('school_year_id', context.schoolYearId)
         .eq('class_id', classId)
