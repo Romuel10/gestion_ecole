@@ -43,6 +43,36 @@ export type PilotStatus = {
   resendConfigured: boolean;
 };
 
+export type PilotSmokeTest = {
+  ready: boolean;
+  checkedAt: string;
+  school: { id: string; name: string; status: string };
+  activeYear: { id: string; label: string; status: string } | null;
+  checks: Array<{
+    key: string;
+    label: string;
+    ok: boolean;
+    required: boolean;
+    detail: string;
+  }>;
+  blocking: string[];
+  stats: {
+    teachers: number;
+    teachersWithEmail: number;
+    teachersWithAccess: number;
+    assignments: number;
+    mobileAssignments: number;
+    students: number;
+    enrollments: number;
+    classes: number;
+    subjects: number;
+    unlockedTerms: number;
+    timetable: number;
+    attendanceSessions: number;
+    assessments: number;
+  };
+};
+
 function hash32(input: string, seed: number) {
   let hash = seed >>> 0;
   for (let i = 0; i < input.length; i += 1) {
@@ -588,6 +618,21 @@ export class CloudSyncService {
     );
 
     return parseResponse<PilotStatus>(response);
+  }
+
+  static async runPilotSmokeTest(): Promise<PilotSmokeTest> {
+    const schoolId = this.getSchoolId();
+    if (!schoolId) throw new Error('Établissement Cloud non lié.');
+
+    const response = await authRequest(
+      '/functions/v1/sekoly-pilot-smoke-test',
+      {
+        method: 'POST',
+        body: JSON.stringify({ schoolId }),
+      }
+    );
+
+    return parseResponse<PilotSmokeTest>(response);
   }
 
   static async sendTeacherActivation(db: DatabaseSchema, teacherId: string) {
