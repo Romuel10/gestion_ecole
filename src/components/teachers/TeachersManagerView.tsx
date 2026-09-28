@@ -114,6 +114,15 @@ export const TeachersManagerView: React.FC<TeachersManagerViewProps> = ({
       return;
     }
 
+    const normalizedEmail = (formData.email || '').trim().toLowerCase();
+    if (
+      normalizedEmail &&
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)
+    ) {
+      onShowToast('Adresse e-mail enseignant invalide.', 'error');
+      return;
+    }
+
     const normalizedMatricule = (formData.matricule || '').trim().toUpperCase();
     if (!normalizedMatricule) {
       onShowToast('Le matricule enseignant est obligatoire.', 'error');
@@ -134,7 +143,7 @@ export const TeachersManagerView: React.FC<TeachersManagerViewProps> = ({
     if (editingTeacher) {
       updatedTeachers = updatedTeachers.map((t) =>
         t.id === editingTeacher.id
-          ? ({ ...t, ...formData, matricule: normalizedMatricule } as Teacher)
+          ? ({ ...t, ...formData, matricule: normalizedMatricule, email: normalizedEmail } as Teacher)
           : t
       );
       onShowToast(`Enseignant ${formData.lastName} modifié avec succès.`, 'success');
@@ -146,7 +155,7 @@ export const TeachersManagerView: React.FC<TeachersManagerViewProps> = ({
         firstName: formData.firstName || '',
         gender: formData.gender || 'M',
         phone: formData.phone || '',
-        email: formData.email || '',
+        email: normalizedEmail,
         address: formData.address || 'Antananarivo',
         contractType: formData.contractType || 'TITULAIRE',
         qualification: formData.qualification || 'CAPEN',
@@ -263,7 +272,12 @@ export const TeachersManagerView: React.FC<TeachersManagerViewProps> = ({
                       ? CalculationService.formatAriary(teacher.baseMonthlySalary)
                       : `${CalculationService.formatAriary(teacher.hourlyRate)}/h`}
                   </td>
-                  <td className="font-mono text-slate-500">{teacher.phone || '—'}</td>
+                  <td className="text-slate-500">
+                    <div className="font-mono">{teacher.phone || '—'}</div>
+                    {teacher.email && (
+                      <div className="mt-0.5 text-[9px]">{teacher.email}</div>
+                    )}
+                  </td>
                   <td className="text-right whitespace-nowrap">
                     <button type="button" onClick={() => handleOpenEdit(teacher)} className="p-1.5 text-slate-400 hover:text-slate-900 dark:hover:text-white" title="Modifier">
                       <Edit2 className="w-3.5 h-3.5" />
@@ -358,6 +372,20 @@ export const TeachersManagerView: React.FC<TeachersManagerViewProps> = ({
                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                 className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-mono"
               />
+            </div>
+
+            <div>
+              <label className="block font-semibold mb-1">E-mail enseignant</label>
+              <input
+                type="email"
+                value={formData.email || ''}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                placeholder="enseignant@ecole.mg"
+                className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+              />
+              <p className="mt-1 text-[10px] text-slate-500">
+                Nécessaire uniquement si cet enseignant doit se connecter à Sekoly Enseignant.
+              </p>
             </div>
 
             <div>
