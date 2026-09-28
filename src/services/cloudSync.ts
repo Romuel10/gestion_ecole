@@ -122,6 +122,71 @@ export type SyncMonitor = {
   }>;
 };
 
+export type EnrollmentCampaign = {
+  id: string;
+  school_id: string;
+  school_year_id: string;
+  name: string;
+  public_code: string;
+  status: 'DRAFT' | 'OPEN' | 'CLOSED';
+  allow_new_admission: boolean;
+  allow_re_registration: boolean;
+  instructions: string | null;
+  opens_at: string | null;
+  closes_at: string | null;
+  created_at: string;
+  publicUrl: string;
+  qrUrl: string;
+};
+
+export type EnrollmentQueueItem = {
+  id: string;
+  school_id: string;
+  campaign_id: string;
+  family_id: string;
+  application_type: 'NEW' | 'RE_REGISTRATION';
+  status: 'SUBMITTED' | 'CONTACTED' | 'APPROVED' | 'REJECTED' | 'WITHDRAWN';
+  existing_matricule: string | null;
+  desired_class_id: string | null;
+  child_last_name: string;
+  child_first_name: string;
+  child_gender: 'M' | 'F' | null;
+  child_birth_date: string | null;
+  child_birth_place: string | null;
+  child_nationality: string;
+  child_address: string | null;
+  child_neighborhood: string | null;
+  child_city: string | null;
+  previous_school: string | null;
+  birth_certificate_number: string | null;
+  birth_certificate_date: string | null;
+  birth_certificate_place: string | null;
+  blood_type: string | null;
+  medical_notes: string | null;
+  contact_note: string | null;
+  contacted_at: string | null;
+  approved_at: string | null;
+  created_at: string;
+  family: {
+    id: string;
+    reference_code: string;
+    guardian_last_name: string;
+    guardian_first_name: string;
+    relationship: 'FATHER' | 'MOTHER' | 'GUARDIAN' | 'OTHER';
+    phone_primary: string;
+    phone_secondary: string | null;
+    email: string | null;
+    cin_number: string | null;
+    cin_issued_at: string | null;
+    cin_issue_place: string | null;
+    occupation: string | null;
+    address: string | null;
+    city: string | null;
+    preferred_contact: string;
+  } | null;
+  desiredClassName: string | null;
+};
+
 function hash32(input: string, seed: number) {
   let hash = seed >>> 0;
   for (let i = 0; i < input.length; i += 1) {
@@ -246,6 +311,20 @@ async function restUpsert(
     }
   );
   if (!response.ok) await parseResponse(response);
+}
+
+async function restInsertReturning<T>(
+  table: string,
+  row: Record<string, unknown>
+): Promise<T> {
+  const response = await authRequest(`/rest/v1/${table}`, {
+    method: 'POST',
+    headers: { Prefer: 'return=representation' },
+    body: JSON.stringify(row),
+  });
+  const rows = await parseResponse<T[]>(response);
+  if (!rows[0]) throw new Error('Le Cloud n’a retourné aucune donnée.');
+  return rows[0];
 }
 
 async function restPatch(
@@ -532,9 +611,16 @@ export class CloudSyncService {
         birth_place: student.birthPlace || null,
         nationality: student.nationality || 'Malgache',
         address: student.address || null,
+        neighborhood: student.neighborhood || null,
         city: student.city || null,
         emergency_contact: student.emergencyContact || null,
         emergency_phone: student.emergencyPhone || null,
+        blood_type: student.bloodType || null,
+        medical_notes: student.medicalNotes || null,
+        previous_school: student.previousSchool || null,
+        birth_certificate_number: student.birthCertificateNumber || null,
+        birth_certificate_date: student.birthCertificateDate || null,
+        birth_certificate_place: student.birthCertificatePlace || null,
         photo_url: student.photoUrl || null,
       });
     });
@@ -543,6 +629,46 @@ export class CloudSyncService {
       Array.from(uniqueStudents.values()),
       'id'
     );
+
+    const guardians = (db.guardians ?? []).map((guardian) => ({
+      id: cloudUuid('guardian', guardian.id),
+      school_id: schoolId,
+      last_name: guardian.lastName,
+      first_name: guardian.firstName,
+      phone_primary: guardian.phonePrimary || null,
+      phone_secondary: guardian.phoneSecondary || null,
+      email: guardian.email || null,
+      cin_number: guardian.cinNumber || null,
+      cin_issued_at: guardian.cinIssuedAt || null,
+      cin_issue_place: guardian.cinIssuePlace || null,
+      occupation: guardian.occupation || null,
+      employer: guardian.employer || null,
+      address: guardian.address || null,
+      city: guardian.city || null,
+      nationality: guardian.nationality || 'Malgache',
+      status: guardian.status || 'ACTIVE',
+    }));
+    await restUpsert('sekoly_guardians', guardians, 'id');
+
+    const guardianLinks = (db.studentGuardianLinks ?? [])
+      .map((link) => {
+        const student = db.students.find((item) => item.id === link.studentId);
+        if (!student) return null;
+        return {
+          id: cloudUuid('student-guardian', link.id),
+          school_id: schoolId,
+          student_id: cloudUuid('student', student.matricule.toUpperCase()),
+          guardian_id: cloudUuid('guardian', link.guardianId),
+          relationship: link.relationship,
+          is_primary: Boolean(link.isPrimary),
+          has_legal_custody: link.hasLegalCustody !== false,
+          authorized_pickup: link.authorizedPickup !== false,
+          emergency_priority: link.emergencyPriority || null,
+          notes: link.notes || null,
+        };
+      })
+      .filter(Boolean) as Record<string, unknown>[];
+    await restUpsert('sekoly_student_guardians', guardianLinks, 'id');
 
     const enrollments = db.students.map((student) => ({
       id: cloudUuid(
@@ -719,11 +845,142 @@ export class CloudSyncService {
       subjects: subjects.length,
       classes: classes.length,
       students: uniqueStudents.size,
+      guardians: guardians.length,
+      guardianLinks: guardianLinks.length,
       enrollments: enrollments.length,
       teachers: teachers.length,
       assignments: assignments.length,
       timetable: timetable.length,
     };
+  }
+
+  static publicEnrollmentUrl(publicCode: string) {
+    return `${DEFAULT_URL}/functions/v1/sekoly-public-enrollment?code=${encodeURIComponent(
+      publicCode
+    )}`;
+  }
+
+  static async getOpenEnrollmentCampaign(
+    db: DatabaseSchema
+  ): Promise<EnrollmentCampaign | null> {
+    const schoolId = this.getSchoolId();
+    if (!schoolId) throw new Error('Établissement Cloud non lié.');
+
+    const rows = await restSelect<any>(
+      'sekoly_enrollment_campaigns',
+      `select=*&school_id=eq.${schoolId}&school_year_id=eq.${cloudUuid(
+        'year',
+        db.currentSchoolYearId
+      )}&status=eq.OPEN&order=created_at.desc&limit=1`
+    );
+
+    const campaign = rows[0];
+    if (!campaign) return null;
+    const publicUrl = this.publicEnrollmentUrl(campaign.public_code);
+    return {
+      ...campaign,
+      publicUrl,
+      qrUrl: `${publicUrl}&format=qr`,
+    } as EnrollmentCampaign;
+  }
+
+  static async createEnrollmentCampaign(
+    db: DatabaseSchema
+  ): Promise<EnrollmentCampaign> {
+    const schoolId = this.getSchoolId();
+    const session = this.getSession();
+    if (!schoolId) throw new Error('Établissement Cloud non lié.');
+
+    const currentYear = db.schoolYears.find(
+      (item) => item.id === db.currentSchoolYearId
+    );
+    if (!currentYear) throw new Error('Année scolaire active introuvable.');
+
+    const existing = await this.getOpenEnrollmentCampaign(db);
+    if (existing) return existing;
+
+    const campaign = await restInsertReturning<any>(
+      'sekoly_enrollment_campaigns',
+      {
+        school_id: schoolId,
+        school_year_id: cloudUuid('year', db.currentSchoolYearId),
+        name: `Inscriptions ${currentYear.label}`,
+        status: 'OPEN',
+        allow_new_admission: true,
+        allow_re_registration: true,
+        instructions:
+          "Remplissez les informations de la famille et de chaque enfant. L'établissement vous contactera avant toute validation définitive.",
+        opens_at: new Date().toISOString(),
+        created_by: session?.user?.id || null,
+      }
+    );
+
+    const publicUrl = this.publicEnrollmentUrl(campaign.public_code);
+    return {
+      ...campaign,
+      publicUrl,
+      qrUrl: `${publicUrl}&format=qr`,
+    } as EnrollmentCampaign;
+  }
+
+  static async closeEnrollmentCampaign(campaignId: string) {
+    await restPatch(
+      'sekoly_enrollment_campaigns',
+      `id=eq.${encodeURIComponent(campaignId)}`,
+      { status: 'CLOSED' }
+    );
+  }
+
+  static async listEnrollmentApplications(): Promise<EnrollmentQueueItem[]> {
+    const schoolId = this.getSchoolId();
+    if (!schoolId) throw new Error('Établissement Cloud non lié.');
+
+    const [applications, families, classes] = await Promise.all([
+      restSelect<any>(
+        'sekoly_enrollment_applications',
+        `select=*&school_id=eq.${schoolId}&order=created_at.desc&limit=500`
+      ),
+      restSelect<any>(
+        'sekoly_enrollment_families',
+        `select=*&school_id=eq.${schoolId}&order=submitted_at.desc&limit=500`
+      ),
+      restSelect<any>(
+        'sekoly_classes',
+        `select=id,name&school_id=eq.${schoolId}`
+      ),
+    ]);
+
+    const familyMap = new Map(families.map((item) => [item.id, item]));
+    const classMap = new Map(classes.map((item) => [item.id, item.name]));
+
+    return applications.map((item) => ({
+      ...item,
+      family: familyMap.get(item.family_id) || null,
+      desiredClassName: item.desired_class_id
+        ? classMap.get(item.desired_class_id) || null
+        : null,
+    })) as EnrollmentQueueItem[];
+  }
+
+  static async updateEnrollmentApplication(
+    applicationId: string,
+    status: EnrollmentQueueItem['status'],
+    contactNote?: string
+  ) {
+    const session = this.getSession();
+    const values: Record<string, unknown> = {
+      status,
+      contact_note: contactNote?.trim() || null,
+      reviewed_by: session?.user?.id || null,
+    };
+    if (status === 'CONTACTED') values.contacted_at = new Date().toISOString();
+    if (status === 'APPROVED') values.approved_at = new Date().toISOString();
+
+    await restPatch(
+      'sekoly_enrollment_applications',
+      `id=eq.${encodeURIComponent(applicationId)}`,
+      values
+    );
   }
 
   static async provisionTeacherPilot(db: DatabaseSchema, teacherId: string) {
