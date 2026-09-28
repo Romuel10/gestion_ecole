@@ -73,6 +73,53 @@ export type PilotSmokeTest = {
   };
 };
 
+export type SyncMonitor = {
+  generatedAt: string;
+  summary: {
+    devices: number;
+    active24h: number;
+    pendingDevices: number;
+    unhealthyDevices: number;
+    errors24h: number;
+    recentEvents: number;
+    auditEntries: number;
+  };
+  devices: Array<{
+    deviceId: string;
+    platform: string;
+    teacher: { id: string; name: string; email: string | null; status: string } | null;
+    lastEventType: string;
+    lastStatus: string;
+    queueCount: number;
+    lastError: string | null;
+    lastSeenAt: string;
+    health: 'OK' | 'PENDING' | 'ERROR' | 'STALE';
+  }>;
+  events: Array<{
+    id: string;
+    teacher_id: string | null;
+    device_id: string;
+    platform: string;
+    event_type: string;
+    status: string;
+    queue_count: number;
+    error_message: string | null;
+    metadata: Record<string, unknown>;
+    occurred_at: string;
+    teacher: { id: string; name: string; email: string | null; status: string } | null;
+  }>;
+  audit: Array<{
+    id: number;
+    user_id: string | null;
+    action: string;
+    entity_type: string;
+    entity_id: string | null;
+    metadata: Record<string, unknown>;
+    created_at: string;
+    actor: string;
+  }>;
+};
+
 function hash32(input: string, seed: number) {
   let hash = seed >>> 0;
   for (let i = 0; i < input.length; i += 1) {
@@ -633,6 +680,21 @@ export class CloudSyncService {
     );
 
     return parseResponse<PilotSmokeTest>(response);
+  }
+
+  static async syncMonitor(): Promise<SyncMonitor> {
+    const schoolId = this.getSchoolId();
+    if (!schoolId) throw new Error('Établissement Cloud non lié.');
+
+    const response = await authRequest(
+      '/functions/v1/sekoly-sync-monitor',
+      {
+        method: 'POST',
+        body: JSON.stringify({ schoolId }),
+      }
+    );
+
+    return parseResponse<SyncMonitor>(response);
   }
 
   static async sendTeacherActivation(db: DatabaseSchema, teacherId: string) {
