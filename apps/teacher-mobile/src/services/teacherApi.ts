@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { offlineStore, QueuedMutation } from '../lib/offlineStore';
 
@@ -53,6 +54,53 @@ export type Assessment = {
   subject_id: string;
   term_id: string;
 };
+
+type SyncEventType =
+  | 'APP_OPEN'
+  | 'SYNC_START'
+  | 'SYNC_SUCCESS'
+  | 'SYNC_ERROR'
+  | 'ATTENDANCE_SAVED'
+  | 'SCORES_SAVED'
+  | 'QUEUE_UPDATED';
+
+type SyncEventStatus = 'OK' | 'WARNING' | 'ERROR';
+
+const syncPlatform = (): 'ANDROID' | 'IOS' | 'WEB' =>
+  Platform.OS === 'android' ? 'ANDROID' : Platform.OS === 'ios' ? 'IOS' : 'WEB';
+
+async function recordSyncEvent(
+  context: TeacherContext,
+  eventType: SyncEventType,
+  status: SyncEventStatus = 'OK',
+  metadata: Record<string, unknown> = {},
+  errorMessage?: string | null
+) {
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { error } = await supabase.from('sekoly_sync_events').insert({
+      school_id: context.schoolId,
+      user_id: user.id,
+      teacher_id: context.teacherId,
+      device_id: offlineStore.deviceId(),
+      platform: syncPlatform(),
+      event_type: eventType,
+      status,
+      queue_count: offlineStore.queueCount(),
+      error_message: errorMessage?.slice(0, 1000) || null,
+      metadata,
+      occurred_at: new Date().toISOString(),
+    });
+
+    if (error) console.warn('Sekoly sync event:', error.message);
+  } catch (error) {
+    console.warn('Sekoly sync event:', error);
+  }
+}
 
 const uuid = () =>
   'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (char) => {
@@ -139,6 +187,15 @@ export const teacherApi = {
 
   async signOut() {
     await supabase.auth.signOut();
+  },
+
+  async recordDeviceEvent(
+    context: TeacherContext,
+    eventType: SyncEventType = 'APP_OPEN',
+    status: SyncEventStatus = 'OK',
+    metadata: Record<string, unknown> = {}
+  ) {
+    await recordSyncEvent(context, eventType, status, metadata);
   },
 
   async getSession() {
@@ -510,7 +567,15 @@ export const teacherApi = {
 
   async flushQueue() {
     const queue = offlineStore.listQueue();
+    const context = offlineStore.getCache<TeacherContext>('teacher-context');
     let synced = 0;
+    let lastError: string | null = null;
+
+    if (context) {
+      void recordSyncEvent(context, 'SYNC_START', 'OK', {
+        queuedMutations: queue.length,
+      });
+    }
 
     for (const mutation of queue) {
       try {
@@ -523,17 +588,31 @@ export const teacherApi = {
         offlineStore.remove(mutation.id);
         synced += 1;
       } catch (error) {
-        offlineStore.markFailed(
-          mutation.id,
-          error instanceof Error ? error.message : String(error)
-        );
+        lastError = error instanceof Error ? error.message : String(error);
+        offlineStore.markFailed(mutation.id, lastError);
         break;
       }
     }
 
+    const health = offlineStore.queueHealth();
+
+    if (context) {
+      void recordSyncEvent(
+        context,
+        lastError ? 'SYNC_ERROR' : 'SYNC_SUCCESS',
+        lastError ? 'ERROR' : health.total > 0 ? 'WARNING' : 'OK',
+        {
+          synced,
+          remaining: health.total,
+          failed: health.failed,
+        },
+        lastError || health.lastError
+      );
+    }
+
     return {
       synced,
-      remaining: offlineStore.queueCount(),
+      remaining: health.total,
     };
   },
 
