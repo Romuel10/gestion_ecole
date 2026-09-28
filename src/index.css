@@ -1657,3 +1657,30 @@ textarea {
   background: rgba(181, 71, 71, .12);
   color: var(--danger);
 }
+
+.cloud-enrollment-status--to_contact,
+.cloud-enrollment-status--submitted {
+  background: rgba(155, 107, 34, .14);
+  color: var(--warning);
+}
+
+.cloud-enrollment-status--appointment_scheduled {
+  background: rgba(36, 99, 235, .12);
+  color: #2563eb;
+}
+
+.cloud-enrollment-status--incomplete {
+  background: rgba(181, 71, 71, .12);
+  color: var(--danger);
+}
+
+.cloud-enrollment-status--complete,
+.cloud-enrollment-status--accepted {
+  background: rgba(47, 125, 93, .14);
+  color: var(--success);
+}
+
+.cloud-enrollment-status--payment_pending {
+  background: rgba(124, 58, 237, .12);
+  color: #7c3aed;
+}
