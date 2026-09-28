@@ -619,47 +619,81 @@ button{border:0;border-radius:11px;padding:11px 14px;font-weight:800;cursor:poin
 <div class="badge">${htmlEscape(ctx.campaign.name)}</div>
 </section>
 ${instructions}
-<form id="form">
-<section class="card">
-<h2>Responsable familial</h2>
+<nav class="progress" aria-label="Étapes du formulaire">
+<button type="button" data-go="0" class="active"><i></i><span>Responsable</span></button>
+<button type="button" data-go="1"><i></i><span>Enfant(s)</span></button>
+<button type="button" data-go="2"><i></i><span>Documents</span></button>
+<button type="button" data-go="3"><i></i><span>Vérifier</span></button>
+</nav>
+
+<form id="form" novalidate>
+<section class="card step active" data-step="0">
+<div class="section-title">
+<div><h2>Responsable familial</h2><p>Ces informations sont conservées dans un dossier famille unique et pourront être réutilisées pour vos autres enfants.</p></div>
+<span class="chip">Une seule saisie</span>
+</div>
 <div class="grid">
-<div><label>Nom *</label><input name="guardianLastName" required maxlength="120"></div>
-<div><label>Prénoms</label><input name="guardianFirstName" maxlength="120"></div>
-<div><label>Lien avec l'enfant *</label><select name="relationship"><option value="FATHER">Père</option><option value="MOTHER">Mère</option><option value="GUARDIAN">Tuteur / responsable légal</option><option value="OTHER">Autre</option></select></div>
-<div><label>Téléphone principal *</label><input name="phonePrimary" required maxlength="40" inputmode="tel"></div>
-<div><label>Deuxième téléphone</label><input name="phoneSecondary" maxlength="40" inputmode="tel"></div>
-<div><label>Email</label><input name="email" type="email" maxlength="160"></div>
-<div><label>N° CIN</label><input name="cinNumber" maxlength="80"></div>
-<div><label>Date CIN</label><input name="cinIssuedAt" type="date"></div>
-<div><label>Lieu de délivrance CIN</label><input name="cinIssuePlace" maxlength="160"></div>
-<div><label>Profession</label><input name="occupation" maxlength="160"></div>
-<div class="span2"><label>Adresse</label><input name="address" maxlength="250"></div>
-<div><label>Ville / Commune</label><input name="city" maxlength="120"></div>
-<div><label>Contact préféré</label><select name="preferredContact"><option value="PHONE">Appel</option><option value="WHATSAPP">WhatsApp</option><option value="SMS">SMS</option><option value="EMAIL">Email</option></select></div>
+<div class="field"><label>Nom *</label><input name="guardianLastName" required maxlength="120" autocomplete="family-name"></div>
+<div class="field"><label>Prénoms</label><input name="guardianFirstName" maxlength="120" autocomplete="given-name"></div>
+<div class="field"><label>Lien avec l'enfant *</label><select name="relationship"><option value="FATHER">Père</option><option value="MOTHER">Mère</option><option value="GUARDIAN">Tuteur / responsable légal</option><option value="OTHER">Autre</option></select></div>
+<div class="field"><label>Téléphone principal *</label><input name="phonePrimary" required maxlength="40" inputmode="tel" autocomplete="tel"></div>
+<div class="field"><label>Deuxième téléphone</label><input name="phoneSecondary" maxlength="40" inputmode="tel"></div>
+<div class="field"><label>Email</label><input name="email" type="email" maxlength="160" autocomplete="email"></div>
+<div class="field"><label>N° CIN</label><input name="cinNumber" maxlength="80"></div>
+<div class="field"><label>Date de délivrance CIN</label><input name="cinIssuedAt" type="date"></div>
+<div class="field"><label>Lieu de délivrance CIN</label><input name="cinIssuePlace" maxlength="160"></div>
+<div class="field"><label>Profession</label><input name="occupation" maxlength="160"></div>
+<div class="field span2"><label>Adresse</label><input name="address" maxlength="250" autocomplete="street-address"></div>
+<div class="field"><label>Ville / Commune</label><input name="city" maxlength="120"></div>
+<div class="field"><label>Contact préféré</label><select name="preferredContact"><option value="PHONE">Appel</option><option value="WHATSAPP">WhatsApp</option><option value="SMS">SMS</option><option value="EMAIL">Email</option></select></div>
 <div class="honeypot"><label>Site</label><input name="website" autocomplete="off"></div>
 </div>
+<div class="actions"><span></span><button type="button" class="btn btn-primary" data-next>Continuer</button></div>
 </section>
 
-<section class="card">
-<div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
-<div><h2 style="margin-bottom:4px">Enfant(s)</h2><div class="fine">Un même parent peut envoyer plusieurs dossiers en une seule fois.</div></div>
-<button class="secondary" type="button" id="addChild">+ Ajouter un enfant</button>
+<section class="card step" data-step="1">
+<div class="section-title">
+<div><h2>Enfant(s) concerné(s)</h2><p>Vous pouvez envoyer plusieurs inscriptions ou réinscriptions en une seule demande familiale.</p></div>
+<button class="btn btn-add" type="button" id="addChild">+ Ajouter un enfant</button>
 </div>
-<div id="children"></div>
+<div id="knownChildren" class="known"></div>
+<div id="children" class="children"></div>
+<div class="actions"><button type="button" class="btn btn-secondary" data-prev>Retour</button><button type="button" class="btn btn-primary" data-next>Continuer</button></div>
 </section>
 
-<section class="card">
-<p class="fine">L'envoi de ce formulaire ne vaut pas inscription définitive. L'établissement vérifie le dossier, contacte la famille, puis un responsable confirme ou refuse l'inscription dans Sekoly.</p>
-<button class="primary" id="submitBtn" type="submit">Envoyer la demande</button>
+<section class="card step" data-step="2">
+<div class="section-title">
+<div><h2>Pièces justificatives</h2><p>Ajoutez des photos lisibles ou des PDF. Chaque fichier doit faire moins de 10 Mo. Vous pourrez compléter les pièces manquantes plus tard.</p></div>
+<span class="chip">Dépôt sécurisé</span>
+</div>
+<div class="doc-grid">
+<label class="doc"><strong>CIN du responsable principal</strong><small>PDF, JPG, PNG ou WEBP</small><input type="file" data-family-doc="CIN_PRIMARY" accept=".pdf,image/jpeg,image/png,image/webp"></label>
+<label class="doc"><strong>Justificatif de domicile</strong><small>Facultatif selon l’établissement</small><input type="file" data-family-doc="RESIDENCE_CERTIFICATE" accept=".pdf,image/jpeg,image/png,image/webp"></label>
+</div>
+<div id="childDocs"></div>
+<div class="actions"><button type="button" class="btn btn-secondary" data-prev>Retour</button><button type="button" class="btn btn-primary" data-next>Vérifier</button></div>
+</section>
+
+<section class="card step" data-step="3">
+<div class="section-title">
+<div><h2>Vérification avant envoi</h2><p>Une demande en ligne n’inscrit pas automatiquement l’enfant. L’établissement vérifie les informations, appelle la famille, puis confirme l’admission.</p></div>
+<span class="chip">Dernière étape</span>
+</div>
+<div id="review" class="review"></div>
+<label class="consent"><input id="consent" type="checkbox" required><span>Je certifie que les informations fournies sont exactes et j’autorise l’établissement à les utiliser pour le traitement administratif de l’inscription et de la scolarité.</span></label>
+<div class="actions"><button type="button" class="btn btn-secondary" data-prev>Retour</button><button class="btn btn-primary" id="submitBtn" type="submit">Envoyer la demande</button></div>
+<div id="saving" class="saving"></div>
 </section>
 </form>
 
 <section class="card success" id="success">
-<div style="font-size:42px">✓</div>
+<div class="check">✓</div>
 <h2>Demande transmise</h2>
-<p>Votre référence familiale est :</p>
-<strong id="reference"></strong>
-<p class="fine">Conservez cette référence. L'établissement vous contactera avant toute inscription définitive.</p>
+<p>Votre référence familiale :</p>
+<div class="reference" id="reference"></div>
+<p class="fine">Conservez cette référence. L’établissement vous contactera avant toute inscription définitive.</p>
+<div id="uploadStatus" class="fine"></div>
+<a id="portalLink" class="portal-link" href="#">Ouvrir mon portail famille</a>
 </section>
 </main>
 <script>
