@@ -54,7 +54,7 @@ const LIGHT_COLORS = {
 };
 
 const DARK_COLORS: typeof LIGHT_COLORS = {
-  navy: '#123740',
+  navy: '#1d5664',
   navySoft: '#183038',
   green: '#61b88c',
   red: '#e47e7e',
@@ -111,7 +111,7 @@ function PrimaryButton({
       ? COLORS.navy
       : kind === 'danger'
       ? COLORS.red
-      : COLORS.white;
+      : COLORS.surface;
   const color = kind === 'secondary' ? COLORS.ink : COLORS.white;
 
   return (
@@ -1204,7 +1204,7 @@ function AppContent() {
 
   return (
     <SafeAreaView style={[styles.full, styles.safeRoot]}>
-      <ExpoStatusBar style="light" backgroundColor={COLORS.navy} />
+      <ExpoStatusBar style="light" />
       <Header
         context={context}
         queueCount={queueCount}
@@ -1339,7 +1339,6 @@ function createStyles(COLORS: MobileColors) {
     textAlign: 'center',
     color: COLORS.muted,
     fontSize: 12,
-    borderRadius: 12,
   },
   loginCard: {
     backgroundColor: COLORS.surface,
@@ -1468,7 +1467,7 @@ function createStyles(COLORS: MobileColors) {
     borderRightColor: COLORS.border,
     backgroundColor: COLORS.navySoft,
   },
-  courseTimeText: { color: COLORS.navy, fontSize: 14, fontWeight: '800' },
+  courseTimeText: { color: COLORS.green, fontSize: 14, fontWeight: '800' },
   courseTimeEnd: { marginTop: 3, color: COLORS.muted, fontSize: 9 },
   courseBody: { flex: 1, padding: 13 },
   courseSubject: { color: COLORS.ink, fontSize: 14, fontWeight: '800' },
@@ -1501,7 +1500,7 @@ function createStyles(COLORS: MobileColors) {
     borderRadius: 10,
     backgroundColor: COLORS.surface,
   },
-  smallLinkText: { color: COLORS.navy, fontSize: 9, fontWeight: '800' },
+  smallLinkText: { color: COLORS.green, fontSize: 9, fontWeight: '800' },
 
   emptyCard: {
     borderWidth: 1,
@@ -1532,7 +1531,7 @@ function createStyles(COLORS: MobileColors) {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  backText: { color: COLORS.navy, fontSize: 13, fontWeight: '700' },
+  backText: { color: COLORS.green, fontSize: 13, fontWeight: '700' },
   subHeaderTitle: {
     marginLeft: 18,
     color: COLORS.ink,
@@ -1556,6 +1555,7 @@ function createStyles(COLORS: MobileColors) {
     borderColor: COLORS.border,
     color: COLORS.ink,
     fontSize: 12,
+    borderRadius: 12,
   },
   helper: {
     marginTop: 14,
@@ -1594,7 +1594,7 @@ function createStyles(COLORS: MobileColors) {
     gap: 8,
     borderRadius: 14,
   },
-  summaryValue: { color: COLORS.navy, fontSize: 20, fontWeight: '900' },
+  summaryValue: { color: COLORS.green, fontSize: 20, fontWeight: '900' },
   summaryLabel: { color: COLORS.muted, fontSize: 10 },
 
   studentCard: {
