@@ -564,7 +564,7 @@ function renderPortalPage(ctx: any, token: string, basePath: string) {
     '</main></body></html>';
 }
 
-function renderPage(ctx: any, publicCode: string) {
+function renderPage(ctx: any, publicCode: string, familyAccess: any = null) {
   const classOptions = ctx.classes
     .map(
       (item: any) =>
@@ -830,7 +830,20 @@ Deno.serve(async (req) => {
         });
       }
 
-      return new Response(renderPage(context, publicCode), {
+      const familyToken = clean(url.searchParams.get("family"), 160);
+      const familyAccess = familyToken
+        ? await loadPortalData(admin, familyToken)
+        : null;
+
+      return new Response(
+        renderPage(
+          context,
+          publicCode,
+          familyAccess?.family?.school_id === context.campaign.school_id
+            ? familyAccess
+            : null,
+        ),
+        {
         headers: {
           "Content-Type": "text/html; charset=utf-8",
           "Cache-Control": "no-store",
@@ -839,9 +852,10 @@ Deno.serve(async (req) => {
           "X-Frame-Options": "DENY",
           "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
           "Content-Security-Policy":
-            "default-src 'self'; img-src 'self' data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self' https://*.supabase.co; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+            "default-src 'self'; img-src 'self' data: blob:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self' https://*.supabase.co; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
         },
-      });
+      },
+      );
     }
 
     if (req.method !== "POST") {
