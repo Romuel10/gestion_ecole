@@ -294,6 +294,13 @@ async function findOrCreatePersistentFamily(
     ? clean(guardian.relationship, 20)
     : "GUARDIAN";
 
+  await admin
+    .from("sekoly_family_guardians")
+    .update({ is_primary: false })
+    .eq("school_id", schoolId)
+    .eq("family_id", family.id)
+    .neq("guardian_id", guardianRow.id);
+
   const { error: primaryLinkError } = await admin
     .from("sekoly_family_guardians")
     .upsert(
