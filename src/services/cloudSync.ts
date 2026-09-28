@@ -23,6 +23,26 @@ type PullResult = {
   gradesChanged: number;
 };
 
+export type PilotStatus = {
+  school: { id: string; name: string };
+  activeYear: { id: string; label: string; status: string } | null;
+  counts: {
+    years: number;
+    terms: number;
+    subjects: number;
+    classes: number;
+    students: number;
+    teachers: number;
+    teachersWithAccess: number;
+    assignments: number;
+    timetable: number;
+  };
+  checks: Record<string, boolean>;
+  dataReady: boolean;
+  mobileReady: boolean;
+  resendConfigured: boolean;
+};
+
 function hash32(input: string, seed: number) {
   let hash = seed >>> 0;
   for (let i = 0; i < input.length; i += 1) {
@@ -553,6 +573,21 @@ export class CloudSyncService {
     );
 
     return parseResponse<any>(response);
+  }
+
+  static async pilotStatus(): Promise<PilotStatus> {
+    const schoolId = this.getSchoolId();
+    if (!schoolId) throw new Error('Établissement Cloud non lié.');
+
+    const response = await authRequest(
+      '/functions/v1/sekoly-pilot-status',
+      {
+        method: 'POST',
+        body: JSON.stringify({ schoolId }),
+      }
+    );
+
+    return parseResponse<PilotStatus>(response);
   }
 
   static async sendTeacherActivation(db: DatabaseSchema, teacherId: string) {
