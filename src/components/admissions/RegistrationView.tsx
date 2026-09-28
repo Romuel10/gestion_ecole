@@ -404,7 +404,8 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
           await CloudSyncService.syncLocalStructure(updatedDb);
           await CloudSyncService.finalizeEnrollmentApplication(
             applicationId,
-            matricule
+            matricule,
+            newPaymentObj ? 'PAID' : 'PENDING'
           );
           onShowToast(
             'Le dossier QR a été confirmé et synchronisé dans le Cloud.',
@@ -588,7 +589,8 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
           await CloudSyncService.syncLocalStructure(updatedDb);
           await CloudSyncService.finalizeEnrollmentApplication(
             applicationId,
-            newEnrollmentStudent.matricule
+            newEnrollmentStudent.matricule,
+            'PAID'
           );
           onShowToast(
             'La réinscription QR a été confirmée dans le dossier famille Cloud.',
