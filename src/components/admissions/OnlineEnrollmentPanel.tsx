@@ -147,11 +147,18 @@ export const OnlineEnrollmentPanel: React.FC<OnlineEnrollmentPanelProps> = ({
 
   const verifyChecklist = async (
     application: EnrollmentQueueItem,
-    checklistId: string
+    checklistItem: EnrollmentQueueItem['checklist'][number]
   ) => {
     try {
+      if (checklistItem.document_id) {
+        await CloudSyncService.verifyEnrollmentDocument(
+          checklistItem.document_id,
+          'VERIFIED',
+          'Pièce contrôlée et validée par l’établissement.'
+        );
+      }
       await CloudSyncService.updateEnrollmentChecklistItem(
-        checklistId,
+        checklistItem.id,
         'VERIFIED',
         'Vérifié par l’établissement.'
       );
@@ -449,7 +456,7 @@ export const OnlineEnrollmentPanel: React.FC<OnlineEnrollmentPanelProps> = ({
                             <button
                               key={row.id}
                               type="button"
-                              onClick={() => void verifyChecklist(item, row.id)}
+                              onClick={() => void verifyChecklist(item, row)}
                               className="block text-left text-[9px] text-amber-700 dark:text-amber-300 hover:underline"
                               title="Marquer comme vérifié après contrôle"
                             >
@@ -542,7 +549,14 @@ export const OnlineEnrollmentPanel: React.FC<OnlineEnrollmentPanelProps> = ({
                             Paiement attendu
                           </button>
                         )}
-                        {!['APPROVED', 'REJECTED', 'WITHDRAWN'].includes(item.status) && (
+                        {[
+                          'CONTACTED',
+                          'APPOINTMENT_SCHEDULED',
+                          'INCOMPLETE',
+                          'COMPLETE',
+                          'ACCEPTED',
+                          'PAYMENT_PENDING',
+                        ].includes(item.status) && (
                           <button
                             type="button"
                             className="button button--primary"
