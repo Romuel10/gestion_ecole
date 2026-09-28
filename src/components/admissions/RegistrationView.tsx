@@ -402,10 +402,9 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
       void (async () => {
         try {
           await CloudSyncService.syncLocalStructure(updatedDb);
-          await CloudSyncService.updateEnrollmentApplication(
+          await CloudSyncService.finalizeEnrollmentApplication(
             applicationId,
-            'APPROVED',
-            `Inscription confirmée — matricule ${matricule}`
+            matricule
           );
           onShowToast(
             'Le dossier QR a été confirmé et synchronisé dans le Cloud.',
@@ -581,6 +580,30 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
     onShowToast(`Réinscription de ${selectedStudentForReReg.lastName} validée avec succès !`, 'success');
     PdfGeneratorService.generateTuitionReceiptPDF(newPayment, updatedDb);
 
+    if (pendingApplicationId && CloudSyncService.isConnected()) {
+      const applicationId = pendingApplicationId;
+      setPendingApplicationId(null);
+      void (async () => {
+        try {
+          await CloudSyncService.syncLocalStructure(updatedDb);
+          await CloudSyncService.finalizeEnrollmentApplication(
+            applicationId,
+            newEnrollmentStudent.matricule
+          );
+          onShowToast(
+            'La réinscription QR a été confirmée dans le dossier famille Cloud.',
+            'success'
+          );
+        } catch (error) {
+          console.warn('Finalisation réinscription QR:', error);
+          onShowToast(
+            'Réinscription enregistrée localement. La confirmation Cloud sera à reprendre après reconnexion.',
+            'info'
+          );
+        }
+      })();
+    }
+
     setSelectedStudentForReReg(null);
     setReRegSearch('');
   };
@@ -622,6 +645,7 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
 
   const prepareOnlineApplication = (application: EnrollmentQueueItem) => {
     if (application.application_type === 'RE_REGISTRATION') {
+      setPendingApplicationId(application.id);
       setReRegSearch(application.existing_matricule || application.child_last_name);
       setActiveTab('RE_REGISTRATION');
       onShowToast(
