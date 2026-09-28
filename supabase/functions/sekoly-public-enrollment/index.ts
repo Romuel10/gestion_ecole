@@ -329,6 +329,10 @@ Deno.serve(async (req) => {
           "Cache-Control": "no-store",
           "X-Content-Type-Options": "nosniff",
           "Referrer-Policy": "no-referrer",
+          "X-Frame-Options": "DENY",
+          "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+          "Content-Security-Policy":
+            "default-src 'self'; img-src 'self' data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self' https://*.supabase.co; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
         },
       });
     }
@@ -394,7 +398,26 @@ Deno.serve(async (req) => {
       };
     });
 
+    const rateLimitSince = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+    const { count: recentFamilyCount, error: rateError } = await admin
+      .from("sekoly_enrollment_families")
+      .select("id", { count: "exact", head: true })
+      .eq("campaign_id", context.campaign.id)
+      .eq("phone_primary", phonePrimary)
+      .gte("submitted_at", rateLimitSince);
+
+    if (rateError) throw rateError;
+    if ((recentFamilyCount ?? 0) >= 5) {
+      return jsonResponse(
+        { error: "Trop de demandes ont été envoyées avec ce numéro. Réessayez plus tard ou contactez directement l’établissement." },
+        429,
+      );
+    }
+
     const clientRequestId = clean(body.clientRequestId, 64);
+    if (clientRequestId && !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(clientRequestId)) {
+      return jsonResponse({ error: "Identifiant de demande invalide." }, 400);
+    }
     if (clientRequestId) {
       const { data: duplicate } = await admin
         .from("sekoly_enrollment_families")
