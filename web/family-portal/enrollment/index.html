@@ -186,7 +186,10 @@
     const name=scope==='FAMILY'?' name="customFamily__'+esc(field.key)+'"':'';
     const req=field.required?' required':'';
     const placeholder=field.placeholder?' placeholder="'+esc(field.placeholder)+'"':'';
-    const common=customAttr+'="'+esc(field.key)+'"'+name+req+placeholder;
+    const id='custom-'+scope.toLowerCase()+'-'+String(field.key).replace(/[^a-zA-Z0-9_-]/g,'-');
+    const helpId=field.helpText?id+'-help':'';
+    const described=helpId?' aria-describedby="'+esc(helpId)+'"':'';
+    const common=' id="'+esc(id)+'" '+customAttr+'="'+esc(field.key)+'"'+name+req+placeholder+described;
     if(field.type==='TEXTAREA')return '<textarea '+common+' maxlength="4000"></textarea>';
     if(field.type==='DATE')return '<input type="date" '+common+'>';
     if(field.type==='EMAIL')return '<input type="email" '+common+' maxlength="500">';
@@ -203,7 +206,12 @@
     const custom=schemaFields(scope).filter(f=>f.custom);
     if(!custom.length)return '';
     return '<div class="custom-fields-title">Informations complémentaires demandées par l’établissement</div>'+
-      custom.map(field=>'<div class="field"><label>'+esc(field.label)+(field.required?' *':'')+'</label>'+fieldInputHtml(field,scope)+(field.helpText?'<small class="field-note">'+esc(field.helpText)+'</small>':'')+'</div>').join('');
+      custom.map(field=>{
+        const id='custom-'+scope.toLowerCase()+'-'+String(field.key).replace(/[^a-zA-Z0-9_-]/g,'-');
+        const status=field.required?' (obligatoire)':' (facultatif)';
+        const helpId=id+'-help';
+        return '<div class="field"><label for="'+esc(id)+'">'+esc(field.label)+status+'</label>'+fieldInputHtml(field,scope)+(field.helpText?'<small id="'+esc(helpId)+'" class="field-note">'+esc(field.helpText)+'</small>':'')+'</div>';
+      }).join('');
   }
   function customAnswerValue(el){
     if(!el)return '';
@@ -229,9 +237,33 @@
     if(!el)return;
     const box=el.closest('.field');
     if(box)box.classList.toggle('hidden',field.visible===false);
-    el.required=field.visible!==false&&Boolean(field.required);
+    const required=field.visible!==false&&Boolean(field.required);
+    el.required=required;
+    el.setAttribute('aria-required',required?'true':'false');
+    const safeKey=String(field.key||el.name||'field').replace(/[^a-zA-Z0-9_-]/g,'-');
+    const id=el.id||'field-'+String(field.scope||'form').toLowerCase()+'-'+safeKey;
+    el.id=id;
     const label=box&&q('label',box);
-    if(label&&field.label)label.textContent=field.label+(field.required?' *':'');
+    if(label){
+      label.htmlFor=id;
+      if(field.label)label.textContent=field.label+(required?' (obligatoire)':' (facultatif)');
+    }
+    if(box){
+      const existing=q('.field-note[data-schema-help="true"]',box);
+      if(field.helpText&&field.visible!==false){
+        const helpId=id+'-help';
+        const note=existing||document.createElement('small');
+        note.className='field-note';
+        note.dataset.schemaHelp='true';
+        note.id=helpId;
+        note.textContent=field.helpText;
+        if(!existing)box.appendChild(note);
+        el.setAttribute('aria-describedby',helpId);
+      }else{
+        existing?.remove();
+        if(el.getAttribute('aria-describedby')===id+'-help')el.removeAttribute('aria-describedby');
+      }
+    }
   }
   function applyFamilySchema(){
     const fixed=(bootstrap?.campaign?.form_schema?.fields||[]).filter(f=>f&&f.scope==='FAMILY'&&!f.custom);
@@ -275,19 +307,19 @@
     });
   }
   function validateSchemaFields(scope,root){
-    for(const field of schemaFields(scope).filter(f=>f.required)){
+    for(const field of schemaFields(scope)){
       if(scope==='CHILD'&&field.key==='existingMatricule'&&q('[data-field="type"]',root)?.value!=='RE_REGISTRATION')continue;
       const el=field.custom
         ? q('['+(scope==='FAMILY'?'data-custom-family-key':'data-custom-child-key')+'="'+field.key+'"]',root)
         : scope==='FAMILY'?form.elements[field.key]:q('[data-field="'+field.key+'"]',root);
       if(!el)continue;
       const value=customAnswerValue(el);
-      if(value===''||value==null){
+      if(field.required&&(value===''||value==null)){
         el.focus();
         alert('Veuillez renseigner : '+field.label);
         return false;
       }
-      if(el.checkValidity&&!el.checkValidity()){
+      if(value!==''&&value!=null&&el.checkValidity&&!el.checkValidity()){
         el.reportValidity?.();
         return false;
       }
