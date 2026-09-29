@@ -112,6 +112,7 @@ function publicEnrollmentEndpoint(supabaseUrl: string) {
   return supabaseUrl.replace(/\/+$/, "") + "/functions/v1/sekoly-public-enrollment";
 }
 
+// Static family portal is published to Supabase Storage on demand.
 const FAMILY_SITE_BUCKET = "sekoly-family-portal";
 const FAMILY_SITE_PATH = "enrollment/index.html";
 const FAMILY_SITE_VERSION = "20260929-3";
