@@ -1156,7 +1156,7 @@ export class CloudSyncService {
     return {
       ...campaign,
       publicUrl,
-      qrUrl: `${publicUrl}&format=qr&v=3`,
+      qrUrl: `${publicUrl}&format=qr&v=4`,
     } as EnrollmentCampaign;
   }
 
@@ -1195,7 +1195,7 @@ export class CloudSyncService {
     return {
       ...campaign,
       publicUrl,
-      qrUrl: `${publicUrl}&format=qr&v=3`,
+      qrUrl: `${publicUrl}&format=qr&v=4`,
     } as EnrollmentCampaign;
   }
 
