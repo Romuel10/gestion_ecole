@@ -1,7 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import QRCode from "npm:qrcode@1.5.4";
-import { PUBLIC_REGISTRATION_HTML } from "./publicPage.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -31,6 +30,17 @@ function nullable(value: unknown, max = 250) {
 
 function publicEnrollmentEndpoint(supabaseUrl: string) {
   return supabaseUrl.replace(/\/+$/, "") + "/functions/v1/sekoly-public-enrollment";
+}
+
+const FAMILY_FRONTEND_URL =
+  "https://romuel10.github.io/gestion_ecole/enrollment/";
+
+function familyFrontendUrl(params: Record<string, string | null | undefined>) {
+  const url = new URL(FAMILY_FRONTEND_URL);
+  for (const [key, value] of Object.entries(params)) {
+    if (value) url.searchParams.set(key, value);
+  }
+  return url.toString();
 }
 
 function htmlEscape(value: unknown) {
@@ -1529,10 +1539,18 @@ Deno.serve(async (req) => {
     const publicEndpoint = publicEnrollmentEndpoint(supabaseUrl);
 
     if (
-      url.searchParams.get("action") === "bootstrap" &&
+      url.searchParams.get("action") === "portal-bootstrap" &&
       req.method === "GET"
     ) {
-      const publicCode = clean(url.searchParams.get("code"), 64);
+      const portalToken = clean(url.searchParams.get("portal"), 160);
+    if (portalToken && req.method === "GET") {
+      return Response.redirect(
+        familyFrontendUrl({ portal: portalToken }),
+        302,
+      );
+    }
+
+    const publicCode = clean(url.searchParams.get("code"), 64);
       if (!publicCode) {
         return jsonResponse({ error: "Code d'inscription manquant." }, 400);
       }
@@ -1662,11 +1680,12 @@ Deno.serve(async (req) => {
 
     if (req.method === "GET") {
       if (url.searchParams.get("format") === "qr") {
-        const target = new URL(publicEndpoint);
-        target.searchParams.set("code", publicCode);
         const familyToken = clean(url.searchParams.get("family"), 160);
-        if (familyToken) target.searchParams.set("family", familyToken);
-        const svg = await QRCode.toString(target.toString(), {
+        const target = familyFrontendUrl({
+          code: publicCode,
+          family: familyToken || null,
+        });
+        const svg = await QRCode.toString(target, {
           type: "svg",
           width: 360,
           margin: 2,
@@ -1681,19 +1700,14 @@ Deno.serve(async (req) => {
         });
       }
 
-      return new Response(PUBLIC_REGISTRATION_HTML, {
-        headers: {
-          "Content-Type": "text/html; charset=utf-8",
-          "Content-Disposition": "inline; filename=\"inscription.html\"",
-          "Cache-Control": "no-store, max-age=0",
-          "X-Content-Type-Options": "nosniff",
-          "Referrer-Policy": "no-referrer",
-          "X-Frame-Options": "DENY",
-          "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
-          "Content-Security-Policy":
-            "default-src 'self'; img-src 'self' data: blob:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self' https://*.supabase.co; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
-        },
-      });
+      const familyToken = clean(url.searchParams.get("family"), 160);
+      return Response.redirect(
+        familyFrontendUrl({
+          code: publicCode,
+          family: familyToken || null,
+        }),
+        302,
+      );
     }
 
     if (req.method !== "POST") {
@@ -1870,10 +1884,7 @@ Deno.serve(async (req) => {
         context.campaign.school_id,
         persistent.family.id,
       ));
-    const portalUrl =
-      publicEndpoint +
-      "?portal=" +
-      encodeURIComponent(familyToken);
+    const portalUrl = familyFrontendUrl({ portal: familyToken });
 
     return jsonResponse({
       ok: true,
