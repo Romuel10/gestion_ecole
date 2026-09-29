@@ -77,6 +77,36 @@ export type PilotSmokeTest = {
   };
 };
 
+export type SchoolCloudCapacity = {
+  limits: {
+    school_id: string;
+    plan_code: 'PILOT' | 'STANDARD' | 'PRO' | 'ENTERPRISE';
+    status: 'ACTIVE' | 'SUSPENDED';
+    max_students: number;
+    max_teachers: number;
+    max_families: number;
+    max_document_bytes: number;
+    backup_retention_days: number;
+  };
+  usage: {
+    students: number;
+    teachers: number;
+    families: number;
+    documentBytes: number;
+  };
+  latestBackup: SchoolBackup | null;
+};
+
+export type SchoolBackup = {
+  id: string;
+  backup_type: 'AUTOMATIC' | 'MANUAL';
+  status: 'CREATING' | 'READY' | 'FAILED' | 'EXPIRED';
+  size_bytes: number | null;
+  row_counts: Record<string, number>;
+  created_at: string;
+  expires_at: string | null;
+};
+
 export type SyncMonitor = {
   generatedAt: string;
   summary: {
@@ -1493,6 +1523,68 @@ export class CloudSyncService {
     );
 
     return parseResponse<any>(response);
+  }
+
+  static async cloudCapacity(): Promise<SchoolCloudCapacity> {
+    const schoolId = this.getSchoolId();
+    if (!schoolId) throw new Error('Établissement Cloud non lié.');
+
+    const response = await authRequest('/functions/v1/sekoly-backup-school', {
+      method: 'POST',
+      body: JSON.stringify({ schoolId, action: 'status' }),
+    });
+    return parseResponse<SchoolCloudCapacity>(response);
+  }
+
+  static async schoolBackups(): Promise<SchoolBackup[]> {
+    const schoolId = this.getSchoolId();
+    if (!schoolId) throw new Error('Établissement Cloud non lié.');
+
+    const response = await authRequest('/functions/v1/sekoly-backup-school', {
+      method: 'POST',
+      body: JSON.stringify({ schoolId, action: 'list' }),
+    });
+    const result = await parseResponse<{ backups: SchoolBackup[] }>(response);
+    return result.backups;
+  }
+
+  static async createSchoolBackup(
+    mode: 'AUTOMATIC' | 'MANUAL' = 'MANUAL'
+  ): Promise<{ created: boolean; backup: SchoolBackup }> {
+    const schoolId = this.getSchoolId();
+    if (!schoolId) throw new Error('Établissement Cloud non lié.');
+
+    const response = await authRequest('/functions/v1/sekoly-backup-school', {
+      method: 'POST',
+      body: JSON.stringify({ schoolId, mode, action: 'create' }),
+    });
+    return parseResponse<{ created: boolean; backup: SchoolBackup }>(response);
+  }
+
+  static async backupSignedUrl(backupId: string) {
+    const schoolId = this.getSchoolId();
+    if (!schoolId) throw new Error('Établissement Cloud non lié.');
+
+    const response = await authRequest('/functions/v1/sekoly-backup-school', {
+      method: 'POST',
+      body: JSON.stringify({ schoolId, action: 'signed_url', backupId }),
+    });
+    return parseResponse<{ url: string }>(response);
+  }
+
+  static async ensureDailyBackup() {
+    const throttleKey = `SEKOLY_DAILY_BACKUP_CHECK:${this.getSchoolId() || 'none'}`;
+    const lastCheck = Number(localStorage.getItem(throttleKey) || '0');
+    if (Date.now() - lastCheck < 6 * 60 * 60 * 1000) return null;
+
+    try {
+      const result = await this.createSchoolBackup('AUTOMATIC');
+      localStorage.setItem(throttleKey, String(Date.now()));
+      return result;
+    } catch (error) {
+      console.warn('Sekoly automatic backup:', error);
+      return null;
+    }
   }
 
   static async pilotStatus(): Promise<PilotStatus> {
