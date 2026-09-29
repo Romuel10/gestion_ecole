@@ -11,6 +11,7 @@ import { DatabaseSchema, Teacher, TeacherContract } from '../../types/school';
 import { CalculationService } from '../../services/calculations';
 import { StorageService } from '../../services/storage';
 import { Modal } from '../common/Modal';
+import { useConfirm } from '../common/ConfirmProvider';
 
 interface TeachersManagerViewProps {
   db: DatabaseSchema;
@@ -25,6 +26,7 @@ export const TeachersManagerView: React.FC<TeachersManagerViewProps> = ({
   onShowToast,
   initialTeacherId,
 }) => {
+  const confirm = useConfirm();
   const [searchQuery, setSearchQuery] = useState('');
   const [contractFilter, setContractFilter] = useState<string>('ALL');
 
@@ -181,7 +183,7 @@ export const TeachersManagerView: React.FC<TeachersManagerViewProps> = ({
     setIsModalOpen(false);
   };
 
-  const handleDeleteTeacher = (id: string, name: string) => {
+  const handleDeleteTeacher = async (id: string, name: string) => {
     const isAssignedToClass = db.classes.some(
       (cls) => cls.mainTeacherId === id || cls.subjects.some((subject) => subject.teacherId === id)
     );
@@ -196,13 +198,19 @@ export const TeachersManagerView: React.FC<TeachersManagerViewProps> = ({
       return;
     }
 
-    if (window.confirm(`Supprimer l'enseignant ${name} ?`)) {
-      const updated = db.teachers.filter((t) => t.id !== id);
-      const updatedDb: DatabaseSchema = { ...db, teachers: updated };
-      StorageService.saveDatabase(updatedDb);
-      onUpdateDb(updatedDb);
-      onShowToast('Enseignant supprimé.', 'info');
-    }
+    const accepted = await confirm({
+      title: 'Supprimer l’enseignant',
+      message: `Supprimer définitivement ${name} ? Cette action ne peut pas être annulée.`,
+      confirmLabel: 'Supprimer',
+      destructive: true,
+    });
+    if (!accepted) return;
+
+    const updated = db.teachers.filter((t) => t.id !== id);
+    const updatedDb: DatabaseSchema = { ...db, teachers: updated };
+    StorageService.saveDatabase(updatedDb);
+    onUpdateDb(updatedDb);
+    onShowToast('Enseignant supprimé.', 'info');
   };
 
   return (
