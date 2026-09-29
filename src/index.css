@@ -1684,3 +1684,94 @@ textarea {
   background: rgba(124, 58, 237, .12);
   color: #7c3aed;
 }
+
+
+/* Release polish */
+.button--danger {
+  background: var(--danger);
+  color: #fff;
+}
+
+.button--danger:hover {
+  filter: brightness(.92);
+}
+
+button:disabled,
+.button:disabled,
+.icon-button:disabled {
+  cursor: not-allowed;
+  opacity: .55;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.app-startup {
+  width: 100%;
+  height: 100vh;
+  display: grid;
+  place-items: center;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.app-startup__card {
+  width: min(420px, calc(100vw - 32px));
+  padding: 28px 26px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  text-align: center;
+}
+
+.app-startup__logo {
+  width: 54px;
+  height: 54px;
+  margin: 0 auto 14px;
+  display: block;
+}
+
+.app-startup__title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 760;
+  letter-spacing: .02em;
+}
+
+.app-startup__message {
+  margin: 7px 0 0;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.app-startup__spinner {
+  width: 18px;
+  height: 18px;
+  margin: 16px auto 0;
+  border: 2px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: sekoly-spin .75s linear infinite;
+}
+
+@keyframes sekoly-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}
