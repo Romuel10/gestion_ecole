@@ -128,8 +128,8 @@ export const EnrollmentFormBuilderModal: React.FC<EnrollmentFormBuilderModalProp
       const a = sorted[index];
       const b = sorted[swapIndex];
       const aOrder = a.order;
-      a.order = b.order;
-      b.order = aOrder;
+      sorted[index] = { ...a, order: b.order };
+      sorted[swapIndex] = { ...b, order: aOrder };
       return { ...current, fields: sorted };
     });
   };
@@ -226,8 +226,89 @@ export const EnrollmentFormBuilderModal: React.FC<EnrollmentFormBuilderModalProp
             </span>
           )}
         </div>
-        {field.helpText && (
+        {field.helpText && !field.custom && (
           <div className="mt-1 text-[10px] text-slate-500">{field.helpText}</div>
+        )}
+        {field.custom && (
+          <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2">
+            <div>
+              <label className="block text-[9px] font-bold text-slate-400 mb-1">
+                Libellé affiché
+              </label>
+              <input
+                className="settings-input"
+                value={field.label}
+                onChange={(event) =>
+                  updateField(field.key, field.scope, {
+                    label: event.target.value,
+                  })
+                }
+              />
+            </div>
+            <div>
+              <label className="block text-[9px] font-bold text-slate-400 mb-1">
+                Type de réponse
+              </label>
+              <select
+                className="settings-input"
+                value={field.type}
+                onChange={(event) =>
+                  updateField(field.key, field.scope, {
+                    type: event.target.value as EnrollmentFormFieldType,
+                    options:
+                      event.target.value === 'SELECT'
+                        ? field.options?.length
+                          ? field.options
+                          : ['Choix 1', 'Choix 2']
+                        : undefined,
+                  })
+                }
+              >
+                {(
+                  ['TEXT', 'TEXTAREA', 'DATE', 'EMAIL', 'PHONE', 'NUMBER', 'SELECT', 'YES_NO'] as EnrollmentFormFieldType[]
+                ).map((type) => (
+                  <option key={type} value={type}>
+                    {typeLabel[type]}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {field.type === 'SELECT' && (
+              <div className="md:col-span-2">
+                <label className="block text-[9px] font-bold text-slate-400 mb-1">
+                  Choix proposés
+                </label>
+                <textarea
+                  className="settings-input resize-y"
+                  rows={2}
+                  value={(field.options ?? []).join('\n')}
+                  onChange={(event) =>
+                    updateField(field.key, field.scope, {
+                      options: event.target.value
+                        .split(/\n|,/)
+                        .map((item) => item.trim())
+                        .filter(Boolean),
+                    })
+                  }
+                />
+              </div>
+            )}
+            <div className="md:col-span-2">
+              <label className="block text-[9px] font-bold text-slate-400 mb-1">
+                Aide pour le parent
+              </label>
+              <input
+                className="settings-input"
+                value={field.helpText ?? ''}
+                onChange={(event) =>
+                  updateField(field.key, field.scope, {
+                    helpText: event.target.value || undefined,
+                  })
+                }
+                placeholder="Courte précision affichée sous le champ."
+              />
+            </div>
+          </div>
         )}
       </div>
 
