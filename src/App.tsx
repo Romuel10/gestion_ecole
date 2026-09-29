@@ -62,6 +62,7 @@ export function App() {
       if (
         running ||
         cancelled ||
+        !navigator.onLine ||
         !CloudSyncService.isConnected() ||
         !CloudSyncService.getSchoolId()
       ) {
@@ -87,6 +88,7 @@ export function App() {
             result.gradeConflicts > 0 ? 'info' : 'success'
           );
         }
+        void CloudSyncService.ensureDailyBackup();
       } catch (error) {
         console.warn('Sekoly Cloud sync:', error);
       } finally {
@@ -94,12 +96,34 @@ export function App() {
       }
     };
 
+    const resumeAfterReconnect = async () => {
+      if (
+        cancelled ||
+        !CloudSyncService.isConnected() ||
+        !CloudSyncService.getSchoolId()
+      ) {
+        return;
+      }
+      try {
+        await CloudSyncService.syncLocalStructure(dbRef.current);
+        await pull();
+        showToast(
+          'Connexion rétablie : les données locales ont été resynchronisées.',
+          'success'
+        );
+      } catch (error) {
+        console.warn('Sekoly Cloud reconnect:', error);
+      }
+    };
+
     void pull();
     const timer = window.setInterval(pull, 10000);
+    window.addEventListener('online', resumeAfterReconnect);
 
     return () => {
       cancelled = true;
       window.clearInterval(timer);
+      window.removeEventListener('online', resumeAfterReconnect);
     };
   }, []);
 
