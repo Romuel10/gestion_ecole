@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useEffect, useRef, useState } from 'react';
+import React, { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
 import { DatabaseSchema } from './types/school';
 import { StorageService } from './services/storage';
 import { DesktopStorageService } from './services/desktopStorage';
@@ -73,6 +73,16 @@ export function App() {
   );
   const [startupWarning, setStartupWarning] = useState('');
   const dbRef = useRef(db);
+
+  const showToast = useCallback(
+    (text: string, type: 'success' | 'error' | 'info' = 'info') => {
+      setToasts((current) => [
+        ...current,
+        { id: `toast-${Date.now()}-${Math.random()}`, text, type },
+      ]);
+    },
+    []
+  );
 
   useEffect(() => {
     dbRef.current = db;
@@ -190,16 +200,7 @@ export function App() {
       window.clearInterval(timer);
       window.removeEventListener('online', resumeAfterReconnect);
     };
-  }, []);
-
-
-
-  const showToast = (text: string, type: 'success' | 'error' | 'info' = 'info') => {
-    setToasts((current) => [
-      ...current,
-      { id: `toast-${Date.now()}-${Math.random()}`, text, type },
-    ]);
-  };
+  }, [showToast]);
 
   const handleNavigate = (tab: NavTab, entityId?: string) => {
     setCurrentTab(tab);
