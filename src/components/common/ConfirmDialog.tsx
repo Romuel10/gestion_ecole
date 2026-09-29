@@ -13,10 +13,6 @@ interface ConfirmDialogProps {
   onCancel: () => void;
 }
 
-/**
- * Fenêtre de confirmation remplacement de window.confirm.
- * Garantit un style cohérent avec le reste de l'application.
- */
 export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   isOpen,
   title,
@@ -26,49 +22,43 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   destructive = false,
   onConfirm,
   onCancel,
-}) => {
-  return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onCancel}
-      title={title}
-      maxWidth="sm"
-      actions={
-        <>
-          <button
-            onClick={onCancel}
-            className="px-4 py-2 text-xs font-semibold rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 transition"
-          >
-            {cancelLabel}
-          </button>
-          <button
-            onClick={onConfirm}
-            autoFocus
-            className={`px-4 py-2 text-xs font-semibold rounded-xl text-white shadow-md transition active:scale-95 ${
-              destructive
-                ? 'bg-rose-600 hover:bg-rose-700 shadow-rose-600/20'
-                : 'bg-blue-600 hover:bg-blue-700 shadow-blue-600/20'
-            }`}
-          >
-            {confirmLabel}
-          </button>
-        </>
-      }
-    >
-      <div className="flex items-start space-x-3">
-        <div
-          className={`p-2 rounded-full flex-shrink-0 ${
-            destructive
-              ? 'bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400'
-              : 'bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400'
-          }`}
+}) => (
+  <Modal
+    isOpen={isOpen}
+    onClose={onCancel}
+    title={title}
+    maxWidth="sm"
+    closeOnBackdrop={false}
+    actions={
+      <>
+        <button type="button" onClick={onCancel} className="button button--secondary">
+          {cancelLabel}
+        </button>
+        <button
+          type="button"
+          onClick={onConfirm}
+          autoFocus
+          className={`button ${destructive ? 'button--danger' : 'button--primary'}`}
         >
-          <AlertTriangle className="w-5 h-5" />
-        </div>
-        <p className="text-xs leading-relaxed text-slate-700 dark:text-slate-300 pt-1.5">
-          {message}
-        </p>
+          {confirmLabel}
+        </button>
+      </>
+    }
+  >
+    <div className="flex items-start gap-3">
+      <div
+        className={`w-9 h-9 grid place-items-center shrink-0 rounded-md ${
+          destructive
+            ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400'
+            : 'bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400'
+        }`}
+        aria-hidden="true"
+      >
+        <AlertTriangle className="w-4 h-4" />
       </div>
-    </Modal>
-  );
-};
+      <p className="m-0 text-xs leading-5 text-slate-700 dark:text-slate-300 whitespace-pre-line">
+        {message}
+      </p>
+    </div>
+  </Modal>
+);
