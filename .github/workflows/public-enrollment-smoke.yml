@@ -32,10 +32,12 @@ jobs:
           test "$STATUS" = "200"
           echo "$TYPE" | grep -qi "text/html"
           grep -qi "<!doctype html" /tmp/site.body
-          grep -q "2026-09-29-sections-v1" /tmp/site.body
+          grep -q "2026-09-29-custom-documents-v1" /tmp/site.body
           grep -qi "SEKOLY · INSCRIPTION" /tmp/site.body
           grep -q 'id="familySections"' /tmp/site.body
           grep -q 'data-child-sections' /tmp/site.body
+          grep -q 'data-family-doc-code' /tmp/site.body
+          grep -q 'documentCode' /tmp/site.body
 
       - name: Verify Edge redirects browsers to the frontend
         shell: bash
@@ -69,6 +71,7 @@ jobs:
           echo "$TYPE" | grep -qi "application/json"
           grep -q '"school"' /tmp/open.body
           grep -q '"campaign"' /tmp/open.body
+          grep -q '"documents"' /tmp/open.body
 
           curl -sS -D /tmp/closed.headers -o /tmp/closed.body "$BASE?action=bootstrap&code=$CLOSED"
           CLOSED_STATUS="$(awk 'NR==1{print $2}' /tmp/closed.headers)"

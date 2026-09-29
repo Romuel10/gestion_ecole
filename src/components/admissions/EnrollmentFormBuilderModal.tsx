@@ -130,7 +130,7 @@ const normalizeSchema = (schema: EnrollmentFormSchema): EnrollmentFormSchema => 
     Array.isArray(copy.sections) && copy.sections.length
       ? copy.sections
       : cloneSchema({
-          schemaVersion: 2,
+          schemaVersion: 3,
           fields: [],
           documents: [],
           sections: baseSections,
@@ -150,7 +150,7 @@ const normalizeSchema = (schema: EnrollmentFormSchema): EnrollmentFormSchema => 
 
   return {
     ...copy,
-    schemaVersion: Math.max(2, Number(copy.schemaVersion || 2)),
+    schemaVersion: Math.max(3, Number(copy.schemaVersion || 3)),
     sections: normalizedSections,
     fields: copy.fields.map((field) => {
       const legacy = legacySectionId(field);
@@ -560,7 +560,7 @@ export const EnrollmentFormBuilderModal: React.FC<EnrollmentFormBuilderModalProp
     try {
       await onSave({
         ...draft,
-        schemaVersion: Math.max(2, Number(draft.schemaVersion || 2)),
+        schemaVersion: Math.max(3, Number(draft.schemaVersion || 3)),
         sections,
         fields: [...draft.fields].sort((a, b) => a.order - b.order),
         documents: [...draft.documents].sort((a, b) => a.order - b.order),
