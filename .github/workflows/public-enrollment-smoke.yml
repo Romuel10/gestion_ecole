@@ -1,0 +1,57 @@
+name: Public Enrollment Smoke
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "supabase/functions/sekoly-public-enrollment/**"
+      - "src/services/cloudSync.ts"
+      - ".github/workflows/public-enrollment-smoke.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-public-enrollment:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify public form renders as HTML
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="https://cmpbrouwcfoauwyeiyfj.supabase.co/functions/v1/sekoly-public-enrollment"
+          CODE="46abb7a4a3244d5ba669"
+
+          curl -sS -D /tmp/form.headers -o /tmp/form.body "$BASE?code=$CODE"
+          STATUS="$(awk 'NR==1{print $2}' /tmp/form.headers)"
+          TYPE="$(awk 'BEGIN{IGNORECASE=1} /^content-type:/{print $0}' /tmp/form.headers | tr -d '\r')"
+
+          echo "Form status: $STATUS"
+          echo "Form content type: $TYPE"
+          head -c 120 /tmp/form.body; echo
+
+          test "$STATUS" = "200"
+          echo "$TYPE" | grep -qi "text/html"
+          grep -qi "<!doctype html" /tmp/form.body
+          grep -qi "SEKOLY · INSCRIPTION" /tmp/form.body
+
+      - name: Verify QR renders as SVG
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="https://cmpbrouwcfoauwyeiyfj.supabase.co/functions/v1/sekoly-public-enrollment"
+          CODE="46abb7a4a3244d5ba669"
+
+          curl -sS -D /tmp/qr.headers -o /tmp/qr.body "$BASE?code=$CODE&format=qr&smoke=1"
+          STATUS="$(awk 'NR==1{print $2}' /tmp/qr.headers)"
+          TYPE="$(awk 'BEGIN{IGNORECASE=1} /^content-type:/{print $0}' /tmp/qr.headers | tr -d '\r')"
+
+          echo "QR status: $STATUS"
+          echo "QR content type: $TYPE"
+          head -c 120 /tmp/qr.body; echo
+
+          test "$STATUS" = "200"
+          echo "$TYPE" | grep -qi "image/svg+xml"
+          grep -qi "<svg" /tmp/qr.body
