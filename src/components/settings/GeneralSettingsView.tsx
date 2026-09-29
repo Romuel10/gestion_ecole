@@ -46,6 +46,7 @@ import {
   SyncMonitor,
 } from '../../services/cloudSync';
 import { Modal } from '../common/Modal';
+import { useConfirm } from '../common/ConfirmProvider';
 
 interface GeneralSettingsViewProps {
   db: DatabaseSchema;
@@ -93,6 +94,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
   onUpdateDb,
   onShowToast,
 }) => {
+  const confirm = useConfirm();
   const [activeTab, setActiveTab] = useState<SettingsTab>('SCHOOL');
   const [schoolConfig, setSchoolConfig] = useState<SchoolConfig>(db.schoolConfig);
   const [matriculeConfig, setMatriculeConfig] = useState<MatriculeConfig>(db.matriculeConfig);
@@ -196,7 +198,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
     }
   })();
 
-  const handleCloseSchoolYear = () => {
+  const handleCloseSchoolYear = async () => {
     if (!closurePreview) {
       onShowToast('Impossible de préparer la clôture de cette année.', 'error');
       return;
@@ -218,7 +220,13 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
       'Les notes et paiements de l’année clôturée resteront archivés.',
     ].join('\n');
 
-    if (!window.confirm(warning)) return;
+    const accepted = await confirm({
+      title: 'Clôturer l’année scolaire',
+      message: warning,
+      confirmLabel: 'Clôturer définitivement',
+      destructive: true,
+    });
+    if (!accepted) return;
 
     try {
       const result = SchoolYearClosureService.close(db, db.currentSchoolYearId, {
@@ -380,9 +388,12 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
   };
 
   const handleCloudFullSync = async () => {
-    const confirmed = window.confirm(
-      'Relancer une synchronisation complète ?\n\nSekoly renverra la structure locale et relira tout l’historique Cloud de l’année active. Utilisez cette option après une restauration, un changement d’ordinateur ou si des données semblent manquer.'
-    );
+    const confirmed = await confirm({
+      title: 'Resynchronisation complète',
+      message:
+        'Sekoly va renvoyer la structure locale et relire tout l’historique Cloud de l’année active. Utilisez cette option après une restauration, un changement d’ordinateur ou si des données semblent manquer.',
+      confirmLabel: 'Relancer la synchronisation',
+    });
     if (!confirmed) return;
 
     try {
@@ -796,7 +807,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
     setEditingClassId(null);
   };
 
-  const deleteClass = (schoolClass: SchoolClass) => {
+  const deleteClass = async (schoolClass: SchoolClass) => {
     const isUsed =
       db.students.some((student) => student.classId === schoolClass.id) ||
       db.grades.some((grade) => grade.classId === schoolClass.id) ||
@@ -807,7 +818,13 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
       onShowToast('Cette classe possède un historique. Elle ne peut pas être supprimée.', 'error');
       return;
     }
-    if (!window.confirm(`Supprimer la classe « ${schoolClass.name} » ?`)) return;
+    const accepted = await confirm({
+      title: 'Supprimer la classe',
+      message: `Supprimer définitivement la classe « ${schoolClass.name} » ?`,
+      confirmLabel: 'Supprimer',
+      destructive: true,
+    });
+    if (!accepted) return;
 
     updateDatabase(
       { ...db, classes: db.classes.filter((item) => item.id !== schoolClass.id) },
@@ -890,7 +907,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
     setEditingSubjectId(null);
   };
 
-  const deleteSubject = (subject: Subject) => {
+  const deleteSubject = async (subject: Subject) => {
     const isUsed =
       db.classes.some((schoolClass) =>
         schoolClass.subjects.some((item) => item.subjectId === subject.id)
@@ -902,7 +919,13 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
       onShowToast('Cette matière est utilisée dans une classe ou possède des notes.', 'error');
       return;
     }
-    if (!window.confirm(`Supprimer la matière « ${subject.name} » ?`)) return;
+    const accepted = await confirm({
+      title: 'Supprimer la matière',
+      message: `Supprimer définitivement la matière « ${subject.name} » ?`,
+      confirmLabel: 'Supprimer',
+      destructive: true,
+    });
+    if (!accepted) return;
 
     updateDatabase(
       { ...db, subjects: db.subjects.filter((item) => item.id !== subject.id) },
@@ -950,7 +973,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
     setEditingYearId(null);
   };
 
-  const deleteYear = (schoolYear: SchoolYear) => {
+  const deleteYear = async (schoolYear: SchoolYear) => {
     if (schoolYear.id === db.currentSchoolYearId) {
       onShowToast('L’année scolaire active ne peut pas être supprimée.', 'error');
       return;
@@ -965,7 +988,13 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
       onShowToast('Cette année possède un historique et ne peut pas être supprimée.', 'error');
       return;
     }
-    if (!window.confirm(`Supprimer l’année scolaire « ${schoolYear.label} » ?`)) return;
+    const accepted = await confirm({
+      title: 'Supprimer l’année scolaire',
+      message: `Supprimer définitivement l’année scolaire « ${schoolYear.label} » ?`,
+      confirmLabel: 'Supprimer',
+      destructive: true,
+    });
+    if (!accepted) return;
     updateDatabase(
       { ...db, schoolYears: db.schoolYears.filter((year) => year.id !== schoolYear.id) },
       'Année scolaire supprimée.'
@@ -1084,7 +1113,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
     updateDatabase({ ...db, schoolYears }, 'État de la période mis à jour.');
   };
 
-  const deleteTerm = (schoolYear: SchoolYear, termId: string) => {
+  const deleteTerm = async (schoolYear: SchoolYear, termId: string) => {
     const term = schoolYear.terms.find((item) => item.id === termId);
     if (!term) return;
     const isUsed = db.grades.some(
@@ -1096,7 +1125,13 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
       onShowToast('Cette période contient déjà des notes et ne peut pas être supprimée.', 'error');
       return;
     }
-    if (!window.confirm(`Supprimer la période « ${term.label} » ?`)) return;
+    const accepted = await confirm({
+      title: 'Supprimer la période',
+      message: `Supprimer définitivement la période « ${term.label} » ?`,
+      confirmLabel: 'Supprimer',
+      destructive: true,
+    });
+    if (!accepted) return;
 
     const schoolYears = db.schoolYears.map((year) =>
       year.id === schoolYear.id
@@ -1136,8 +1171,15 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
     }
   };
 
-  const resetDefaults = () => {
-    if (!window.confirm('Réinitialiser toutes les données avec le jeu de démonstration ?')) return;
+  const resetDefaults = async () => {
+    const accepted = await confirm({
+      title: 'Réinitialiser Sekoly',
+      message:
+        'Toutes les données locales seront remplacées par un établissement vierge. Exportez une sauvegarde avant de continuer si nécessaire.',
+      confirmLabel: 'Réinitialiser',
+      destructive: true,
+    });
+    if (!accepted) return;
     const reset = StorageService.resetToDefault();
     onUpdateDb(reset);
     setSchoolConfig(reset.schoolConfig);
