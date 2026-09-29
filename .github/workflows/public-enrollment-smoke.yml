@@ -7,6 +7,7 @@ on:
     paths:
       - "supabase/functions/sekoly-public-enrollment/**"
       - "src/services/cloudSync.ts"
+      - "web/family-portal/enrollment/**"
       - ".github/workflows/public-enrollment-smoke.yml"
   workflow_dispatch:
 
@@ -31,8 +32,10 @@ jobs:
           test "$STATUS" = "200"
           echo "$TYPE" | grep -qi "text/html"
           grep -qi "<!doctype html" /tmp/site.body
-          grep -q "2026-09-29-configurable-form-v1" /tmp/site.body
+          grep -q "2026-09-29-sections-v1" /tmp/site.body
           grep -qi "SEKOLY · INSCRIPTION" /tmp/site.body
+          grep -q 'id="familySections"' /tmp/site.body
+          grep -q 'data-child-sections' /tmp/site.body
 
       - name: Verify Edge redirects browsers to the frontend
         shell: bash
@@ -101,6 +104,8 @@ jobs:
           "$CHROME" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage --virtual-time-budget=7000 --dump-dom "$URL" > /tmp/dom.html
           grep -q "Romuel's School" /tmp/dom.html
           grep -q "Responsable familial" /tmp/dom.html
+          grep -q "Responsable principal" /tmp/dom.html
+          grep -q "Identité de l’élève" /tmp/dom.html
           grep -q "Inscriptions 2026 - 2027" /tmp/dom.html
           if grep -q "Chargement du formulaire" /tmp/dom.html && ! grep -q '<form id="form" class=""' /tmp/dom.html; then
             echo "The dynamic form did not finish loading."
