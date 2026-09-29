@@ -65,6 +65,73 @@ function configuredFields(schema: any, scope: FormScope) {
     : [];
 }
 
+function configuredDocuments(schema: any, scope?: FormScope) {
+  return Array.isArray(schema?.documents)
+    ? schema.documents
+        .filter(
+          (document: any) =>
+            document &&
+            document.visible !== false &&
+            typeof document.code === "string" &&
+            typeof document.label === "string" &&
+            (!scope || document.scope === scope),
+        )
+        .map((document: any) => ({
+          ...document,
+          code: clean(document.code, 80).toUpperCase(),
+          label: clean(document.label, 180),
+          scope: document.scope === "FAMILY" ? "FAMILY" : "CHILD",
+        }))
+        .filter((document: any) => /^[A-Z0-9_]{2,80}$/.test(document.code))
+        .sort(
+          (a: any, b: any) =>
+            Number(a.order ?? 100) - Number(b.order ?? 100),
+        )
+    : [];
+}
+
+function legacyChecklistCodeFromDocumentType(documentType: string) {
+  const map: Record<string, string> = {
+    BIRTH_CERTIFICATE: "BIRTH_CERTIFICATE",
+    RESIDENCE_CERTIFICATE: "RESIDENCE",
+    STUDENT_PHOTO: "STUDENT_PHOTO",
+    TRANSFER_CERTIFICATE: "TRANSFER",
+    REPORT_CARD: "REPORT_CARD",
+    VACCINATION_RECORD: "VACCINATION_RECORD",
+    CIN_FATHER: "CIN_PRIMARY",
+    CIN_MOTHER: "CIN_PRIMARY",
+    CIN_GUARDIAN: "CIN_PRIMARY",
+  };
+  return map[documentType] ?? "";
+}
+
+function documentTypeForCode(code: string, access: any) {
+  const primaryLink =
+    (access.links ?? []).find((item: any) => item.is_primary) ??
+    (access.links ?? [])[0] ??
+    null;
+  const secondaryLink =
+    (access.links ?? []).find((item: any) => !item.is_primary) ?? null;
+  const cinType = (relationship: string | null | undefined) =>
+    relationship === "FATHER"
+      ? "CIN_FATHER"
+      : relationship === "MOTHER"
+        ? "CIN_MOTHER"
+        : "CIN_GUARDIAN";
+
+  const map: Record<string, string> = {
+    BIRTH_CERTIFICATE: "BIRTH_CERTIFICATE",
+    RESIDENCE: "RESIDENCE_CERTIFICATE",
+    STUDENT_PHOTO: "STUDENT_PHOTO",
+    TRANSFER: "TRANSFER_CERTIFICATE",
+    REPORT_CARD: "REPORT_CARD",
+    VACCINATION_RECORD: "VACCINATION_RECORD",
+    CIN_PRIMARY: cinType(primaryLink?.relationship),
+    CIN_SECONDARY: cinType(secondaryLink?.relationship),
+  };
+  return map[code] ?? code;
+}
+
 function isValidIsoDate(value: string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const parsed = new Date(`${value}T00:00:00.000Z`);
@@ -727,21 +794,32 @@ async function uploadEnrollmentDocument(
   familyToken: string,
 ) {
   const access = await familyFromToken(admin, familyToken);
-  if (!access) return jsonResponse({ error: "Lien famille invalide ou expiré." }, 401);
+  if (!access) {
+    return jsonResponse({ error: "Lien famille invalide ou expiré." }, 401);
+  }
 
   const form = await req.formData();
   const file = form.get("file");
   const applicationId = clean(form.get("applicationId"), 64);
-  const documentType = clean(form.get("documentType"), 40);
+  const legacyDocumentType = clean(form.get("documentType"), 80).toUpperCase();
+  const suppliedCode = clean(form.get("documentCode"), 80).toUpperCase();
+  const documentCode =
+    suppliedCode || legacyChecklistCodeFromDocumentType(legacyDocumentType);
 
   if (!(file instanceof File)) {
     return jsonResponse({ error: "Fichier manquant." }, 400);
   }
   if (!ALLOWED_UPLOAD_TYPES.has(file.type)) {
-    return jsonResponse({ error: "Format non autorisé : PDF, JPG, PNG ou WEBP uniquement." }, 400);
+    return jsonResponse(
+      { error: "Format non autorisé : PDF, JPG, PNG ou WEBP uniquement." },
+      400,
+    );
   }
   if (file.size <= 0 || file.size > 10 * 1024 * 1024) {
     return jsonResponse({ error: "Le fichier doit faire moins de 10 Mo." }, 400);
+  }
+  if (!/^[A-Z0-9_]{2,80}$/.test(documentCode)) {
+    return jsonResponse({ error: "Code de pièce justificative invalide." }, 400);
   }
 
   const { data: limits, error: limitsError } = await admin
@@ -752,7 +830,10 @@ async function uploadEnrollmentDocument(
   if (limitsError) throw limitsError;
   if (limits?.status === "SUSPENDED") {
     return jsonResponse(
-      { error: "Le dépôt de documents est temporairement suspendu pour cet établissement." },
+      {
+        error:
+          "Le dépôt de documents est temporairement suspendu pour cet établissement.",
+      },
       403,
     );
   }
@@ -760,49 +841,116 @@ async function uploadEnrollmentDocument(
     const usedBytes = await documentStorageUsage(admin, access.family.school_id);
     if (usedBytes + file.size > Number(limits.max_document_bytes)) {
       return jsonResponse(
-        { error: "L’espace de documents de l’établissement est momentanément saturé. Contactez l’école pour transmettre cette pièce." },
+        {
+          error:
+            "L’espace de documents de l’établissement est momentanément saturé. Contactez l’école pour transmettre cette pièce.",
+        },
         507,
       );
     }
   }
 
-  const allowedDocumentTypes = [
-    "CIN_FATHER","CIN_MOTHER","CIN_GUARDIAN","BIRTH_CERTIFICATE",
-    "RESIDENCE_CERTIFICATE","STUDENT_PHOTO","TRANSFER_CERTIFICATE",
-    "REPORT_CARD","VACCINATION_RECORD","OTHER",
-  ];
-  if (!allowedDocumentTypes.includes(documentType)) {
-    return jsonResponse({ error: "Type de document invalide." }, 400);
-  }
-
   let application: any = null;
+  let documentConfig: any = null;
+
   if (applicationId) {
     const { data, error } = await admin
       .from("sekoly_enrollment_applications")
-      .select("id,school_id,family_id")
+      .select("id,school_id,family_id,status,form_schema_snapshot")
       .eq("id", applicationId)
       .eq("school_id", access.family.school_id)
       .maybeSingle();
     if (error) throw error;
-    if (!data) return jsonResponse({ error: "Dossier enfant introuvable." }, 404);
+    if (!data) {
+      return jsonResponse({ error: "Dossier enfant introuvable." }, 404);
+    }
 
-    const { data: campaignFamily } = await admin
+    const { data: campaignFamily, error: campaignFamilyError } = await admin
       .from("sekoly_enrollment_families")
       .select("id,family_profile_id")
       .eq("id", data.family_id)
+      .eq("school_id", access.family.school_id)
       .maybeSingle();
+    if (campaignFamilyError) throw campaignFamilyError;
     if (!campaignFamily || campaignFamily.family_profile_id !== access.family.id) {
-      return jsonResponse({ error: "Ce dossier ne correspond pas à votre famille." }, 403);
+      return jsonResponse(
+        { error: "Ce dossier ne correspond pas à votre famille." },
+        403,
+      );
     }
+
     application = data;
+    documentConfig = configuredDocuments(data.form_schema_snapshot).find(
+      (item: any) => item.code === documentCode,
+    );
+  } else {
+    const { data: campaignFamilies, error: campaignFamiliesError } = await admin
+      .from("sekoly_enrollment_families")
+      .select("id")
+      .eq("school_id", access.family.school_id)
+      .eq("family_profile_id", access.family.id);
+    if (campaignFamiliesError) throw campaignFamiliesError;
+
+    const familyIds = (campaignFamilies ?? []).map((item: any) => item.id);
+    if (familyIds.length > 0) {
+      const { data: applications, error: applicationsError } = await admin
+        .from("sekoly_enrollment_applications")
+        .select("id,status,form_schema_snapshot")
+        .eq("school_id", access.family.school_id)
+        .in("family_id", familyIds)
+        .not("status", "in", '("APPROVED","REJECTED","WITHDRAWN")')
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (applicationsError) throw applicationsError;
+
+      for (const item of applications ?? []) {
+        const candidate = configuredDocuments(
+          item.form_schema_snapshot,
+          "FAMILY",
+        ).find((document: any) => document.code === documentCode);
+        if (candidate) {
+          documentConfig = candidate;
+          break;
+        }
+      }
+    }
+  }
+
+  if (!documentConfig) {
+    return jsonResponse(
+      {
+        error:
+          "Cette pièce n’est pas demandée dans la version du formulaire correspondant à ce dossier.",
+      },
+      400,
+    );
+  }
+
+  if (documentConfig.scope === "CHILD" && !application?.id) {
+    return jsonResponse(
+      { error: "Cette pièce doit être rattachée au dossier d’un enfant." },
+      400,
+    );
+  }
+
+  const targetApplication =
+    documentConfig.scope === "CHILD" ? application : null;
+  const documentType = documentTypeForCode(documentCode, access);
+  if (!/^[A-Z0-9_]{2,80}$/.test(documentType)) {
+    return jsonResponse({ error: "Type de document invalide." }, 400);
   }
 
   const objectId = crypto.randomUUID();
   const storagePath =
-    access.family.school_id + "/" +
-    access.family.id + "/" +
-    (applicationId || "family") + "/" +
-    objectId + "_" + safeFilename(file.name);
+    access.family.school_id +
+    "/" +
+    access.family.id +
+    "/" +
+    (targetApplication?.id || "family") +
+    "/" +
+    objectId +
+    "_" +
+    safeFilename(file.name);
 
   const { error: uploadError } = await admin.storage
     .from(ENROLLMENT_BUCKET)
@@ -814,18 +962,14 @@ async function uploadEnrollmentDocument(
   if (uploadError) throw uploadError;
 
   let documentGuardianId: string | null = null;
-  if (documentType.startsWith("CIN_")) {
-    const wantedRelationship =
-      documentType === "CIN_FATHER"
-        ? "FATHER"
-        : documentType === "CIN_MOTHER"
-          ? "MOTHER"
-          : "GUARDIAN";
-    const guardianLink =
-      access.links.find(
-        (item: any) => item.relationship === wantedRelationship,
-      ) ?? access.links.find((item: any) => item.is_primary);
-    documentGuardianId = guardianLink?.guardian_id ?? null;
+  if (documentCode === "CIN_PRIMARY") {
+    documentGuardianId =
+      (access.links ?? []).find((item: any) => item.is_primary)?.guardian_id ??
+      null;
+  } else if (documentCode === "CIN_SECONDARY") {
+    documentGuardianId =
+      (access.links ?? []).find((item: any) => !item.is_primary)?.guardian_id ??
+      null;
   }
 
   const { data: document, error: docError } = await admin
@@ -833,7 +977,7 @@ async function uploadEnrollmentDocument(
     .insert({
       school_id: access.family.school_id,
       family_id: access.family.id,
-      application_id: application?.id ?? null,
+      application_id: targetApplication?.id ?? null,
       guardian_id: documentGuardianId,
       document_type: documentType,
       storage_path: storagePath,
@@ -851,61 +995,55 @@ async function uploadEnrollmentDocument(
     throw docError;
   }
 
-  const checklistMap: Record<string, string> = {
-    BIRTH_CERTIFICATE: "BIRTH_CERTIFICATE",
-    RESIDENCE_CERTIFICATE: "RESIDENCE",
-    STUDENT_PHOTO: "STUDENT_PHOTO",
-    TRANSFER_CERTIFICATE: "TRANSFER",
-    REPORT_CARD: "REPORT_CARD",
-    CIN_FATHER: "CIN_PRIMARY",
-    CIN_MOTHER: "CIN_PRIMARY",
-    CIN_GUARDIAN: "CIN_PRIMARY",
-  };
-  const checklistCode = checklistMap[documentType];
-  if (checklistCode) {
-    let targetApplicationIds: string[] = [];
-    if (application?.id) {
-      targetApplicationIds = [application.id];
-    } else {
-      const { data: campaignFamilies, error: campaignFamiliesError } = await admin
-        .from("sekoly_enrollment_families")
-        .select("id")
-        .eq("school_id", access.family.school_id)
-        .eq("family_profile_id", access.family.id);
-      if (campaignFamiliesError) throw campaignFamiliesError;
+  let targetApplicationIds: string[] = [];
+  if (documentConfig.scope === "CHILD" && targetApplication?.id) {
+    targetApplicationIds = [targetApplication.id];
+  } else {
+    const { data: campaignFamilies, error: campaignFamiliesError } = await admin
+      .from("sekoly_enrollment_families")
+      .select("id")
+      .eq("school_id", access.family.school_id)
+      .eq("family_profile_id", access.family.id);
+    if (campaignFamiliesError) throw campaignFamiliesError;
 
-      const campaignFamilyIds = (campaignFamilies ?? []).map(
+    const familyIds = (campaignFamilies ?? []).map((item: any) => item.id);
+    if (familyIds.length > 0) {
+      const { data: familyApplications, error: familyApplicationsError } =
+        await admin
+          .from("sekoly_enrollment_applications")
+          .select("id,status")
+          .eq("school_id", access.family.school_id)
+          .in("family_id", familyIds)
+          .not("status", "in", '("APPROVED","REJECTED","WITHDRAWN")');
+      if (familyApplicationsError) throw familyApplicationsError;
+      targetApplicationIds = (familyApplications ?? []).map(
         (item: any) => item.id,
       );
-      if (campaignFamilyIds.length > 0) {
-        const { data: familyApplications, error: familyApplicationsError } =
-          await admin
-            .from("sekoly_enrollment_applications")
-            .select("id,status")
-            .eq("school_id", access.family.school_id)
-            .in("family_id", campaignFamilyIds)
-            .not("status", "in", '("APPROVED","REJECTED","WITHDRAWN")');
-        if (familyApplicationsError) throw familyApplicationsError;
-        targetApplicationIds = (familyApplications ?? []).map(
-          (item: any) => item.id,
-        );
-      }
-    }
-
-    if (targetApplicationIds.length > 0) {
-      await admin
-        .from("sekoly_enrollment_checklist_items")
-        .update({
-          status: "PROVIDED",
-          document_id: document.id,
-          note: "Document transmis par la famille.",
-        })
-        .in("application_id", targetApplicationIds)
-        .eq("code", checklistCode);
     }
   }
 
-  return jsonResponse({ ok: true, document }, 201);
+  if (targetApplicationIds.length > 0) {
+    const { error: checklistError } = await admin
+      .from("sekoly_enrollment_checklist_items")
+      .update({
+        status: "PROVIDED",
+        document_id: document.id,
+        note: "Document transmis par la famille.",
+      })
+      .in("application_id", targetApplicationIds)
+      .eq("code", documentCode);
+    if (checklistError) throw checklistError;
+  }
+
+  return jsonResponse(
+    {
+      ok: true,
+      document,
+      documentCode,
+      scope: documentConfig.scope,
+    },
+    201,
+  );
 }
 
 async function loadCampaign(admin: any, publicCode: string) {
@@ -1010,7 +1148,7 @@ async function loadPortalData(admin: any, token: string) {
     ] = await Promise.all([
       admin
         .from("sekoly_enrollment_checklist_items")
-        .select("id,application_id,code,label,required,status,document_id,note,sort_order")
+        .select("id,application_id,code,label,scope,required,status,document_id,note,sort_order")
         .eq("school_id", access.family.school_id)
         .in("application_id", applicationIds)
         .order("sort_order"),

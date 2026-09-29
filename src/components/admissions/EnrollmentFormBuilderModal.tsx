@@ -231,6 +231,11 @@ export const EnrollmentFormBuilderModal: React.FC<EnrollmentFormBuilderModalProp
   const [sectionDescription, setSectionDescription] = useState('');
   const [sectionScope, setSectionScope] = useState<'FAMILY' | 'CHILD'>('FAMILY');
 
+  const [documentLabel, setDocumentLabel] = useState('');
+  const [documentScope, setDocumentScope] = useState<'FAMILY' | 'CHILD'>('CHILD');
+  const [documentRequired, setDocumentRequired] = useState(false);
+  const [documentHelp, setDocumentHelp] = useState('');
+
   React.useEffect(() => {
     if (isOpen && campaign?.form_schema) {
       const normalized = normalizeSchema(campaign.form_schema);
@@ -460,6 +465,49 @@ export const EnrollmentFormBuilderModal: React.FC<EnrollmentFormBuilderModalProp
     setCustomOptions('');
     setCustomHelp('');
     setCustomType('TEXT');
+  };
+
+  const addCustomDocument = () => {
+    const label = documentLabel.trim();
+    if (!label) return;
+
+    const suffix =
+      typeof crypto !== 'undefined' && 'randomUUID' in crypto
+        ? crypto.randomUUID().replace(/-/g, '').slice(0, 8).toUpperCase()
+        : Date.now().toString(36).toUpperCase();
+    const codeBase = safeSlug(label).replace(/_/g, '').slice(0, 24).toUpperCase();
+    const code = `CUSTOM_${codeBase || 'DOCUMENT'}_${suffix}`;
+    const scoped = draft.documents.filter((item) => item.scope === documentScope);
+    const maxOrder = Math.max(0, ...scoped.map((item) => item.order));
+
+    setDraftSafe((current) => ({
+      ...current,
+      documents: [
+        ...current.documents,
+        {
+          code,
+          scope: documentScope,
+          label,
+          visible: true,
+          required: documentRequired,
+          order: maxOrder + 10,
+          custom: true,
+          helpText: documentHelp.trim() || undefined,
+        },
+      ],
+    }));
+
+    setDocumentLabel('');
+    setDocumentRequired(false);
+    setDocumentHelp('');
+  };
+
+  const deleteCustomDocument = (document: EnrollmentFormDocument) => {
+    if (!document.custom) return;
+    setDraftSafe((current) => ({
+      ...current,
+      documents: current.documents.filter((item) => item.code !== document.code),
+    }));
   };
 
   const updateDocument = (
@@ -1107,79 +1155,226 @@ export const EnrollmentFormBuilderModal: React.FC<EnrollmentFormBuilderModalProp
             </button>
           </section>
 
-          <section className="space-y-3">
+          <section className="space-y-4">
             <div className="flex items-center gap-2">
               <FileCheck2 className="w-4 h-4 text-emerald-600" />
               <div>
                 <div className="font-semibold text-xs">Pièces justificatives</div>
                 <div className="text-[10px] text-slate-500">
-                  Choisissez les pièces affichées et celles nécessaires pour considérer
-                  le dossier complet.
+                  L’école peut maintenant définir sa propre liste de pièces, leur libellé,
+                  leur ordre et leur caractère obligatoire.
                 </div>
               </div>
             </div>
 
-            {[...draft.documents]
-              .sort((a, b) => a.order - b.order)
-              .map((document) => (
-                <div
-                  key={document.code}
-                  className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-700"
-                >
-                  <div>
-                    <div className="text-xs font-semibold">{document.label}</div>
-                    <div className="text-[9px] text-slate-400">
-                      {document.scope === 'FAMILY' ? 'Famille' : 'Chaque enfant'}
-                    </div>
+            {(['FAMILY', 'CHILD'] as const).map((scope) => {
+              const scopedDocuments = [...draft.documents]
+                .filter((document) => document.scope === scope)
+                .sort((a, b) => a.order - b.order);
+
+              return (
+                <div key={scope} className="space-y-2">
+                  <div className="text-[10px] uppercase tracking-wide font-bold text-slate-500">
+                    {scope === 'FAMILY'
+                      ? 'Documents de la famille / responsables'
+                      : 'Documents pour chaque enfant'}
                   </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <label className="flex items-center gap-1.5 text-[10px] font-semibold">
-                      <input
-                        type="checkbox"
-                        checked={document.visible}
-                        onChange={(event) =>
-                          updateDocument(document.code, {
-                            visible: event.target.checked,
-                            required: event.target.checked
-                              ? document.required
-                              : false,
-                          })
-                        }
-                      />
-                      Afficher
-                    </label>
-                    <label className="flex items-center gap-1.5 text-[10px] font-semibold">
-                      <input
-                        type="checkbox"
-                        checked={document.required}
-                        onChange={(event) =>
-                          updateDocument(document.code, {
-                            required: event.target.checked,
-                            visible: event.target.checked ? true : document.visible,
-                          })
-                        }
-                      />
-                      Obligatoire
-                    </label>
-                    <button
-                      type="button"
-                      className="icon-button"
-                      title="Monter"
-                      onClick={() => moveDocument(document, -1)}
-                    >
-                      <ArrowUp className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      className="icon-button"
-                      title="Descendre"
-                      onClick={() => moveDocument(document, 1)}
-                    >
-                      <ArrowDown className="w-3.5 h-3.5" />
-                    </button>
+
+                  {scopedDocuments.length ? (
+                    scopedDocuments.map((document) => (
+                      <div
+                        key={document.code}
+                        className="p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 space-y-3"
+                      >
+                        <div className="flex flex-col xl:flex-row xl:items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <div className="text-xs font-semibold">{document.label}</div>
+                              {document.custom && (
+                                <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-violet-100 dark:bg-violet-950 text-violet-700 dark:text-violet-300">
+                                  Personnalisée
+                                </span>
+                              )}
+                            </div>
+                            <div className="mt-1 text-[8px] font-mono text-slate-400 break-all">
+                              {document.code}
+                            </div>
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-2">
+                            <label className="flex items-center gap-1.5 text-[10px] font-semibold">
+                              <input
+                                type="checkbox"
+                                checked={document.visible}
+                                onChange={(event) =>
+                                  updateDocument(document.code, {
+                                    visible: event.target.checked,
+                                    required: event.target.checked
+                                      ? document.required
+                                      : false,
+                                  })
+                                }
+                              />
+                              Afficher
+                            </label>
+                            <label className="flex items-center gap-1.5 text-[10px] font-semibold">
+                              <input
+                                type="checkbox"
+                                checked={document.required}
+                                onChange={(event) =>
+                                  updateDocument(document.code, {
+                                    required: event.target.checked,
+                                    visible: event.target.checked
+                                      ? true
+                                      : document.visible,
+                                  })
+                                }
+                              />
+                              Obligatoire
+                            </label>
+                            <button
+                              type="button"
+                              className="icon-button"
+                              title="Monter"
+                              onClick={() => moveDocument(document, -1)}
+                            >
+                              <ArrowUp className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              className="icon-button"
+                              title="Descendre"
+                              onClick={() => moveDocument(document, 1)}
+                            >
+                              <ArrowDown className="w-3.5 h-3.5" />
+                            </button>
+                            {document.custom && (
+                              <button
+                                type="button"
+                                className="icon-button"
+                                title="Supprimer cette pièce personnalisée"
+                                onClick={() => deleteCustomDocument(document)}
+                              >
+                                <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                          <div>
+                            <label className="block text-[9px] font-bold text-slate-400 mb-1">
+                              Libellé affiché aux parents
+                            </label>
+                            <input
+                              className="settings-input"
+                              value={document.label}
+                              onChange={(event) =>
+                                updateDocument(document.code, {
+                                  label: event.target.value,
+                                })
+                              }
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[9px] font-bold text-slate-400 mb-1">
+                              Aide / précision (facultatif)
+                            </label>
+                            <input
+                              className="settings-input"
+                              value={document.helpText ?? ''}
+                              onChange={(event) =>
+                                updateDocument(document.code, {
+                                  helpText: event.target.value || undefined,
+                                })
+                              }
+                              placeholder="Ex. document de moins de 3 mois."
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-[10px] text-slate-400 italic">
+                      Aucune pièce dans cette catégorie.
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+
+            <div className="p-4 rounded-xl border border-dashed border-emerald-300 dark:border-emerald-800 bg-emerald-50/40 dark:bg-emerald-950/15 space-y-3">
+              <div className="flex items-center gap-2">
+                <Plus className="w-4 h-4 text-emerald-600" />
+                <div>
+                  <div className="font-semibold text-xs">Ajouter une pièce demandée</div>
+                  <div className="text-[10px] text-slate-500">
+                    Ex. certificat médical, autorisation parentale, fiche sanitaire,
+                    attestation de bourse ou autre document propre à l’école.
                   </div>
                 </div>
-              ))}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 mb-1">
+                    Nom de la pièce
+                  </label>
+                  <input
+                    className="settings-input"
+                    value={documentLabel}
+                    onChange={(event) => setDocumentLabel(event.target.value)}
+                    placeholder="Ex. Certificat médical"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 mb-1">
+                    Demandée pour
+                  </label>
+                  <select
+                    className="settings-input"
+                    value={documentScope}
+                    onChange={(event) =>
+                      setDocumentScope(event.target.value as 'FAMILY' | 'CHILD')
+                    }
+                  >
+                    <option value="FAMILY">Une fois pour la famille</option>
+                    <option value="CHILD">Pour chaque enfant</option>
+                  </select>
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-[10px] font-bold text-slate-500 mb-1">
+                    Aide / précision (facultatif)
+                  </label>
+                  <input
+                    className="settings-input"
+                    value={documentHelp}
+                    onChange={(event) => setDocumentHelp(event.target.value)}
+                    placeholder="Ex. Délivré depuis moins de trois mois."
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="flex items-center gap-2 text-xs font-semibold">
+                    <input
+                      type="checkbox"
+                      checked={documentRequired}
+                      onChange={(event) => setDocumentRequired(event.target.checked)}
+                    />
+                    Pièce obligatoire pour considérer le dossier complet
+                  </label>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                className="button button--secondary"
+                onClick={addCustomDocument}
+                disabled={!documentLabel.trim()}
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Ajouter la pièce
+              </button>
+            </div>
           </section>
         </div>
 
@@ -1240,6 +1435,11 @@ export const EnrollmentFormBuilderModal: React.FC<EnrollmentFormBuilderModalProp
                         {document.required ? 'Obligatoire' : 'Facultatif'} ·{' '}
                         {document.scope === 'FAMILY' ? 'Famille' : 'Chaque enfant'}
                       </div>
+                      {document.helpText && (
+                        <div className="mt-1 text-[8px] text-slate-400">
+                          {document.helpText}
+                        </div>
+                      )}
                     </div>
                   ))}
               </div>

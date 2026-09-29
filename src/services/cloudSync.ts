@@ -199,6 +199,8 @@ export type EnrollmentFormDocument = {
   visible: boolean;
   required: boolean;
   order: number;
+  custom?: boolean;
+  helpText?: string;
 };
 
 export type EnrollmentFormSchema = {
@@ -314,6 +316,7 @@ export type EnrollmentChecklistItem = {
   application_id: string;
   code: string;
   label: string;
+  scope: 'FAMILY' | 'CHILD';
   required: boolean;
   status: 'MISSING' | 'PROVIDED' | 'VERIFIED' | 'NOT_REQUIRED';
   document_id: string | null;
@@ -1365,13 +1368,30 @@ export class CloudSyncService {
       }
     }
 
+    const documentCodes = new Set<string>();
+    for (const document of documents) {
+      const code = document.code?.trim().toUpperCase();
+      if (!code || !document.label?.trim() || !['FAMILY', 'CHILD'].includes(document.scope)) {
+        throw new Error('La configuration contient une pièce justificative incomplète.');
+      }
+      if (!/^[A-Z0-9_]{2,80}$/.test(code)) {
+        throw new Error(
+          `Le code de la pièce « ${document.label} » contient des caractères non autorisés.`
+        );
+      }
+      if (documentCodes.has(code)) {
+        throw new Error(`La pièce « ${document.label} » est présente deux fois.`);
+      }
+      documentCodes.add(code);
+    }
+
     const nextVersion = Math.max(1, Number(campaign.form_schema_version || 1) + 1);
     await restPatch(
       'sekoly_enrollment_campaigns',
       `id=eq.${encodeURIComponent(campaign.id)}&school_id=eq.${schoolId}`,
       {
         form_schema: {
-          schemaVersion: Math.max(2, Number(schema.schemaVersion || 2)),
+          schemaVersion: Math.max(3, Number(schema.schemaVersion || 3)),
           sections: sections
             .map((item, index) => ({
               ...item,
@@ -1392,7 +1412,11 @@ export class CloudSyncService {
           documents: documents
             .map((item, index) => ({
               ...item,
+              code: item.code.trim().toUpperCase(),
               label: item.label.trim(),
+              helpText: item.helpText?.trim() || undefined,
+              visible: item.visible !== false,
+              required: item.visible !== false && Boolean(item.required),
               order: Number.isFinite(item.order) ? item.order : (index + 1) * 10,
             }))
             .sort((a, b) => a.order - b.order),
