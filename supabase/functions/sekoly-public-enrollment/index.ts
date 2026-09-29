@@ -1697,14 +1697,56 @@ Deno.serve(async (req) => {
       req.method === "GET"
     ) {
       const portalToken = clean(url.searchParams.get("portal"), 160);
-    if (portalToken && req.method === "GET") {
-      return Response.redirect(
-        familyFrontendUrl(supabaseUrl, { portal: portalToken }),
-        302,
-      );
+      if (!portalToken) {
+        return jsonResponse({ error: "Accès famille manquant." }, 400);
+      }
+
+      const portal = await loadPortalData(admin, portalToken);
+      if (!portal) {
+        return jsonResponse({ error: "Accès famille invalide ou expiré." }, 404);
+      }
+
+      const primaryRelationship =
+        (portal.links ?? []).find(
+          (item: any) => item.guardian_id === portal.primaryGuardian?.id,
+        )?.relationship ?? "GUARDIAN";
+
+      return jsonResponse({
+        school: portal.school,
+        family: {
+          id: portal.family.id,
+          code: portal.family.family_code,
+          displayName: portal.family.display_name,
+        },
+        primaryGuardian: portal.primaryGuardian
+          ? {
+              id: portal.primaryGuardian.id,
+              lastName: portal.primaryGuardian.last_name,
+              firstName: portal.primaryGuardian.first_name,
+              phonePrimary: portal.primaryGuardian.phone_primary,
+              email: portal.primaryGuardian.email,
+              relationship: primaryRelationship,
+            }
+          : null,
+        students: portal.students ?? [],
+        applications: portal.applications ?? [],
+        checklist: portal.checklist ?? [],
+        documents: portal.documents ?? [],
+        campaign: portal.campaign
+          ? {
+              id: portal.campaign.id,
+              publicCode: portal.campaign.public_code,
+              name: portal.campaign.name,
+            }
+          : null,
+      });
     }
 
-    const publicCode = clean(url.searchParams.get("code"), 64);
+    if (
+      url.searchParams.get("action") === "bootstrap" &&
+      req.method === "GET"
+    ) {
+      const publicCode = clean(url.searchParams.get("code"), 64);
       if (!publicCode) {
         return jsonResponse({ error: "Code d'inscription manquant." }, 400);
       }
@@ -1802,20 +1844,12 @@ Deno.serve(async (req) => {
     if (portalToken && req.method === "GET") {
       const portal = await loadPortalData(admin, portalToken);
       if (!portal) {
-        return new Response("Lien famille invalide ou expiré.", {
-          status: 404,
-          headers: { "Content-Type": "text/plain; charset=utf-8" },
-        });
+        return jsonResponse({ error: "Lien famille invalide ou expiré." }, 404);
       }
-      return new Response(renderPortalPage(portal, portalToken, publicEndpoint), {
-        headers: {
-          "Content-Type": "text/html; charset=utf-8",
-          "Cache-Control": "no-store",
-          "X-Content-Type-Options": "nosniff",
-          "Referrer-Policy": "no-referrer",
-          "X-Frame-Options": "DENY",
-        },
-      });
+      return Response.redirect(
+        familyFrontendUrl(supabaseUrl, { portal: portalToken }),
+        302,
+      );
     }
 
     const publicCode = clean(url.searchParams.get("code"), 64);
