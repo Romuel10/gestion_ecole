@@ -15,17 +15,27 @@
       {
         "label": "main",
         "title": "Sekoly — Gestion d’établissement",
-        "width": 1440,
-        "height": 900,
-        "minWidth": 1080,
-        "minHeight": 700,
+        "width": 1360,
+        "height": 840,
+        "minWidth": 900,
+        "minHeight": 620,
         "resizable": true,
         "fullscreen": false,
-        "center": true
+        "center": true,
+        "maximized": false,
+        "visible": true,
+        "focus": true
       }
     ],
     "security": {
-      "csp": null
+      "capabilities": [
+        "main-capability"
+      ],
+      "csp": "default-src 'self'; connect-src 'self' ipc: http://ipc.localhost https: wss:; img-src 'self' asset: http://asset.localhost data: blob: https:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self'; object-src 'none'; frame-src 'none'; base-uri 'self'; form-action 'self'",
+      "headers": {
+        "X-Content-Type-Options": "nosniff",
+        "Permissions-Policy": "camera=(), microphone=(), geolocation=()"
+      }
     }
   },
   "bundle": {
@@ -40,7 +50,9 @@
     "windows": {
       "webviewInstallMode": {
         "type": "offlineInstaller"
-      }
+      },
+      "allowDowngrades": false,
+      "bundleVCRuntime": true
     },
     "icon": [
       "icons/32x32.png",
