@@ -13,6 +13,7 @@ import { StorageService } from '../../services/storage';
 import { PdfGeneratorService } from '../../services/pdfGenerator';
 import { TimetableGeneratorService } from '../../services/timetableGenerator';
 import { Modal } from '../common/Modal';
+import { useConfirm } from '../common/ConfirmProvider';
 
 interface TimetableViewProps {
   db: DatabaseSchema;
@@ -25,6 +26,7 @@ export const TimetableView: React.FC<TimetableViewProps> = ({
   onUpdateDb,
   onShowToast,
 }) => {
+  const confirm = useConfirm();
   const [viewType, setViewType] = useState<'CLASS' | 'TEACHER' | 'ROOM'>('CLASS');
   const [selectedEntityId, setSelectedEntityId] = useState<string>(
     db.classes[0]?.id || ''
@@ -262,7 +264,7 @@ export const TimetableView: React.FC<TimetableViewProps> = ({
     onShowToast('Créneau supprimé du planning.', 'info');
   };
 
-  const handleGenerateAutomatically = () => {
+  const handleGenerateAutomatically = async () => {
     const result = TimetableGeneratorService.generate(db);
 
     if (result.slots.length === 0) {
@@ -275,10 +277,16 @@ export const TimetableView: React.FC<TimetableViewProps> = ({
 
     const message =
       db.timetableSlots.length > 0
-        ? `Le planning actuel contient ${db.timetableSlots.length} créneau(x). Le générateur va le remplacer par ${result.slots.length} créneau(x). Continuer ?`
+        ? `Le planning actuel contient ${db.timetableSlots.length} créneau(x). Le générateur va le remplacer par ${result.slots.length} créneau(x).`
         : `Générer automatiquement ${result.slots.length} créneau(x) ?`;
 
-    if (!window.confirm(message)) return;
+    const accepted = await confirm({
+      title: 'Générer l’emploi du temps',
+      message,
+      confirmLabel: db.timetableSlots.length > 0 ? 'Remplacer le planning' : 'Générer',
+      destructive: db.timetableSlots.length > 0,
+    });
+    if (!accepted) return;
 
     const updatedDb: DatabaseSchema = {
       ...db,
