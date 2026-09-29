@@ -325,8 +325,9 @@
   }
 
   function applyFamilySchema(){
+    const activeSections=new Set(schemaSections('FAMILY').map(section=>section.id));
     const fixed=(bootstrap?.campaign?.form_schema?.fields||[]).filter(f=>f&&f.scope==='FAMILY'&&!f.custom);
-    fixed.forEach(field=>applyFixedField(field,form.elements[field.key]));
+    fixed.forEach(field=>applyFixedField({...field,visible:field.visible!==false&&activeSections.has(field.sectionId||legacySectionId(field))},form.elements[field.key]));
     q('#customFamilyFields').innerHTML=customFieldsHtml('FAMILY');
     const familyStep=q('[data-step="0"]');
     q('.divider',familyStep)?.classList.add('hidden');
@@ -335,8 +336,9 @@
     applyFamilyDocumentSchema();
   }
   function applyChildSchema(block){
+    const activeSections=new Set(schemaSections('CHILD').map(section=>section.id));
     const fixed=(bootstrap?.campaign?.form_schema?.fields||[]).filter(f=>f&&f.scope==='CHILD'&&!f.custom);
-    fixed.forEach(field=>applyFixedField(field,q('[data-field="'+field.key+'"]',block)));
+    fixed.forEach(field=>applyFixedField({...field,visible:field.visible!==false&&activeSections.has(field.sectionId||legacySectionId(field))},q('[data-field="'+field.key+'"]',block)));
     const custom=q('[data-custom-child-fields]',block);
     if(custom)custom.innerHTML=customFieldsHtml('CHILD');
     renderScopeSections('CHILD',block);
