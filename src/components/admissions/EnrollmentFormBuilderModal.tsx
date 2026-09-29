@@ -22,13 +22,6 @@ interface EnrollmentFormBuilderModalProps {
   onSave: (schema: EnrollmentFormSchema) => Promise<void>;
 }
 
-const groupLabel: Record<EnrollmentFormField['group'], string> = {
-  PRIMARY: 'Responsable principal',
-  SECONDARY: 'Deuxième responsable',
-  CHILD: 'Enfant',
-  CUSTOM: 'Champs personnalisés',
-};
-
 const typeLabel: Record<EnrollmentFormFieldType, string> = {
   TEXT: 'Texte court',
   TEXTAREA: 'Texte long',
@@ -52,6 +45,18 @@ const safeSlug = (value: string) =>
     .replace(/[^a-z0-9]+/g, '_')
     .replace(/^_+|_+$/g, '')
     .slice(0, 36);
+
+const fieldSectionKey = (field: EnrollmentFormField) =>
+  field.custom ? `CUSTOM_${field.scope}` : field.group;
+
+const normalizedOptions = (options?: string[]) =>
+  Array.from(
+    new Set(
+      (options ?? [])
+        .map((item) => item.trim())
+        .filter(Boolean)
+    )
+  );
 
 export const EnrollmentFormBuilderModal: React.FC<EnrollmentFormBuilderModalProps> = ({
   campaign,
@@ -80,15 +85,42 @@ export const EnrollmentFormBuilderModal: React.FC<EnrollmentFormBuilderModalProp
   const groupedFields = useMemo(() => {
     const groups: Record<string, EnrollmentFormField[]> = {};
     for (const field of draft?.fields ?? []) {
-      const key = field.custom
-        ? `CUSTOM_${field.scope}`
-        : field.group;
+      const key = fieldSectionKey(field);
       (groups[key] ||= []).push(field);
     }
     Object.values(groups).forEach((items) =>
       items.sort((a, b) => a.order - b.order)
     );
     return groups;
+  }, [draft]);
+
+  const draftErrors = useMemo(() => {
+    const errors: string[] = [];
+    const identities = new Set<string>();
+
+    for (const field of draft?.fields ?? []) {
+      const identity = `${field.scope}:${field.key}`;
+      if (identities.has(identity)) {
+        errors.push(`Le champ « ${field.label || field.key} » existe en double.`);
+      }
+      identities.add(identity);
+
+      if (field.custom && !field.label.trim()) {
+        errors.push('Un champ personnalisé a un libellé vide.');
+      }
+
+      if (
+        field.visible &&
+        field.type === 'SELECT' &&
+        normalizedOptions(field.options).length === 0
+      ) {
+        errors.push(
+          `Le champ « ${field.label || field.key} » doit proposer au moins un choix.`
+        );
+      }
+    }
+
+    return Array.from(new Set(errors));
   }, [draft]);
 
   if (!campaign || !draft) return null;
@@ -119,18 +151,44 @@ export const EnrollmentFormBuilderModal: React.FC<EnrollmentFormBuilderModalProp
   ) => {
     setDraft((current) => {
       if (!current) return current;
-      const sorted = [...current.fields].sort((a, b) => a.order - b.order);
-      const index = sorted.findIndex(
+
+      const currentField = current.fields.find(
+        (field) => field.key === key && field.scope === scope
+      );
+      if (!currentField) return current;
+
+      const sectionKey = fieldSectionKey(currentField);
+      const sectionFields = current.fields
+        .filter((field) => fieldSectionKey(field) === sectionKey)
+        .sort((a, b) => a.order - b.order);
+
+      const index = sectionFields.findIndex(
         (field) => field.key === key && field.scope === scope
       );
       const swapIndex = index + direction;
-      if (index < 0 || swapIndex < 0 || swapIndex >= sorted.length) return current;
-      const a = sorted[index];
-      const b = sorted[swapIndex];
-      const aOrder = a.order;
-      sorted[index] = { ...a, order: b.order };
-      sorted[swapIndex] = { ...b, order: aOrder };
-      return { ...current, fields: sorted };
+      if (
+        index < 0 ||
+        swapIndex < 0 ||
+        swapIndex >= sectionFields.length
+      ) {
+        return current;
+      }
+
+      const a = sectionFields[index];
+      const b = sectionFields[swapIndex];
+
+      return {
+        ...current,
+        fields: current.fields.map((field) => {
+          if (field.key === a.key && field.scope === a.scope) {
+            return { ...field, order: b.order };
+          }
+          if (field.key === b.key && field.scope === b.scope) {
+            return { ...field, order: a.order };
+          }
+          return field;
+        }),
+      };
     });
   };
 
@@ -139,10 +197,7 @@ export const EnrollmentFormBuilderModal: React.FC<EnrollmentFormBuilderModalProp
     if (!label) return;
     const options =
       customType === 'SELECT'
-        ? customOptions
-            .split(/\n|,/)
-            .map((item) => item.trim())
-            .filter(Boolean)
+        ? normalizedOptions(customOptions.split(/\n|,/))
         : undefined;
     if (customType === 'SELECT' && (!options || options.length === 0)) return;
 
@@ -181,6 +236,11 @@ export const EnrollmentFormBuilderModal: React.FC<EnrollmentFormBuilderModalProp
 
   const deleteCustomField = (field: EnrollmentFormField) => {
     if (!field.custom) return;
+    const confirmed = window.confirm(
+      `Supprimer le champ « ${field.label} » pour les prochaines inscriptions ? Les dossiers déjà envoyés conserveront leurs réponses.`
+    );
+    if (!confirmed) return;
+
     setDraft({
       ...draft,
       fields: draft.fields.filter(
@@ -190,13 +250,31 @@ export const EnrollmentFormBuilderModal: React.FC<EnrollmentFormBuilderModalProp
   };
 
   const save = async () => {
+    if (draftErrors.length > 0) return;
+
     setSaving(true);
     try {
       await onSave({
         ...draft,
         schemaVersion: Math.max(1, Number(draft.schemaVersion || 1)),
-        fields: [...draft.fields].sort((a, b) => a.order - b.order),
-        documents: [...draft.documents].sort((a, b) => a.order - b.order),
+        fields: [...draft.fields]
+          .map((field) => ({
+            ...field,
+            label: field.label.trim(),
+            helpText: field.helpText?.trim() || undefined,
+            required: field.visible ? field.required : false,
+            options:
+              field.type === 'SELECT'
+                ? normalizedOptions(field.options)
+                : undefined,
+          }))
+          .sort((a, b) => a.order - b.order),
+        documents: [...draft.documents]
+          .map((document) => ({
+            ...document,
+            required: document.visible ? document.required : false,
+          }))
+          .sort((a, b) => a.order - b.order),
       });
       onClose();
     } finally {
@@ -230,7 +308,7 @@ export const EnrollmentFormBuilderModal: React.FC<EnrollmentFormBuilderModalProp
           <div className="mt-1 text-[10px] text-slate-500">{field.helpText}</div>
         )}
         {field.custom && (
-          <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2">
+          <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-2">
             <div>
               <label className="block text-[9px] font-bold text-slate-400 mb-1">
                 Libellé affiché
@@ -244,6 +322,23 @@ export const EnrollmentFormBuilderModal: React.FC<EnrollmentFormBuilderModalProp
                   })
                 }
               />
+            </div>
+            <div>
+              <label className="block text-[9px] font-bold text-slate-400 mb-1">
+                Pour qui ?
+              </label>
+              <select
+                className="settings-input"
+                value={field.scope}
+                onChange={(event) =>
+                  updateField(field.key, field.scope, {
+                    scope: event.target.value as 'FAMILY' | 'CHILD',
+                  })
+                }
+              >
+                <option value="FAMILY">Famille / responsable</option>
+                <option value="CHILD">Chaque enfant</option>
+              </select>
             </div>
             <div>
               <label className="block text-[9px] font-bold text-slate-400 mb-1">
@@ -274,7 +369,7 @@ export const EnrollmentFormBuilderModal: React.FC<EnrollmentFormBuilderModalProp
               </select>
             </div>
             {field.type === 'SELECT' && (
-              <div className="md:col-span-2">
+              <div className="md:col-span-3">
                 <label className="block text-[9px] font-bold text-slate-400 mb-1">
                   Choix proposés
                 </label>
@@ -293,7 +388,7 @@ export const EnrollmentFormBuilderModal: React.FC<EnrollmentFormBuilderModalProp
                 />
               </div>
             )}
-            <div className="md:col-span-2">
+            <div className="md:col-span-3">
               <label className="block text-[9px] font-bold text-slate-400 mb-1">
                 Aide pour le parent
               </label>
@@ -402,7 +497,7 @@ export const EnrollmentFormBuilderModal: React.FC<EnrollmentFormBuilderModalProp
             type="button"
             className="button button--primary"
             onClick={() => void save()}
-            disabled={saving}
+            disabled={saving || draftErrors.length > 0}
           >
             <Settings2 className="w-3.5 h-3.5" />
             {saving ? 'Enregistrement…' : 'Publier cette configuration'}
@@ -416,6 +511,19 @@ export const EnrollmentFormBuilderModal: React.FC<EnrollmentFormBuilderModalProp
         version : les dossiers déjà envoyés conservent exactement le formulaire et
         les réponses qui existaient au moment de leur envoi.
       </div>
+
+      {draftErrors.length > 0 && (
+        <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900 text-[11px] text-rose-900 dark:text-rose-200">
+          <div className="font-semibold mb-1">
+            Corrigez la configuration avant de la publier :
+          </div>
+          <ul className="list-disc pl-4 space-y-0.5">
+            {draftErrors.map((error) => (
+              <li key={error}>{error}</li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div className="space-y-5">
         {sections.map(([key, label]) => {
