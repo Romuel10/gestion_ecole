@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { Suspense, lazy, useEffect, useRef, useState } from 'react';
 import { DatabaseSchema } from './types/school';
 import { StorageService } from './services/storage';
 import { DesktopStorageService } from './services/desktopStorage';
@@ -7,15 +7,58 @@ import { Header } from './components/layout/Header';
 import { CommandPalette } from './components/layout/CommandPalette';
 import { ToastContainer, ToastMessage } from './components/common/Toast';
 import { DashboardHome } from './components/dashboard/DashboardHome';
-import { RegistrationView } from './components/admissions/RegistrationView';
-import { StudentListView } from './components/students/StudentListView';
-import { GradesAndReportCardsView } from './components/academics/GradesAndReportCardsView';
-import { FinancesManagerView } from './components/finances/FinancesManagerView';
-import { TimetableView } from './components/schedule/TimetableView';
-import { AttendanceManagerView } from './components/attendance/AttendanceManagerView';
-import { TeachersManagerView } from './components/teachers/TeachersManagerView';
-import { GeneralSettingsView } from './components/settings/GeneralSettingsView';
 import { CloudSyncService } from './services/cloudSync';
+
+const RegistrationView = lazy(() =>
+  import('./components/admissions/RegistrationView').then((module) => ({
+    default: module.RegistrationView,
+  }))
+);
+const StudentListView = lazy(() =>
+  import('./components/students/StudentListView').then((module) => ({
+    default: module.StudentListView,
+  }))
+);
+const GradesAndReportCardsView = lazy(() =>
+  import('./components/academics/GradesAndReportCardsView').then((module) => ({
+    default: module.GradesAndReportCardsView,
+  }))
+);
+const FinancesManagerView = lazy(() =>
+  import('./components/finances/FinancesManagerView').then((module) => ({
+    default: module.FinancesManagerView,
+  }))
+);
+const TimetableView = lazy(() =>
+  import('./components/schedule/TimetableView').then((module) => ({
+    default: module.TimetableView,
+  }))
+);
+const AttendanceManagerView = lazy(() =>
+  import('./components/attendance/AttendanceManagerView').then((module) => ({
+    default: module.AttendanceManagerView,
+  }))
+);
+const TeachersManagerView = lazy(() =>
+  import('./components/teachers/TeachersManagerView').then((module) => ({
+    default: module.TeachersManagerView,
+  }))
+);
+const GeneralSettingsView = lazy(() =>
+  import('./components/settings/GeneralSettingsView').then((module) => ({
+    default: module.GeneralSettingsView,
+  }))
+);
+
+const ViewLoading = () => (
+  <div className="page-panel p-8 flex items-center justify-center min-h-[180px]" role="status">
+    <div className="text-center">
+      <div className="app-startup__spinner" aria-hidden="true" />
+      <div className="mt-3 text-[11px] text-slate-500">Chargement du module…</div>
+    </div>
+  </div>
+);
+
 
 export function App() {
   const [db, setDb] = useState<DatabaseSchema>(() => StorageService.loadDatabase());
@@ -251,6 +294,7 @@ export function App() {
 
         <main className="app-main">
           <div className="app-content">
+            <Suspense fallback={<ViewLoading />}>
             {currentTab === 'dashboard' && (
               <DashboardHome db={db} onNavigate={handleNavigate} />
             )}
@@ -300,6 +344,7 @@ export function App() {
             {currentTab === 'settings' && (
               <GeneralSettingsView db={db} onUpdateDb={setDb} onShowToast={showToast} />
             )}
+            </Suspense>
           </div>
         </main>
       </div>
