@@ -2,6 +2,10 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import QRCode from "npm:qrcode@1.5.4";
 
+const publicRegistrationPage = Deno.readTextFile(
+  new URL("./public.html", import.meta.url),
+);
+
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, apikey, content-type",
@@ -1503,6 +1507,18 @@ restoreDraft();
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   const url = new URL(req.url);
+  if (req.method === "GET") {
+    console.log(
+      "sekoly-public-enrollment GET",
+      JSON.stringify({
+        pathname: url.pathname,
+        action: url.searchParams.get("action"),
+        hasCode: Boolean(url.searchParams.get("code")),
+        format: url.searchParams.get("format"),
+        hasPortal: Boolean(url.searchParams.get("portal")),
+      }),
+    );
+  }
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
@@ -1514,6 +1530,96 @@ Deno.serve(async (req) => {
     });
 
     const publicEndpoint = publicEnrollmentEndpoint(supabaseUrl);
+
+    if (
+      url.searchParams.get("action") === "bootstrap" &&
+      req.method === "GET"
+    ) {
+      const publicCode = clean(url.searchParams.get("code"), 64);
+      if (!publicCode) {
+        return jsonResponse({ error: "Code d'inscription manquant." }, 400);
+      }
+
+      const context = await loadCampaign(admin, publicCode);
+      if (!context) {
+        return jsonResponse({ error: "Campagne fermée ou lien invalide." }, 404);
+      }
+
+      const familyToken = clean(url.searchParams.get("family"), 160);
+      const familyAccess = familyToken
+        ? await loadPortalData(admin, familyToken)
+        : null;
+      const validFamilyAccess =
+        familyAccess?.family?.school_id === context.campaign.school_id
+          ? familyAccess
+          : null;
+
+      const primaryGuardian = validFamilyAccess?.primaryGuardian ?? null;
+      const primaryRelationship = primaryGuardian
+        ? validFamilyAccess.links.find(
+            (link: any) => link.guardian_id === primaryGuardian.id,
+          )?.relationship ?? "GUARDIAN"
+        : "GUARDIAN";
+
+      const secondaryGuardian = validFamilyAccess
+        ? (validFamilyAccess.guardians ?? []).find(
+            (item: any) => item.id !== primaryGuardian?.id,
+          ) ?? null
+        : null;
+      const secondaryRelationship = secondaryGuardian
+        ? validFamilyAccess.links.find(
+            (link: any) => link.guardian_id === secondaryGuardian.id,
+          )?.relationship ?? "OTHER"
+        : "OTHER";
+
+      return jsonResponse({
+        school: context.school,
+        year: context.year,
+        classes: context.classes,
+        campaign: context.campaign,
+        family: validFamilyAccess
+          ? {
+              guardian: primaryGuardian
+                ? {
+                    lastName: primaryGuardian.last_name ?? "",
+                    firstName: primaryGuardian.first_name ?? "",
+                    phonePrimary: primaryGuardian.phone_primary ?? "",
+                    phoneSecondary: primaryGuardian.phone_secondary ?? "",
+                    email: primaryGuardian.email ?? "",
+                    cinNumber: primaryGuardian.cin_number ?? "",
+                    cinIssuedAt: primaryGuardian.cin_issued_at ?? "",
+                    cinIssuePlace: primaryGuardian.cin_issue_place ?? "",
+                    occupation: primaryGuardian.occupation ?? "",
+                    address: primaryGuardian.address ?? "",
+                    city: primaryGuardian.city ?? "",
+                    relationship: primaryRelationship,
+                  }
+                : null,
+              secondaryGuardian: secondaryGuardian
+                ? {
+                    lastName: secondaryGuardian.last_name ?? "",
+                    firstName: secondaryGuardian.first_name ?? "",
+                    phonePrimary: secondaryGuardian.phone_primary ?? "",
+                    email: secondaryGuardian.email ?? "",
+                    cinNumber: secondaryGuardian.cin_number ?? "",
+                    cinIssuedAt: secondaryGuardian.cin_issued_at ?? "",
+                    cinIssuePlace: secondaryGuardian.cin_issue_place ?? "",
+                    occupation: secondaryGuardian.occupation ?? "",
+                    relationship: secondaryRelationship,
+                  }
+                : null,
+              students: (validFamilyAccess.students ?? []).map(
+                (student: any) => ({
+                  matricule: student.matricule,
+                  lastName: student.last_name,
+                  firstName: student.first_name,
+                  birthDate: student.birth_date,
+                }),
+              ),
+            }
+          : null,
+      });
+    }
 
     if (url.searchParams.get("action") === "upload" && req.method === "POST") {
       return await uploadEnrollmentDocument(
@@ -1578,24 +1684,12 @@ Deno.serve(async (req) => {
         });
       }
 
-      const familyToken = clean(url.searchParams.get("family"), 160);
-      const familyAccess = familyToken
-        ? await loadPortalData(admin, familyToken)
-        : null;
-
-      return new Response(
-        renderPage(
-          context,
-          publicCode,
-          familyAccess?.family?.school_id === context.campaign.school_id
-            ? familyAccess
-            : null,
-          publicEndpoint,
-        ),
-        {
+      const html = await publicRegistrationPage;
+      return new Response(html, {
         headers: {
           "Content-Type": "text/html; charset=utf-8",
-          "Cache-Control": "no-store",
+          "Content-Disposition": "inline; filename=\"inscription.html\"",
+          "Cache-Control": "no-store, max-age=0",
           "X-Content-Type-Options": "nosniff",
           "Referrer-Policy": "no-referrer",
           "X-Frame-Options": "DENY",
@@ -1603,8 +1697,7 @@ Deno.serve(async (req) => {
           "Content-Security-Policy":
             "default-src 'self'; img-src 'self' data: blob:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self' https://*.supabase.co; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
         },
-      },
-      );
+      });
     }
 
     if (req.method !== "POST") {
