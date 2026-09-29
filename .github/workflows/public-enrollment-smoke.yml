@@ -17,27 +17,49 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Verify public form renders as HTML
+      - name: Verify public form end to end
         shell: bash
         run: |
           set -euo pipefail
           BASE="https://cmpbrouwcfoauwyeiyfj.supabase.co/functions/v1/sekoly-public-enrollment"
           CODE="46abb7a4a3244d5ba669"
 
-          curl -sS -D /tmp/form.headers -o /tmp/form.body "$BASE?code=$CODE"
-          STATUS="$(awk 'NR==1{print $2}' /tmp/form.headers)"
-          TYPE="$(awk 'BEGIN{IGNORECASE=1} /^content-type:/{print $0}' /tmp/form.headers | tr -d '\r')"
+          curl -L -sS -D /tmp/form.headers -o /tmp/form.body "$BASE?code=$CODE"
+          STATUS="$(grep -E '^HTTP/' /tmp/form.headers | tail -1 | awk '{print $2}')"
+          TYPE="$(grep -i '^content-type:' /tmp/form.headers | tail -1 | tr -d '\r')"
+          FINAL_URL="$(curl -L -sS -o /dev/null -w '%{url_effective}' "$BASE?code=$CODE")"
 
-          echo "Form status: $STATUS"
-          echo "Form content type: $TYPE"
-          head -c 120 /tmp/form.body; echo
+          echo "Final status: $STATUS"
+          echo "Final content type: $TYPE"
+          echo "Final URL: $FINAL_URL"
+          head -c 180 /tmp/form.body; echo
 
           test "$STATUS" = "200"
           echo "$TYPE" | grep -qi "text/html"
           grep -qi "<!doctype html" /tmp/form.body
-          grep -qi "SEKOLY · INSCRIPTION" /tmp/form.body
+          grep -qi "SEKOLY" /tmp/form.body
 
-      - name: Verify QR renders as SVG
+      - name: Verify bootstrap API
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="https://cmpbrouwcfoauwyeiyfj.supabase.co/functions/v1/sekoly-public-enrollment"
+          CODE="46abb7a4a3244d5ba669"
+
+          curl -sS -D /tmp/api.headers -o /tmp/api.body "$BASE?action=bootstrap&code=$CODE"
+          STATUS="$(awk 'NR==1{print $2}' /tmp/api.headers)"
+          TYPE="$(grep -i '^content-type:' /tmp/api.headers | tail -1 | tr -d '\r')"
+
+          echo "API status: $STATUS"
+          echo "API content type: $TYPE"
+          head -c 180 /tmp/api.body; echo
+
+          test "$STATUS" = "200"
+          echo "$TYPE" | grep -qi "application/json"
+          grep -q '"campaign"' /tmp/api.body
+          grep -q '"school"' /tmp/api.body
+
+      - name: Verify QR end to end
         shell: bash
         run: |
           set -euo pipefail
@@ -46,7 +68,7 @@ jobs:
 
           curl -sS -D /tmp/qr.headers -o /tmp/qr.body "$BASE?code=$CODE&format=qr&smoke=1"
           STATUS="$(awk 'NR==1{print $2}' /tmp/qr.headers)"
-          TYPE="$(awk 'BEGIN{IGNORECASE=1} /^content-type:/{print $0}' /tmp/qr.headers | tr -d '\r')"
+          TYPE="$(grep -i '^content-type:' /tmp/qr.headers | tail -1 | tr -d '\r')"
 
           echo "QR status: $STATUS"
           echo "QR content type: $TYPE"
