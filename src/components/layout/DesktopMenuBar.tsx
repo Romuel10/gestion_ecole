@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { DatabaseSchema } from '../../types/school';
 import { StorageService } from '../../services/storage';
+import { useConfirm } from '../common/ConfirmProvider';
 
 interface DesktopMenuBarProps {
   db: DatabaseSchema;
@@ -31,6 +32,7 @@ export const DesktopMenuBar: React.FC<DesktopMenuBarProps> = ({
   onToggleTheme,
   onShowToast,
 }) => {
+  const confirm = useConfirm();
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -64,13 +66,20 @@ export const DesktopMenuBar: React.FC<DesktopMenuBarProps> = ({
     setOpenMenu(null);
   };
 
-  const handleResetData = () => {
-    if (window.confirm("Réinitialiser toutes les données aux valeurs par défaut de l'établissement ?")) {
-      const reset = StorageService.resetToDefault();
-      onUpdateDb(reset);
-      onShowToast('Données réinitialisées.', 'info');
-    }
+  const handleResetData = async () => {
     setOpenMenu(null);
+    const accepted = await confirm({
+      title: 'Réinitialiser Sekoly',
+      message:
+        'Toutes les données locales seront remplacées par un établissement vierge. Exportez une sauvegarde avant de continuer si nécessaire.',
+      confirmLabel: 'Réinitialiser',
+      destructive: true,
+    });
+    if (!accepted) return;
+
+    const reset = StorageService.resetToDefault();
+    onUpdateDb(reset);
+    onShowToast('Données réinitialisées.', 'info');
   };
 
   return (
@@ -82,13 +91,14 @@ export const DesktopMenuBar: React.FC<DesktopMenuBarProps> = ({
           <div className="w-4 h-4 rounded bg-blue-600 text-white flex items-center justify-center text-[10px] font-black">
             E
           </div>
-          <span>EDUGASY PRO</span>
-          <span className="text-[9px] text-slate-400 font-normal">v2.4</span>
+          <span>SEKOLY</span>
+          <span className="text-[9px] text-slate-400 font-normal">v1.0</span>
         </div>
 
         {/* Fichier Menu */}
         <div className="relative desktop-menu-item">
           <button
+            type="button"
             onClick={() => setOpenMenu(openMenu === 'FILE' ? null : 'FILE')}
             className={`px-2.5 py-1 rounded transition hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-white ${
               openMenu === 'FILE' ? 'bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-white' : ''
@@ -100,6 +110,7 @@ export const DesktopMenuBar: React.FC<DesktopMenuBarProps> = ({
             <div className="absolute top-full left-0 mt-0.5 w-56 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded shadow-2xl py-1 text-xs text-slate-700 dark:text-slate-200 divide-y divide-slate-100 dark:divide-slate-800">
               <div className="py-1">
                 <button
+                  type="button"
                   onClick={() => {
                     onOpenNewAdmission();
                     setOpenMenu(null);
@@ -110,6 +121,7 @@ export const DesktopMenuBar: React.FC<DesktopMenuBarProps> = ({
                   <kbd className="text-[10px] text-slate-400 font-mono">Ctrl+N</kbd>
                 </button>
                 <button
+                  type="button"
                   onClick={() => {
                     onOpenNewPayment();
                     setOpenMenu(null);
@@ -123,6 +135,7 @@ export const DesktopMenuBar: React.FC<DesktopMenuBarProps> = ({
 
               <div className="py-1">
                 <button
+                  type="button"
                   onClick={handleExportBackup}
                   className="w-full text-left px-3 py-1.5 hover:bg-blue-600 hover:text-white flex items-center space-x-2"
                 >
@@ -144,6 +157,7 @@ export const DesktopMenuBar: React.FC<DesktopMenuBarProps> = ({
 
               <div className="py-1">
                 <button
+                  type="button"
                   onClick={handleResetData}
                   className="w-full text-left px-3 py-1.5 hover:bg-rose-700 hover:text-white flex items-center space-x-2 text-rose-300"
                 >
@@ -157,6 +171,7 @@ export const DesktopMenuBar: React.FC<DesktopMenuBarProps> = ({
 
         {/* Ouverture de la palette de commandes */}
         <button
+          type="button"
           onClick={onOpenCommandPalette}
           className="px-2.5 py-1 rounded transition hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-white flex items-center space-x-1.5"
           title="Rechercher un élève, une classe ou une commande (Ctrl+K)"
@@ -175,6 +190,7 @@ export const DesktopMenuBar: React.FC<DesktopMenuBarProps> = ({
         </div>
 
         <button
+          type="button"
           onClick={onToggleTheme}
           className="p-1 rounded transition hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-slate-100 text-slate-500 dark:text-slate-400"
           title="Basculer thème Sombre / Clair"
