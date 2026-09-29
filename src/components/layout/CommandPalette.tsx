@@ -81,11 +81,6 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        if (isOpen) onClose();
-        else setQuery('');
-      }
       if (e.key === 'Escape' && isOpen) {
         onClose();
       }
@@ -147,7 +142,12 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       />
 
       {/* Palette Box */}
-      <div className="relative w-full max-w-2xl bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden z-10 animate-in fade-in zoom-in-95 duration-100">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Recherche globale"
+        className="relative w-full max-w-2xl bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden z-10"
+      >
         {/* Search Input Bar */}
         <div className="flex items-center px-4 py-3 border-b border-slate-200 dark:border-slate-800">
           <Search className="w-5 h-5 text-slate-400 mr-3 flex-shrink-0" />
@@ -157,11 +157,14 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
             value={query}
             onChange={(e) => handleQueryChange(e.target.value)}
             placeholder="Rechercher élève par nom/matricule, enseignant, classe, reçu..."
+            aria-label="Recherche globale"
             className="w-full bg-transparent text-sm text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none"
           />
           {query && (
             <button
+              type="button"
               onClick={() => handleQueryChange('')}
+              aria-label="Effacer la recherche"
               className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
             >
               <X className="w-4 h-4" />
