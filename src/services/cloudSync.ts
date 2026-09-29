@@ -316,6 +316,7 @@ export type EnrollmentChecklistItem = {
   application_id: string;
   code: string;
   label: string;
+  scope: 'FAMILY' | 'CHILD';
   required: boolean;
   status: 'MISSING' | 'PROVIDED' | 'VERIFIED' | 'NOT_REQUIRED';
   document_id: string | null;
