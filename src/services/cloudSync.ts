@@ -1131,7 +1131,7 @@ export class CloudSyncService {
   }
 
   static publicEnrollmentUrl(publicCode: string) {
-    return `${DEFAULT_URL}/functions/v1/sekoly-public-enrollment?code=${encodeURIComponent(
+    return `https://romuel10.github.io/romuel-app-store/sekoly/enrollment/index.html?code=${encodeURIComponent(
       publicCode
     )}`;
   }
@@ -1139,7 +1139,7 @@ export class CloudSyncService {
   static publicEnrollmentQrUrl(publicCode: string) {
     return `${DEFAULT_URL}/functions/v1/sekoly-public-enrollment?code=${encodeURIComponent(
       publicCode
-    )}&format=qr&v=6`;
+    )}&format=qr&v=7`;
   }
 
   static async getOpenEnrollmentCampaign(
