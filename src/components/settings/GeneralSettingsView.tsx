@@ -458,7 +458,15 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
   const handleDownloadBackup = async (backupId: string) => {
     try {
       const result = await CloudSyncService.backupSignedUrl(backupId);
-      window.open(result.url, '_blank', 'noopener,noreferrer');
+      const link = document.createElement('a');
+      link.href = result.url;
+      link.download = '';
+      link.rel = 'noopener noreferrer';
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      onShowToast('Téléchargement de la sauvegarde lancé.', 'success');
     } catch (error) {
       onShowToast(
         error instanceof Error ? error.message : 'Téléchargement impossible.',
