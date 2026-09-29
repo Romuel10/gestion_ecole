@@ -27,3 +27,6 @@ verify_jwt = true
 
 [functions.sekoly-public-enrollment]
 verify_jwt = false
+
+[functions.sekoly-backup-school]
+verify_jwt = true
