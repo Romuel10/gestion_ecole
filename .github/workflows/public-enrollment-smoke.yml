@@ -21,7 +21,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          URL="https://romuel10.github.io/romuel-app-store/sekoly/enrollment/index.html?code=b9cf624c992b4a2e9a56"
+          URL="https://romuel10.github.io/romuel-app-store/sekoly/enrollment/index.html?code=10441a88ccdd43e183db"
           curl -sS -D /tmp/site.headers -o /tmp/site.body "$URL"
           STATUS="$(awk 'NR==1{print $2}' /tmp/site.headers)"
           TYPE="$(grep -i '^content-type:' /tmp/site.headers | tail -1 | tr -d '\r')"
@@ -30,7 +30,7 @@ jobs:
           test "$STATUS" = "200"
           echo "$TYPE" | grep -qi "text/html"
           grep -qi "<!doctype html" /tmp/site.body
-          grep -q "2026-09-29-cloudflare-v1" /tmp/site.body
+          grep -q "2026-09-29-configurable-form-v1" /tmp/site.body
           grep -qi "SEKOLY · INSCRIPTION" /tmp/site.body
 
       - name: Verify Edge redirects browsers to the frontend
@@ -38,7 +38,7 @@ jobs:
         run: |
           set -euo pipefail
           BASE="https://cmpbrouwcfoauwyeiyfj.supabase.co/functions/v1/sekoly-public-enrollment"
-          for CODE in b9cf624c992b4a2e9a56 46abb7a4a3244d5ba669; do
+          for CODE in 10441a88ccdd43e183db 46abb7a4a3244d5ba669; do
             curl -sS -L -D /tmp/edge.headers -o /tmp/edge.body -w '%{url_effective}\n%{http_code}\n%{content_type}\n' "$BASE?code=$CODE" > /tmp/edge.meta
             FINAL_URL="$(sed -n '1p' /tmp/edge.meta)"
             STATUS="$(sed -n '2p' /tmp/edge.meta)"
@@ -55,7 +55,7 @@ jobs:
         run: |
           set -euo pipefail
           BASE="https://cmpbrouwcfoauwyeiyfj.supabase.co/functions/v1/sekoly-public-enrollment"
-          OPEN="b9cf624c992b4a2e9a56"
+          OPEN="10441a88ccdd43e183db"
           CLOSED="46abb7a4a3244d5ba669"
 
           curl -sS -D /tmp/open.headers -o /tmp/open.body "$BASE?action=bootstrap&code=$OPEN"
@@ -77,7 +77,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          URL="https://cmpbrouwcfoauwyeiyfj.supabase.co/functions/v1/sekoly-public-enrollment?code=b9cf624c992b4a2e9a56&format=qr&smoke=1"
+          URL="https://cmpbrouwcfoauwyeiyfj.supabase.co/functions/v1/sekoly-public-enrollment?code=10441a88ccdd43e183db&format=qr&smoke=1"
           curl -sS -D /tmp/qr.headers -o /tmp/qr.body "$URL"
           STATUS="$(awk 'NR==1{print $2}' /tmp/qr.headers)"
           TYPE="$(grep -i '^content-type:' /tmp/qr.headers | tail -1 | tr -d '\r')"
@@ -96,7 +96,7 @@ jobs:
           set -euo pipefail
           CHROME="$(command -v google-chrome || command -v google-chrome-stable || true)"
           test -n "$CHROME"
-          URL="https://romuel10.github.io/romuel-app-store/sekoly/enrollment/index.html?code=b9cf624c992b4a2e9a56&browser-smoke=1"
+          URL="https://romuel10.github.io/romuel-app-store/sekoly/enrollment/index.html?code=10441a88ccdd43e183db&browser-smoke=1"
           "$CHROME" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage --virtual-time-budget=7000 --dump-dom "$URL" > /tmp/dom.html
           grep -q "Romuel's School" /tmp/dom.html
           grep -q "Responsable familial" /tmp/dom.html
