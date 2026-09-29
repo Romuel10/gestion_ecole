@@ -47,6 +47,15 @@ function configuredFields(schema: any, scope: FormScope) {
     : [];
 }
 
+function isValidIsoDate(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  return (
+    !Number.isNaN(parsed.getTime()) &&
+    parsed.toISOString().slice(0, 10) === value
+  );
+}
+
 function safeAnswerValue(field: any, value: unknown) {
   if (value === null || value === undefined) return null;
   if (field.type === "YES_NO") {
@@ -71,6 +80,9 @@ function safeAnswerValue(field: any, value: unknown) {
       ? normalized.toLowerCase()
       : null;
   }
+  if (field.type === "DATE") {
+    return isValidIsoDate(normalized) ? normalized : null;
+  }
   return normalized;
 }
 
@@ -86,7 +98,13 @@ function sanitizeCustomAnswers(
   const output: Record<string, unknown> = {};
   for (const field of configuredFields(schema, scope)) {
     if (!field.custom) continue;
-    const value = safeAnswerValue(field, input[field.key]);
+    const rawValue = input[field.key];
+    const value = safeAnswerValue(field, rawValue);
+    if (hasConfiguredValue(rawValue) && value === null) {
+      throw new Error(
+        `La valeur du champ « ${clean(field.label, 180) || field.key} » est invalide.`,
+      );
+    }
     if (value !== null && value !== "") output[field.key] = value;
   }
   return output;
@@ -158,6 +176,69 @@ function validateConfiguredRequiredFields(
       throw new Error(
         `Le champ « ${clean(field.label, 180) || field.key} » est obligatoire.`,
       );
+    }
+  }
+}
+
+function validateConfiguredFieldValues(
+  schema: any,
+  scope: FormScope,
+  source: any,
+  customAnswers: Record<string, unknown>,
+) {
+  for (const field of configuredFields(schema, scope)) {
+    if (
+      scope === "CHILD" &&
+      field.key === "existingMatricule" &&
+      clean(source?.type, 32) !== "RE_REGISTRATION"
+    ) {
+      continue;
+    }
+
+    const value = configuredValue(scope, field, source, customAnswers);
+    if (!hasConfiguredValue(value) || field.custom) continue;
+
+    const label = clean(field.label, 180) || field.key;
+    const normalized = clean(value, field.type === "TEXTAREA" ? 4000 : 500);
+
+    if (
+      field.type === "EMAIL" &&
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)
+    ) {
+      throw new Error(`Le champ « ${label} » doit contenir un email valide.`);
+    }
+
+    if (field.type === "NUMBER" && !Number.isFinite(Number(value))) {
+      throw new Error(`Le champ « ${label} » doit contenir un nombre valide.`);
+    }
+
+    if (field.type === "DATE" && !isValidIsoDate(normalized)) {
+      throw new Error(`Le champ « ${label} » doit contenir une date valide.`);
+    }
+
+    if (
+      field.type === "SELECT" &&
+      Array.isArray(field.options) &&
+      field.options.length > 0
+    ) {
+      const allowed = field.options.map((item: unknown) => clean(item, 160));
+      if (!allowed.includes(normalized)) {
+        throw new Error(`La valeur choisie pour « ${label} » n’est pas autorisée.`);
+      }
+    }
+
+    if (
+      field.type === "YES_NO" &&
+      ![
+        true,
+        false,
+        "true",
+        "false",
+        "YES",
+        "NO",
+      ].includes(value as any)
+    ) {
+      throw new Error(`Le champ « ${label} » doit être Oui ou Non.`);
     }
   }
 }
@@ -1214,6 +1295,12 @@ Deno.serve(async (req) => {
       guardian,
       familyCustomAnswers,
     );
+    validateConfiguredFieldValues(
+      formSchema,
+      "FAMILY",
+      guardian,
+      familyCustomAnswers,
+    );
     if (children.length === 0) {
       return jsonResponse({ error: "Ajoutez au moins un enfant." }, 400);
     }
@@ -1241,6 +1328,12 @@ Deno.serve(async (req) => {
         throw new Error("Le matricule est obligatoire pour une réinscription.");
       }
       validateConfiguredRequiredFields(
+        formSchema,
+        "CHILD",
+        child,
+        childCustomAnswers,
+      );
+      validateConfiguredFieldValues(
         formSchema,
         "CHILD",
         child,
