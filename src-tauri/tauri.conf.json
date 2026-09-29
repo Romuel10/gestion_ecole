@@ -31,7 +31,7 @@
       "capabilities": [
         "main-capability"
       ],
-      "csp": "default-src 'self'; connect-src 'self' ipc: http://ipc.localhost https: wss:; img-src 'self' asset: http://asset.localhost data: blob: https:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self'; object-src 'none'; frame-src 'none'; base-uri 'self'; form-action 'self'",
+      "csp": "default-src 'self'; connect-src 'self' ipc: http://ipc.localhost https: wss:; img-src 'self' asset: http://asset.localhost data: blob: https:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self'; object-src 'none'; frame-src https://romuel10.github.io https://cmpbrouwcfoauwyeiyfj.supabase.co blob:; base-uri 'self'; form-action 'self'",
       "headers": {
         "X-Content-Type-Options": "nosniff",
         "Permissions-Policy": "camera=(), microphone=(), geolocation=()"
