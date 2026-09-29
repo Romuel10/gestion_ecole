@@ -32,3 +32,7 @@ jobs:
           curl -sS -D /tmp/store.headers -o /tmp/store.body -w 'CODE=%{http_code}\nTYPE=%{content_type}\n' "$STORE"
           sed -n '1,50p' /tmp/store.headers
           head -c 250 /tmp/store.body; echo
+          echo '=== XHTML PROBE ==='
+          curl -sS -D /tmp/xhtml.headers -o /tmp/xhtml.body -w 'CODE=%{http_code}\nTYPE=%{content_type}\n' 'https://cmpbrouwcfoauwyeiyfj.supabase.co/functions/v1/sekoly-public-enrollment?action=xhtml-probe'
+          sed -n '1,50p' /tmp/xhtml.headers
+          head -c 250 /tmp/xhtml.body; echo
