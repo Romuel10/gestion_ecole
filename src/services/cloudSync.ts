@@ -154,6 +154,55 @@ export type SyncMonitor = {
   }>;
 };
 
+export type EnrollmentFormFieldType =
+  | 'TEXT'
+  | 'TEXTAREA'
+  | 'DATE'
+  | 'EMAIL'
+  | 'PHONE'
+  | 'NUMBER'
+  | 'SELECT'
+  | 'YES_NO'
+  | 'CLASS';
+
+export type EnrollmentFormField = {
+  key: string;
+  scope: 'FAMILY' | 'CHILD';
+  group: 'PRIMARY' | 'SECONDARY' | 'CHILD' | 'CUSTOM';
+  label: string;
+  type: EnrollmentFormFieldType;
+  visible: boolean;
+  required: boolean;
+  locked?: boolean;
+  custom?: boolean;
+  order: number;
+  placeholder?: string;
+  helpText?: string;
+  options?: string[];
+};
+
+export type EnrollmentFormDocument = {
+  code: string;
+  scope: 'FAMILY' | 'CHILD';
+  label: string;
+  visible: boolean;
+  required: boolean;
+  order: number;
+};
+
+export type EnrollmentFormSchema = {
+  schemaVersion: number;
+  fields: EnrollmentFormField[];
+  documents: EnrollmentFormDocument[];
+};
+
+export type EnrollmentSubmissionPayload = {
+  guardian?: Record<string, unknown>;
+  child?: Record<string, unknown>;
+  customAnswers?: Record<string, unknown>;
+  submittedAt?: string;
+};
+
 export type EnrollmentCampaign = {
   id: string;
   school_id: string;
@@ -167,6 +216,8 @@ export type EnrollmentCampaign = {
   opens_at: string | null;
   closes_at: string | null;
   created_at: string;
+  form_schema: EnrollmentFormSchema;
+  form_schema_version: number;
   publicUrl: string;
   qrUrl: string;
 };
@@ -214,6 +265,10 @@ export type EnrollmentQueueItem = {
   payment_status: 'NOT_REQUIRED' | 'PENDING' | 'PAID' | 'WAIVED';
   final_student_id: string | null;
   created_at: string;
+  form_schema_version: number | null;
+  form_schema_snapshot: EnrollmentFormSchema | null;
+  custom_answers: Record<string, unknown>;
+  submitted_payload: EnrollmentSubmissionPayload;
   family: {
     id: string;
     reference_code: string;
@@ -231,6 +286,10 @@ export type EnrollmentQueueItem = {
     address: string | null;
     city: string | null;
     preferred_contact: string;
+    form_schema_version: number | null;
+    form_schema_snapshot: EnrollmentFormSchema | null;
+    custom_answers: Record<string, unknown>;
+    submitted_payload: EnrollmentSubmissionPayload;
   } | null;
   desiredClassName: string | null;
   familyProfileCode: string | null;
