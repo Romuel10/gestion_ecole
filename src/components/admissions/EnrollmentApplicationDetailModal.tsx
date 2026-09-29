@@ -175,7 +175,7 @@ export const EnrollmentApplicationDetailModal: React.FC<EnrollmentApplicationDet
 
   const familySubmission = asRecord(application.family?.submitted_payload);
   const submittedGuardian = asRecord(familySubmission.guardian);
-  const guardian = Object.keys(submittedGuardian).length
+  const guardian: Record<string, unknown> = Object.keys(submittedGuardian).length
     ? submittedGuardian
     : {
         lastName: application.family?.guardian_last_name,
@@ -195,7 +195,7 @@ export const EnrollmentApplicationDetailModal: React.FC<EnrollmentApplicationDet
 
   const secondary = asRecord(guardian.secondary);
   const submittedChild = asRecord(application.submitted_payload?.child);
-  const child = Object.keys(submittedChild).length
+  const child: Record<string, unknown> = Object.keys(submittedChild).length
     ? submittedChild
     : {
         type: application.application_type,
