@@ -37,7 +37,14 @@ import { StorageService } from '../../services/storage';
 import { MatriculeService } from '../../services/matricule';
 import { CalculationService } from '../../services/calculations';
 import { SchoolYearClosureService } from '../../services/schoolYearClosure';
-import { CloudSyncService, PilotSmokeTest, PilotStatus, SyncMonitor } from '../../services/cloudSync';
+import {
+  CloudSyncService,
+  PilotSmokeTest,
+  PilotStatus,
+  SchoolBackup,
+  SchoolCloudCapacity,
+  SyncMonitor,
+} from '../../services/cloudSync';
 import { Modal } from '../common/Modal';
 
 interface GeneralSettingsViewProps {
@@ -68,6 +75,18 @@ const slugCode = (value: string) =>
     .toUpperCase()
     .replace(/[^A-Z0-9]+/g, '_')
     .replace(/^_|_$/g, '');
+
+const formatBytes = (value: number) => {
+  if (!Number.isFinite(value) || value <= 0) return '0 Mo';
+  const units = ['o', 'Ko', 'Mo', 'Go', 'To'];
+  let amount = value;
+  let unit = 0;
+  while (amount >= 1024 && unit < units.length - 1) {
+    amount /= 1024;
+    unit += 1;
+  }
+  return `${amount >= 10 || unit < 2 ? amount.toFixed(0) : amount.toFixed(1)} ${units[unit]}`;
+};
 
 export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
   db,
@@ -121,6 +140,9 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
   const [pilotSmokeBusy, setPilotSmokeBusy] = useState(false);
   const [syncMonitor, setSyncMonitor] = useState<SyncMonitor | null>(null);
   const [syncMonitorBusy, setSyncMonitorBusy] = useState(false);
+  const [cloudCapacity, setCloudCapacity] = useState<SchoolCloudCapacity | null>(null);
+  const [schoolBackups, setSchoolBackups] = useState<SchoolBackup[]>([]);
+  const [backupBusy, setBackupBusy] = useState(false);
 
   useEffect(() => {
     if (!cloudConnected || cloudSchoolId) return;
@@ -130,6 +152,30 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
         if (membership?.school_id) setCloudSchoolId(membership.school_id);
       })
       .catch(() => undefined);
+  }, [cloudConnected, cloudSchoolId]);
+
+  useEffect(() => {
+    if (!cloudConnected || !cloudSchoolId) {
+      setCloudCapacity(null);
+      setSchoolBackups([]);
+      return;
+    }
+
+    let cancelled = false;
+    Promise.all([
+      CloudSyncService.cloudCapacity(),
+      CloudSyncService.schoolBackups(),
+    ])
+      .then(([capacity, backups]) => {
+        if (cancelled) return;
+        setCloudCapacity(capacity);
+        setSchoolBackups(backups);
+      })
+      .catch(() => undefined);
+
+    return () => {
+      cancelled = true;
+    };
   }, [cloudConnected, cloudSchoolId]);
 
   const activeSchoolYear = db.schoolYears.find((year) => year.id === db.currentSchoolYearId);
@@ -346,6 +392,65 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
     } catch (error) {
       onShowToast(
         error instanceof Error ? error.message : 'Resynchronisation complète impossible.',
+        'error'
+      );
+    }
+  };
+
+  const refreshCloudProtection = async () => {
+    if (!cloudSchoolId) return;
+    setBackupBusy(true);
+    try {
+      const [capacity, backups] = await Promise.all([
+        CloudSyncService.cloudCapacity(),
+        CloudSyncService.schoolBackups(),
+      ]);
+      setCloudCapacity(capacity);
+      setSchoolBackups(backups);
+    } catch (error) {
+      onShowToast(
+        error instanceof Error ? error.message : 'État Cloud impossible à charger.',
+        'error'
+      );
+    } finally {
+      setBackupBusy(false);
+    }
+  };
+
+  const handleManualBackup = async () => {
+    if (!cloudSchoolId) return;
+    setBackupBusy(true);
+    try {
+      const result = await CloudSyncService.createSchoolBackup('MANUAL');
+      const [capacity, backups] = await Promise.all([
+        CloudSyncService.cloudCapacity(),
+        CloudSyncService.schoolBackups(),
+      ]);
+      setCloudCapacity(capacity);
+      setSchoolBackups(backups);
+      onShowToast(
+        result.created
+          ? 'Sauvegarde Cloud créée avec succès.'
+          : 'Une sauvegarde récente existe déjà.',
+        'success'
+      );
+    } catch (error) {
+      onShowToast(
+        error instanceof Error ? error.message : 'Sauvegarde Cloud impossible.',
+        'error'
+      );
+    } finally {
+      setBackupBusy(false);
+    }
+  };
+
+  const handleDownloadBackup = async (backupId: string) => {
+    try {
+      const result = await CloudSyncService.backupSignedUrl(backupId);
+      window.open(result.url, '_blank', 'noopener,noreferrer');
+    } catch (error) {
+      onShowToast(
+        error instanceof Error ? error.message : 'Téléchargement impossible.',
         'error'
       );
     }
@@ -2206,7 +2311,8 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
                               Dernière synchronisation : {cloudStats.students} élèves · {cloudStats.teachers}{' '}
                               enseignants · {cloudStats.assignments} affectations ·{' '}
                               {cloudStats.attendanceAdded ?? 0} présence(s) reçue(s) ·{' '}
-                              {cloudStats.gradesChanged ?? 0} fiche(s) de notes mise(s) à jour.
+                              {cloudStats.gradesChanged ?? 0} fiche(s) de notes mise(s) à jour ·{' '}
+                              {cloudStats.guardians ?? 0} responsable(s) familial(aux).
                             </div>
                           )}
                         </div>
@@ -2231,6 +2337,123 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
                             {cloudBusy ? 'Synchronisation…' : 'Synchroniser dans les deux sens'}
                           </button>
                         </div>
+                      </div>
+
+                      <div className="border border-slate-200 dark:border-slate-700 p-4">
+                        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                          <div>
+                            <div className="text-[11px] font-semibold">Capacité & sauvegardes Cloud</div>
+                            <p className="mt-1 text-[10.5px] text-slate-500">
+                              Contrôle les quotas de cet établissement et conserve automatiquement une sauvegarde Cloud quotidienne quand Sekoly Admin est utilisé.
+                            </p>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              onClick={() => void refreshCloudProtection()}
+                              disabled={backupBusy}
+                              className="button button--secondary"
+                            >
+                              <RefreshCw className="w-4 h-4" />
+                              Actualiser
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void handleManualBackup()}
+                              disabled={backupBusy}
+                              className="button button--primary"
+                            >
+                              <Archive className="w-4 h-4" />
+                              Sauvegarder maintenant
+                            </button>
+                          </div>
+                        </div>
+
+                        {cloudCapacity && (
+                          <>
+                            <div className="mt-4 grid grid-cols-2 lg:grid-cols-5 gap-2 text-[10px]">
+                              <div className="cloud-info-cell">
+                                <span>Plan</span>
+                                <strong>{cloudCapacity.limits.plan_code}</strong>
+                              </div>
+                              <div className="cloud-info-cell">
+                                <span>Élèves</span>
+                                <strong>
+                                  {cloudCapacity.usage.students} / {cloudCapacity.limits.max_students}
+                                </strong>
+                              </div>
+                              <div className="cloud-info-cell">
+                                <span>Enseignants</span>
+                                <strong>
+                                  {cloudCapacity.usage.teachers} / {cloudCapacity.limits.max_teachers}
+                                </strong>
+                              </div>
+                              <div className="cloud-info-cell">
+                                <span>Familles</span>
+                                <strong>
+                                  {cloudCapacity.usage.families} / {cloudCapacity.limits.max_families}
+                                </strong>
+                              </div>
+                              <div className="cloud-info-cell">
+                                <span>Pièces familles</span>
+                                <strong>
+                                  {formatBytes(cloudCapacity.usage.documentBytes)} /{' '}
+                                  {formatBytes(cloudCapacity.limits.max_document_bytes)}
+                                </strong>
+                              </div>
+                            </div>
+
+                            <div className="mt-3 text-[10px] text-slate-500">
+                              Sauvegarde automatique :{' '}
+                              {cloudCapacity.latestBackup
+                                ? `dernière le ${new Date(
+                                    cloudCapacity.latestBackup.created_at
+                                  ).toLocaleString('fr-FR')} · ${formatBytes(
+                                    cloudCapacity.latestBackup.size_bytes || 0
+                                  )}`
+                                : 'aucune sauvegarde créée pour le moment'}.
+                              {' '}Conservation : {cloudCapacity.limits.backup_retention_days} jours.
+                            </div>
+                          </>
+                        )}
+
+                        {schoolBackups.length > 0 && (
+                          <div className="mt-4 overflow-x-auto">
+                            <table className="erp-table min-w-[620px]">
+                              <thead>
+                                <tr>
+                                  <th>Date</th>
+                                  <th>Type</th>
+                                  <th>État</th>
+                                  <th>Taille</th>
+                                  <th className="text-right">Action</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {schoolBackups.slice(0, 5).map((backup) => (
+                                  <tr key={backup.id}>
+                                    <td>{new Date(backup.created_at).toLocaleString('fr-FR')}</td>
+                                    <td>{backup.backup_type === 'AUTOMATIC' ? 'Automatique' : 'Manuelle'}</td>
+                                    <td>{backup.status}</td>
+                                    <td>{formatBytes(backup.size_bytes || 0)}</td>
+                                    <td className="text-right">
+                                      {backup.status === 'READY' && (
+                                        <button
+                                          type="button"
+                                          className="button button--secondary"
+                                          onClick={() => void handleDownloadBackup(backup.id)}
+                                        >
+                                          <Download className="w-3.5 h-3.5" />
+                                          Télécharger
+                                        </button>
+                                      )}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
                       </div>
 
                       <div className="border border-slate-200 dark:border-slate-700 p-4">
