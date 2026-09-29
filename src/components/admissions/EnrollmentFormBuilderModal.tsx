@@ -94,6 +94,35 @@ export const EnrollmentFormBuilderModal: React.FC<EnrollmentFormBuilderModalProp
     return groups;
   }, [draft]);
 
+  const draftErrors = useMemo(() => {
+    const errors: string[] = [];
+    const identities = new Set<string>();
+
+    for (const field of draft?.fields ?? []) {
+      const identity = `${field.scope}:${field.key}`;
+      if (identities.has(identity)) {
+        errors.push(`Le champ « ${field.label || field.key} » existe en double.`);
+      }
+      identities.add(identity);
+
+      if (field.custom && !field.label.trim()) {
+        errors.push('Un champ personnalisé a un libellé vide.');
+      }
+
+      if (
+        field.visible &&
+        field.type === 'SELECT' &&
+        normalizedOptions(field.options).length === 0
+      ) {
+        errors.push(
+          `Le champ « ${field.label || field.key} » doit proposer au moins un choix.`
+        );
+      }
+    }
+
+    return Array.from(new Set(errors));
+  }, [draft]);
+
   if (!campaign || !draft) return null;
 
   const updateField = (
@@ -219,35 +248,6 @@ export const EnrollmentFormBuilderModal: React.FC<EnrollmentFormBuilderModalProp
       ),
     });
   };
-
-  const draftErrors = useMemo(() => {
-    const errors: string[] = [];
-    const identities = new Set<string>();
-
-    for (const field of draft?.fields ?? []) {
-      const identity = `${field.scope}:${field.key}`;
-      if (identities.has(identity)) {
-        errors.push(`Le champ « ${field.label || field.key} » existe en double.`);
-      }
-      identities.add(identity);
-
-      if (field.custom && !field.label.trim()) {
-        errors.push('Un champ personnalisé a un libellé vide.');
-      }
-
-      if (
-        field.visible &&
-        field.type === 'SELECT' &&
-        normalizedOptions(field.options).length === 0
-      ) {
-        errors.push(
-          `Le champ « ${field.label || field.key} » doit proposer au moins un choix.`
-        );
-      }
-    }
-
-    return Array.from(new Set(errors));
-  }, [draft]);
 
   const save = async () => {
     if (draftErrors.length > 0) return;
