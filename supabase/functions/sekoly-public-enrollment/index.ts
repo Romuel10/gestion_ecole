@@ -1,10 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import QRCode from "npm:qrcode@1.5.4";
-
-const publicRegistrationPage = Deno.readTextFile(
-  new URL("./public.html", import.meta.url),
-);
+import { PUBLIC_REGISTRATION_HTML } from "./publicPage.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -1684,8 +1681,7 @@ Deno.serve(async (req) => {
         });
       }
 
-      const html = await publicRegistrationPage;
-      return new Response(html, {
+      return new Response(PUBLIC_REGISTRATION_HTML, {
         headers: {
           "Content-Type": "text/html; charset=utf-8",
           "Content-Disposition": "inline; filename=\"inscription.html\"",
