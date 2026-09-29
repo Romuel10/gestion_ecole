@@ -37,6 +37,12 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Check Rust formatting
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
+
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
         with:
@@ -50,8 +56,32 @@ jobs:
       - name: Generate Windows icons from Sekoly identity
         run: cargo tauri icon public/sekoly-app.svg
 
+      - name: Rust clippy
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
+
+      - name: Verify single-window production config
+        shell: pwsh
+        run: |
+          $config = Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json
+          if ($config.app.windows.Count -ne 1) { throw "Sekoly doit démarrer avec une seule fenêtre." }
+          if ($config.app.windows[0].label -ne "main") { throw "La fenêtre principale doit s'appeler main." }
+          if (-not $config.app.security.csp) { throw "La CSP de production est absente." }
+
       - name: Build Windows installers
         run: cargo tauri build --bundles nsis,msi
+
+      - name: Verify Windows GUI subsystem
+        shell: pwsh
+        run: |
+          $exe = "src-tauri/target/release/sekoly.exe"
+          if (-not (Test-Path $exe)) { throw "Exécutable Sekoly introuvable." }
+          $bytes = [System.IO.File]::ReadAllBytes($exe)
+          $peOffset = [BitConverter]::ToInt32($bytes, 0x3C)
+          $subsystemOffset = $peOffset + 4 + 20 + 68
+          $subsystem = [BitConverter]::ToUInt16($bytes, $subsystemOffset)
+          if ($subsystem -ne 2) {
+            throw "Le binaire Windows n'est pas GUI (subsystem=$subsystem) et peut ouvrir une console secondaire."
+          }
 
       - name: Upload installers
         uses: actions/upload-artifact@v4

@@ -61,6 +61,11 @@ export const OnlineEnrollmentPanel: React.FC<OnlineEnrollmentPanelProps> = ({
   const [formBuilderOpen, setFormBuilderOpen] = useState(false);
   const [detailApplication, setDetailApplication] =
     useState<EnrollmentQueueItem | null>(null);
+  const [preview, setPreview] = useState<{
+    url: string;
+    title: string;
+    kind: 'DOCUMENT' | 'PUBLIC_FORM';
+  } | null>(null);
 
   const load = useCallback(async () => {
     if (!CloudSyncService.isConnected() || !CloudSyncService.getSchoolId()) {
@@ -174,7 +179,14 @@ export const OnlineEnrollmentPanel: React.FC<OnlineEnrollmentPanelProps> = ({
   const openDocument = async (documentId: string) => {
     try {
       const url = await CloudSyncService.getEnrollmentDocumentUrl(documentId);
-      window.open(url, '_blank', 'noopener,noreferrer');
+      const document = applications
+        .flatMap((application) => application.documents)
+        .find((item) => item.id === documentId);
+      setPreview({
+        url,
+        title: document?.original_name || 'Pièce justificative',
+        kind: 'DOCUMENT',
+      });
     } catch (error) {
       onShowToast(
         error instanceof Error ? error.message : 'Document indisponible.',
@@ -383,7 +395,13 @@ export const OnlineEnrollmentPanel: React.FC<OnlineEnrollmentPanelProps> = ({
                 <button
                   type="button"
                   className="button button--secondary"
-                  onClick={() => window.open(campaign.publicUrl, '_blank', 'noopener,noreferrer')}
+                  onClick={() =>
+                    setPreview({
+                      url: campaign.publicUrl,
+                      title: 'Aperçu du formulaire parents',
+                      kind: 'PUBLIC_FORM',
+                    })
+                  }
                 >
                   <ExternalLink className="w-3.5 h-3.5" />
                   Tester le formulaire
@@ -684,6 +702,44 @@ export const OnlineEnrollmentPanel: React.FC<OnlineEnrollmentPanelProps> = ({
         onClose={() => setDetailApplication(null)}
         onOpenDocument={(documentId) => void openDocument(documentId)}
       />
+
+      <Modal
+        isOpen={Boolean(preview)}
+        onClose={() => setPreview(null)}
+        title={preview?.title || 'Aperçu'}
+        subtitle={
+          preview?.kind === 'DOCUMENT'
+            ? 'Aperçu sécurisé de la pièce transmise'
+            : 'Le formulaire public est affiché sans quitter Sekoly.'
+        }
+        maxWidth="7xl"
+        actions={
+          <button
+            type="button"
+            className="button button--secondary"
+            onClick={() => setPreview(null)}
+          >
+            Fermer l’aperçu
+          </button>
+        }
+      >
+        {preview && (
+          <div className="min-h-[64vh] rounded-md border border-slate-200 dark:border-slate-700 overflow-hidden bg-white">
+            <iframe
+              key={preview.url}
+              src={preview.url}
+              title={preview.title}
+              className="w-full h-[68vh] border-0 bg-white"
+              referrerPolicy="no-referrer"
+              sandbox={
+                preview.kind === 'PUBLIC_FORM'
+                  ? 'allow-forms allow-scripts allow-same-origin allow-downloads'
+                  : 'allow-same-origin allow-downloads'
+              }
+            />
+          </div>
+        )}
+      </Modal>
 
       <Modal
         isOpen={Boolean(appointmentApplication)}

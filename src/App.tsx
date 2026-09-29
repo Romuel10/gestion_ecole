@@ -1,20 +1,64 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
 import { DatabaseSchema } from './types/school';
 import { StorageService } from './services/storage';
+import { DesktopStorageService } from './services/desktopStorage';
 import { Sidebar, NavTab } from './components/layout/Sidebar';
 import { Header } from './components/layout/Header';
 import { CommandPalette } from './components/layout/CommandPalette';
 import { ToastContainer, ToastMessage } from './components/common/Toast';
 import { DashboardHome } from './components/dashboard/DashboardHome';
-import { RegistrationView } from './components/admissions/RegistrationView';
-import { StudentListView } from './components/students/StudentListView';
-import { GradesAndReportCardsView } from './components/academics/GradesAndReportCardsView';
-import { FinancesManagerView } from './components/finances/FinancesManagerView';
-import { TimetableView } from './components/schedule/TimetableView';
-import { AttendanceManagerView } from './components/attendance/AttendanceManagerView';
-import { TeachersManagerView } from './components/teachers/TeachersManagerView';
-import { GeneralSettingsView } from './components/settings/GeneralSettingsView';
 import { CloudSyncService } from './services/cloudSync';
+
+const RegistrationView = lazy(() =>
+  import('./components/admissions/RegistrationView').then((module) => ({
+    default: module.RegistrationView,
+  }))
+);
+const StudentListView = lazy(() =>
+  import('./components/students/StudentListView').then((module) => ({
+    default: module.StudentListView,
+  }))
+);
+const GradesAndReportCardsView = lazy(() =>
+  import('./components/academics/GradesAndReportCardsView').then((module) => ({
+    default: module.GradesAndReportCardsView,
+  }))
+);
+const FinancesManagerView = lazy(() =>
+  import('./components/finances/FinancesManagerView').then((module) => ({
+    default: module.FinancesManagerView,
+  }))
+);
+const TimetableView = lazy(() =>
+  import('./components/schedule/TimetableView').then((module) => ({
+    default: module.TimetableView,
+  }))
+);
+const AttendanceManagerView = lazy(() =>
+  import('./components/attendance/AttendanceManagerView').then((module) => ({
+    default: module.AttendanceManagerView,
+  }))
+);
+const TeachersManagerView = lazy(() =>
+  import('./components/teachers/TeachersManagerView').then((module) => ({
+    default: module.TeachersManagerView,
+  }))
+);
+const GeneralSettingsView = lazy(() =>
+  import('./components/settings/GeneralSettingsView').then((module) => ({
+    default: module.GeneralSettingsView,
+  }))
+);
+
+const ViewLoading = () => (
+  <div className="page-panel p-8 flex items-center justify-center min-h-[180px]" role="status">
+    <div className="text-center">
+      <div className="app-startup__spinner" aria-hidden="true" />
+      <div className="mt-3 text-[11px] text-slate-500">Chargement du module…</div>
+    </div>
+  </div>
+);
+
 
 export function App() {
   const [db, setDb] = useState<DatabaseSchema>(() => StorageService.loadDatabase());
@@ -24,7 +68,21 @@ export function App() {
   const [selectedEntityId, setSelectedEntityId] = useState<string | undefined>();
   const [pendingFinanceAction, setPendingFinanceAction] = useState<'NEW_PAYMENT' | null>(null);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const [isStartupReady, setIsStartupReady] = useState(
+    () => !DesktopStorageService.isDesktop()
+  );
+  const [startupWarning, setStartupWarning] = useState('');
   const dbRef = useRef(db);
+
+  const showToast = useCallback(
+    (text: string, type: 'success' | 'error' | 'info' = 'info') => {
+      setToasts((current) => [
+        ...current,
+        { id: `toast-${Date.now()}-${Math.random()}`, text, type },
+      ]);
+    },
+    []
+  );
 
   useEffect(() => {
     dbRef.current = db;
@@ -38,11 +96,28 @@ export function App() {
   });
 
   useEffect(() => {
+    if (!DesktopStorageService.isDesktop()) {
+      setIsStartupReady(true);
+      return;
+    }
+
     let mounted = true;
 
-    StorageService.hydrateDesktopDatabase().then((desktopDb) => {
-      if (mounted && desktopDb) setDb(desktopDb);
-    });
+    void StorageService.hydrateDesktopDatabase()
+      .then((desktopDb) => {
+        if (!mounted) return;
+        if (desktopDb) {
+          setDb(desktopDb);
+          dbRef.current = desktopDb;
+        } else {
+          setStartupWarning(
+            'La base locale n’a pas pu être chargée. Sekoly utilise temporairement le cache local.'
+          );
+        }
+      })
+      .finally(() => {
+        if (mounted) setIsStartupReady(true);
+      });
 
     return () => {
       mounted = false;
@@ -125,16 +200,7 @@ export function App() {
       window.clearInterval(timer);
       window.removeEventListener('online', resumeAfterReconnect);
     };
-  }, []);
-
-
-
-  const showToast = (text: string, type: 'success' | 'error' | 'info' = 'info') => {
-    setToasts((current) => [
-      ...current,
-      { id: `toast-${Date.now()}-${Math.random()}`, text, type },
-    ]);
-  };
+  }, [showToast]);
 
   const handleNavigate = (tab: NavTab, entityId?: string) => {
     setCurrentTab(tab);
@@ -185,8 +251,28 @@ export function App() {
     }
   }, [currentTab, pendingFinanceAction]);
 
+  if (!isStartupReady) {
+    return (
+      <div className="app-startup" role="status" aria-live="polite">
+        <div className="app-startup__card">
+          <img src="/sekoly-app.svg" alt="" className="app-startup__logo" />
+          <h1 className="app-startup__title">Sekoly</h1>
+          <p className="app-startup__message">
+            Chargement sécurisé des données de l’établissement…
+          </p>
+          <div className="app-startup__spinner" aria-hidden="true" />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="app-shell">
+      {startupWarning && (
+        <div className="sr-only" role="status" aria-live="polite">
+          {startupWarning}
+        </div>
+      )}
       <Sidebar
         currentTab={currentTab}
         onSelectTab={(tab) => handleNavigate(tab)}
@@ -209,6 +295,7 @@ export function App() {
 
         <main className="app-main">
           <div className="app-content">
+            <Suspense fallback={<ViewLoading />}>
             {currentTab === 'dashboard' && (
               <DashboardHome db={db} onNavigate={handleNavigate} />
             )}
@@ -258,6 +345,7 @@ export function App() {
             {currentTab === 'settings' && (
               <GeneralSettingsView db={db} onUpdateDb={setDb} onShowToast={showToast} />
             )}
+            </Suspense>
           </div>
         </main>
       </div>

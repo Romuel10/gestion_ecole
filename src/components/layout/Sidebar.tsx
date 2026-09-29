@@ -107,6 +107,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   onClick={() => onSelectTab(item.id)}
                   className={`app-sidebar__item ${active ? 'is-active' : ''}`}
                   title={isCollapsed ? item.label : undefined}
+                  aria-label={isCollapsed ? item.label : undefined}
+                  aria-current={active ? 'page' : undefined}
                 >
                   <Icon className="w-[17px] h-[17px] shrink-0" />
                   {!isCollapsed && (
@@ -130,6 +132,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           onClick={onToggleCollapse}
           className="app-sidebar__collapse"
           title={isCollapsed ? 'Déployer la navigation' : 'Réduire la navigation'}
+          aria-label={isCollapsed ? 'Déployer la navigation' : 'Réduire la navigation'}
+          aria-expanded={!isCollapsed}
         >
           {isCollapsed ? (
             <PanelLeftOpen className="w-4 h-4" />

@@ -1,13 +1,14 @@
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
 use rusqlite::{params, Connection, OptionalExtension};
 use std::fs;
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager};
 
 fn database_file(app: &AppHandle) -> Result<PathBuf, String> {
-    let dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|error| format!("Impossible de localiser les données de l'application: {error}"))?;
+    let dir = app.path().app_data_dir().map_err(|error| {
+        format!("Impossible de localiser les données de l'application: {error}")
+    })?;
 
     fs::create_dir_all(&dir)
         .map_err(|error| format!("Impossible de créer le dossier de données: {error}"))?;
@@ -17,8 +18,8 @@ fn database_file(app: &AppHandle) -> Result<PathBuf, String> {
 
 fn open_database(app: &AppHandle) -> Result<Connection, String> {
     let path = database_file(app)?;
-    let connection = Connection::open(path)
-        .map_err(|error| format!("Impossible d'ouvrir SQLite: {error}"))?;
+    let connection =
+        Connection::open(path).map_err(|error| format!("Impossible d'ouvrir SQLite: {error}"))?;
 
     connection
         .execute_batch(
@@ -42,11 +43,9 @@ fn open_database(app: &AppHandle) -> Result<Connection, String> {
 fn load_database(app: AppHandle) -> Result<Option<String>, String> {
     let connection = open_database(&app)?;
     connection
-        .query_row(
-            "SELECT json FROM app_state WHERE id = 1",
-            [],
-            |row| row.get::<_, String>(0),
-        )
+        .query_row("SELECT json FROM app_state WHERE id = 1", [], |row| {
+            row.get::<_, String>(0)
+        })
         .optional()
         .map_err(|error| format!("Lecture SQLite impossible: {error}"))
 }
@@ -89,6 +88,13 @@ fn database_path(app: AppHandle) -> Result<String, String> {
 
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.unminimize();
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+        }))
         .invoke_handler(tauri::generate_handler![
             load_database,
             save_database,
