@@ -1687,6 +1687,26 @@ Deno.serve(async (req) => {
 
     if (
       req.method === "GET" &&
+      url.searchParams.get("action") === "xhtml-probe"
+    ) {
+      const probePage =
+        '<?xml version="1.0" encoding="UTF-8"?>' +
+        '<!DOCTYPE html>' +
+        '<html xmlns="http://www.w3.org/1999/xhtml" lang="fr">' +
+        '<head><meta charset="utf-8" /><title>Sekoly XHTML probe</title></head>' +
+        '<body><main><h1>SEKOLY XHTML OK</h1><p>Rendu navigateur actif.</p></main></body>' +
+        '</html>';
+      return new Response(probePage, {
+        status: 200,
+        headers: {
+          "Content-Type": "application/xhtml+xml; charset=utf-8",
+          "Cache-Control": "no-store",
+        },
+      });
+    }
+
+    if (
+      req.method === "GET" &&
       !url.searchParams.get("action")
     ) {
       await ensureFamilySite(admin);
