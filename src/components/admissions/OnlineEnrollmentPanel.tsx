@@ -47,6 +47,8 @@ export const OnlineEnrollmentPanel: React.FC<OnlineEnrollmentPanelProps> = ({
   const [campaign, setCampaign] = useState<EnrollmentCampaign | null>(null);
   const [applications, setApplications] = useState<EnrollmentQueueItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [qrRetry, setQrRetry] = useState(0);
+  const [qrFailed, setQrFailed] = useState(false);
   const [appointmentApplication, setAppointmentApplication] =
     useState<EnrollmentQueueItem | null>(null);
   const [appointmentAt, setAppointmentAt] = useState('');
@@ -80,6 +82,11 @@ export const OnlineEnrollmentPanel: React.FC<OnlineEnrollmentPanelProps> = ({
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    setQrRetry(0);
+    setQrFailed(false);
+  }, [campaign?.public_code]);
 
   const createCampaign = async () => {
     setLoading(true);
@@ -286,12 +293,42 @@ export const OnlineEnrollmentPanel: React.FC<OnlineEnrollmentPanelProps> = ({
           </div>
         ) : (
           <div className="mt-5 grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-5">
-            <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white p-4 flex flex-col items-center">
-              <img
-                src={campaign.qrUrl}
-                alt="QR code de préinscription Sekoly"
-                className="w-[210px] h-[210px]"
-              />
+            <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 flex flex-col items-center">
+              {!qrFailed ? (
+                <img
+                  src={`${campaign.qrUrl}${campaign.qrUrl.includes('?') ? '&' : '?'}retry=${qrRetry}`}
+                  alt="QR code de préinscription Sekoly"
+                  className="w-[210px] h-[210px]"
+                  onLoad={() => setQrFailed(false)}
+                  onError={() => {
+                    if (qrRetry < 2) {
+                      window.setTimeout(() => {
+                        setQrRetry((value) => value + 1);
+                      }, 800);
+                    } else {
+                      setQrFailed(true);
+                    }
+                  }}
+                />
+              ) : (
+                <div className="w-[210px] h-[210px] flex flex-col items-center justify-center gap-3 text-center border border-dashed border-slate-300 dark:border-slate-700 rounded-xl p-4">
+                  <QrCode className="w-10 h-10 text-slate-400" />
+                  <div className="text-[10px] text-slate-500">
+                    Le QR n’a pas pu être chargé.
+                  </div>
+                  <button
+                    type="button"
+                    className="button button--secondary"
+                    onClick={() => {
+                      setQrRetry((value) => value + 1);
+                      setQrFailed(false);
+                    }}
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    Réessayer
+                  </button>
+                </div>
+              )}
               <div className="mt-2 text-[10px] uppercase tracking-wide font-bold text-slate-500">
                 À afficher à l’accueil
               </div>
