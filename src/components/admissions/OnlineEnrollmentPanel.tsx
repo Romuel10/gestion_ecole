@@ -3,11 +3,13 @@ import {
   CalendarClock,
   CheckCircle2,
   ExternalLink,
+  Eye,
   FileText,
   PhoneCall,
   QrCode,
   RefreshCw,
   ShieldCheck,
+  SlidersHorizontal,
   UserRoundCheck,
   XCircle,
 } from 'lucide-react';
@@ -15,9 +17,12 @@ import { DatabaseSchema } from '../../types/school';
 import {
   CloudSyncService,
   EnrollmentCampaign,
+  EnrollmentFormSchema,
   EnrollmentQueueItem,
 } from '../../services/cloudSync';
 import { Modal } from '../common/Modal';
+import { EnrollmentFormBuilderModal } from './EnrollmentFormBuilderModal';
+import { EnrollmentApplicationDetailModal } from './EnrollmentApplicationDetailModal';
 
 interface OnlineEnrollmentPanelProps {
   db: DatabaseSchema;
@@ -53,6 +58,9 @@ export const OnlineEnrollmentPanel: React.FC<OnlineEnrollmentPanelProps> = ({
     useState<EnrollmentQueueItem | null>(null);
   const [appointmentAt, setAppointmentAt] = useState('');
   const [appointmentNote, setAppointmentNote] = useState('');
+  const [formBuilderOpen, setFormBuilderOpen] = useState(false);
+  const [detailApplication, setDetailApplication] =
+    useState<EnrollmentQueueItem | null>(null);
 
   const load = useCallback(async () => {
     if (!CloudSyncService.isConnected() || !CloudSyncService.getSchoolId()) {
@@ -101,6 +109,29 @@ export const OnlineEnrollmentPanel: React.FC<OnlineEnrollmentPanelProps> = ({
       );
     } finally {
       setLoading(false);
+    }
+  };
+
+  const saveFormSchema = async (schema: EnrollmentFormSchema) => {
+    if (!campaign) return;
+    try {
+      const updated = await CloudSyncService.updateEnrollmentFormSchema(
+        campaign,
+        schema
+      );
+      setCampaign(updated);
+      onShowToast(
+        'Formulaire parents mis à jour. Les anciens dossiers conservent leur version.',
+        'success'
+      );
+    } catch (error) {
+      onShowToast(
+        error instanceof Error
+          ? error.message
+          : 'Impossible d’enregistrer la configuration du formulaire.',
+        'error'
+      );
+      throw error;
     }
   };
 
@@ -374,6 +405,14 @@ export const OnlineEnrollmentPanel: React.FC<OnlineEnrollmentPanelProps> = ({
                 <button
                   type="button"
                   className="button button--secondary"
+                  onClick={() => setFormBuilderOpen(true)}
+                >
+                  <SlidersHorizontal className="w-3.5 h-3.5" />
+                  Personnaliser le formulaire
+                </button>
+                <button
+                  type="button"
+                  className="button button--secondary"
                   onClick={async () => {
                     try {
                       await CloudSyncService.closeEnrollmentCampaign(campaign.id);
@@ -515,6 +554,15 @@ export const OnlineEnrollmentPanel: React.FC<OnlineEnrollmentPanelProps> = ({
                     </td>
                     <td>
                       <div className="flex justify-end gap-1.5">
+                        <button
+                          type="button"
+                          className="button button--secondary"
+                          onClick={() => setDetailApplication(item)}
+                          title="Lire toutes les informations transmises par la famille"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          Ouvrir
+                        </button>
                         {['SUBMITTED', 'TO_CONTACT'].includes(item.status) && (
                           <button
                             type="button"
@@ -622,6 +670,20 @@ export const OnlineEnrollmentPanel: React.FC<OnlineEnrollmentPanelProps> = ({
           </div>
         )}
       </section>
+
+      <EnrollmentFormBuilderModal
+        campaign={campaign}
+        isOpen={formBuilderOpen}
+        onClose={() => setFormBuilderOpen(false)}
+        onSave={saveFormSchema}
+      />
+
+      <EnrollmentApplicationDetailModal
+        application={detailApplication}
+        isOpen={Boolean(detailApplication)}
+        onClose={() => setDetailApplication(null)}
+        onOpenDocument={(documentId) => void openDocument(documentId)}
+      />
 
       <Modal
         isOpen={Boolean(appointmentApplication)}
