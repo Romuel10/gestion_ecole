@@ -1330,6 +1330,14 @@ export class CloudSyncService {
       if (key !== 'existingMatricule' && !field.required) {
         throw new Error(`Le champ essentiel « ${field.label} » doit rester obligatoire.`);
       }
+      if (field.sectionId) {
+        const section = sections.find((item) => item.id === field.sectionId);
+        if (section && section.visible === false) {
+          throw new Error(
+            `La section « ${section.title} » contient un champ essentiel et doit rester visible.`
+          );
+        }
+      }
     }
 
     const customKeys = new Set<string>();
