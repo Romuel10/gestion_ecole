@@ -53,11 +53,11 @@ jobs:
         with:
           tool: tauri-cli@2
 
-      - name: Rust clippy
-        run: cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
-
       - name: Generate Windows icons from Sekoly identity
         run: cargo tauri icon public/sekoly-app.svg
+
+      - name: Rust clippy
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
 
       - name: Verify single-window production config
         shell: pwsh
