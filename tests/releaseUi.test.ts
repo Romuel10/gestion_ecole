@@ -50,6 +50,14 @@ test('les interfaces React n’utilisent plus les confirmations natives du navig
   assert.deepEqual(offenders, []);
 });
 
+test('les interfaces de production n’ouvrent pas de fenêtre navigateur secondaire', () => {
+  const offenders = sourceFiles('src').filter((path) => {
+    const source = read(path);
+    return source.includes('window.open(') || /target=[\"']_blank[\"']/.test(source);
+  });
+  assert.deepEqual(offenders, []);
+});
+
 test('les modales ont les attributs de dialogue et un verrouillage de focus', () => {
   const modal = read('src/components/common/Modal.tsx');
   assert.match(modal, /role="dialog"/);
