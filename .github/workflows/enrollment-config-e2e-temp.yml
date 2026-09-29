@@ -1,0 +1,89 @@
+name: Enrollment Config E2E Temporary
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/enrollment-config-e2e-temp.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Bootstrap exposes configured fields
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="https://cmpbrouwcfoauwyeiyfj.supabase.co/functions/v1/sekoly-public-enrollment"
+          CODE="e2etestconfig20260929"
+          curl -sS -D /tmp/h -o /tmp/b "$BASE?action=bootstrap&code=$CODE"
+          test "$(awk 'NR==1{print $2}' /tmp/h)" = "200"
+          grep -q '"form_schema_version":7' /tmp/b
+          grep -q 'Langue de contact' /tmp/b
+          grep -q 'Transport scolaire' /tmp/b
+
+      - name: Server rejects missing required custom answer
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="https://cmpbrouwcfoauwyeiyfj.supabase.co/functions/v1/sekoly-public-enrollment"
+          CODE="e2etestconfig20260929"
+          cat > /tmp/missing.json <<'JSON'
+          {
+            "code":"e2etestconfig20260929",
+            "clientRequestId":"11111111-1111-4111-8111-111111111110",
+            "guardian":{
+              "lastName":"E2E",
+              "relationship":"GUARDIAN",
+              "phonePrimary":"0000000001"
+            },
+            "children":[{
+              "type":"NEW",
+              "lastName":"TEST",
+              "firstName":"MISSING",
+              "customAnswers":{"custom_transport":"Bus"}
+            }]
+          }
+          JSON
+          curl -sS -D /tmp/h -o /tmp/b -X POST             -H 'content-type: application/json'             --data-binary @/tmp/missing.json             "$BASE?code=$CODE"
+          test "$(awk 'NR==1{print $2}' /tmp/h)" = "400"
+          grep -q 'Langue de contact' /tmp/b
+
+      - name: Server accepts and stores configured answers
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="https://cmpbrouwcfoauwyeiyfj.supabase.co/functions/v1/sekoly-public-enrollment"
+          CODE="e2etestconfig20260929"
+          cat > /tmp/valid.json <<'JSON'
+          {
+            "code":"e2etestconfig20260929",
+            "clientRequestId":"11111111-1111-4111-8111-111111111111",
+            "customAnswers":{"custom_family_language":"Malagasy"},
+            "guardian":{
+              "lastName":"E2E",
+              "firstName":"Parent",
+              "relationship":"GUARDIAN",
+              "phonePrimary":"0000000002",
+              "preferredContact":"PHONE"
+            },
+            "children":[{
+              "type":"NEW",
+              "lastName":"TEST",
+              "firstName":"CONFIG",
+              "customAnswers":{"custom_transport":"Bus"}
+            }]
+          }
+          JSON
+          curl -sS -D /tmp/h -o /tmp/b -X POST             -H 'content-type: application/json'             --data-binary @/tmp/valid.json             "$BASE?code=$CODE"
+          STATUS="$(awk 'NR==1{print $2}' /tmp/h)"
+          echo "status=$STATUS"
+          cat /tmp/b
+          test "$STATUS" = "201"
+          grep -q '"ok":true' /tmp/b
+          grep -q '"children":1' /tmp/b
