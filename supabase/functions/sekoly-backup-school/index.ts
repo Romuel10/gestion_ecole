@@ -58,6 +58,8 @@ async function gzipJson(payload: unknown) {
 }
 
 const SCHOOL_TABLES = [
+  "sekoly_memberships",
+  "sekoly_school_limits",
   "sekoly_school_years",
   "sekoly_terms",
   "sekoly_subjects",
