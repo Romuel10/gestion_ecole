@@ -28,6 +28,177 @@ function nullable(value: unknown, max = 250) {
   return normalized || null;
 }
 
+type FormScope = "FAMILY" | "CHILD";
+
+function configuredFields(schema: any, scope: FormScope) {
+  return Array.isArray(schema?.fields)
+    ? schema.fields
+        .filter(
+          (field: any) =>
+            field &&
+            field.scope === scope &&
+            field.visible !== false &&
+            typeof field.key === "string",
+        )
+        .sort(
+          (a: any, b: any) =>
+            Number(a.order ?? 100) - Number(b.order ?? 100),
+        )
+    : [];
+}
+
+function safeAnswerValue(field: any, value: unknown) {
+  if (value === null || value === undefined) return null;
+  if (field.type === "YES_NO") {
+    if (value === true || value === "true" || value === "YES") return true;
+    if (value === false || value === "false" || value === "NO") return false;
+    return null;
+  }
+  if (field.type === "NUMBER") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  const normalized = clean(value, field.type === "TEXTAREA" ? 4000 : 500);
+  if (!normalized) return null;
+
+  if (field.type === "SELECT" && Array.isArray(field.options)) {
+    const allowed = field.options.map((item: unknown) => clean(item, 160));
+    return allowed.includes(normalized) ? normalized : null;
+  }
+  if (field.type === "EMAIL") {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)
+      ? normalized.toLowerCase()
+      : null;
+  }
+  return normalized;
+}
+
+function sanitizeCustomAnswers(
+  schema: any,
+  scope: FormScope,
+  answers: unknown,
+) {
+  const input =
+    answers && typeof answers === "object" && !Array.isArray(answers)
+      ? (answers as Record<string, unknown>)
+      : {};
+  const output: Record<string, unknown> = {};
+  for (const field of configuredFields(schema, scope)) {
+    if (!field.custom) continue;
+    const value = safeAnswerValue(field, input[field.key]);
+    if (value !== null && value !== "") output[field.key] = value;
+  }
+  return output;
+}
+
+function configuredValue(
+  scope: FormScope,
+  field: any,
+  source: any,
+  customAnswers: Record<string, unknown>,
+) {
+  if (field.custom) return customAnswers[field.key];
+
+  if (scope === "FAMILY") {
+    const secondary = source?.secondary ?? {};
+    const map: Record<string, unknown> = {
+      guardianLastName: source?.lastName,
+      guardianFirstName: source?.firstName,
+      relationship: source?.relationship,
+      phonePrimary: source?.phonePrimary,
+      phoneSecondary: source?.phoneSecondary,
+      email: source?.email,
+      cinNumber: source?.cinNumber,
+      cinIssuedAt: source?.cinIssuedAt,
+      cinIssuePlace: source?.cinIssuePlace,
+      occupation: source?.occupation,
+      address: source?.address,
+      city: source?.city,
+      preferredContact: source?.preferredContact,
+      secondaryRelationship: secondary.relationship,
+      secondaryLastName: secondary.lastName,
+      secondaryFirstName: secondary.firstName,
+      secondaryPhonePrimary: secondary.phonePrimary,
+      secondaryEmail: secondary.email,
+      secondaryCinNumber: secondary.cinNumber,
+      secondaryCinIssuedAt: secondary.cinIssuedAt,
+      secondaryCinIssuePlace: secondary.cinIssuePlace,
+      secondaryOccupation: secondary.occupation,
+    };
+    return map[field.key];
+  }
+
+  return source?.[field.key];
+}
+
+function hasConfiguredValue(value: unknown) {
+  if (typeof value === "boolean") return true;
+  if (typeof value === "number") return Number.isFinite(value);
+  return clean(value, 4000).length > 0;
+}
+
+function validateConfiguredRequiredFields(
+  schema: any,
+  scope: FormScope,
+  source: any,
+  customAnswers: Record<string, unknown>,
+) {
+  for (const field of configuredFields(schema, scope)) {
+    if (!field.required) continue;
+    if (
+      scope === "CHILD" &&
+      field.key === "existingMatricule" &&
+      clean(source?.type, 32) !== "RE_REGISTRATION"
+    ) {
+      continue;
+    }
+    const value = configuredValue(scope, field, source, customAnswers);
+    if (!hasConfiguredValue(value)) {
+      throw new Error(
+        `Le champ « ${clean(field.label, 180) || field.key} » est obligatoire.`,
+      );
+    }
+  }
+}
+
+function guardianSubmissionSnapshot(
+  guardian: any,
+  customAnswers: Record<string, unknown>,
+) {
+  const secondary = guardian?.secondary ?? {};
+  return {
+    guardian: {
+      lastName: clean(guardian?.lastName, 120),
+      firstName: clean(guardian?.firstName, 120),
+      relationship: clean(guardian?.relationship, 20),
+      phonePrimary: clean(guardian?.phonePrimary, 40),
+      phoneSecondary: nullable(guardian?.phoneSecondary, 40),
+      email: nullable(guardian?.email, 160),
+      cinNumber: nullable(guardian?.cinNumber, 80),
+      cinIssuedAt: nullable(guardian?.cinIssuedAt, 10),
+      cinIssuePlace: nullable(guardian?.cinIssuePlace, 160),
+      occupation: nullable(guardian?.occupation, 160),
+      address: nullable(guardian?.address, 250),
+      city: nullable(guardian?.city, 120),
+      preferredContact: clean(guardian?.preferredContact, 20) || "PHONE",
+      secondary: {
+        relationship: clean(secondary?.relationship, 20),
+        lastName: nullable(secondary?.lastName, 120),
+        firstName: nullable(secondary?.firstName, 120),
+        phonePrimary: nullable(secondary?.phonePrimary, 40),
+        email: nullable(secondary?.email, 160),
+        cinNumber: nullable(secondary?.cinNumber, 80),
+        cinIssuedAt: nullable(secondary?.cinIssuedAt, 10),
+        cinIssuePlace: nullable(secondary?.cinIssuePlace, 160),
+        occupation: nullable(secondary?.occupation, 160),
+      },
+    },
+    customAnswers,
+    submittedAt: new Date().toISOString(),
+  };
+}
+
 const FAMILY_FRONTEND_URL =
   "https://romuel10.github.io/romuel-app-store/sekoly/enrollment/index.html";
 
@@ -641,7 +812,7 @@ async function uploadEnrollmentDocument(
 async function loadCampaign(admin: any, publicCode: string) {
   const { data: campaign, error } = await admin
     .from("sekoly_enrollment_campaigns")
-    .select("id,school_id,school_year_id,name,status,allow_new_admission,allow_re_registration,instructions,opens_at,closes_at")
+    .select("id,school_id,school_year_id,name,status,allow_new_admission,allow_re_registration,instructions,opens_at,closes_at,form_schema,form_schema_version")
     .eq("public_code", publicCode)
     .eq("status", "OPEN")
     .maybeSingle();
@@ -1016,6 +1187,20 @@ Deno.serve(async (req) => {
 
     const guardian = body.guardian ?? {};
     const children = Array.isArray(body.children) ? body.children.slice(0, 10) : [];
+    const formSchema =
+      context.campaign.form_schema &&
+      typeof context.campaign.form_schema === "object"
+        ? context.campaign.form_schema
+        : { schemaVersion: 1, fields: [], documents: [] };
+    const formSchemaVersion = Math.max(
+      1,
+      Number(context.campaign.form_schema_version ?? 1),
+    );
+    const familyCustomAnswers = sanitizeCustomAnswers(
+      formSchema,
+      "FAMILY",
+      body.customAnswers,
+    );
     const guardianLastName = clean(guardian.lastName, 120);
     const guardianFirstName = clean(guardian.firstName, 120);
     const phonePrimary = clean(guardian.phonePrimary, 40);
@@ -1023,6 +1208,12 @@ Deno.serve(async (req) => {
     if (guardianLastName.length < 2 || phonePrimary.length < 6) {
       return jsonResponse({ error: "Nom et téléphone du responsable sont obligatoires." }, 400);
     }
+    validateConfiguredRequiredFields(
+      formSchema,
+      "FAMILY",
+      guardian,
+      familyCustomAnswers,
+    );
     if (children.length === 0) {
       return jsonResponse({ error: "Ajoutez au moins un enfant." }, 400);
     }
@@ -1036,6 +1227,11 @@ Deno.serve(async (req) => {
       const applicationType = clean(child.type, 32) || "NEW";
       const lastName = clean(child.lastName, 120);
       const firstName = clean(child.firstName, 160);
+      const childCustomAnswers = sanitizeCustomAnswers(
+        formSchema,
+        "CHILD",
+        child.customAnswers,
+      );
       if (!allowedTypes.has(applicationType)) throw new Error("Type d'inscription non autorisé.");
       if (lastName.length < 1 || firstName.length < 1) throw new Error("Nom et prénoms de chaque enfant sont obligatoires.");
       const desiredClassId = clean(child.desiredClassId, 64);
@@ -1044,6 +1240,12 @@ Deno.serve(async (req) => {
       if (applicationType === "RE_REGISTRATION" && !existingMatricule) {
         throw new Error("Le matricule est obligatoire pour une réinscription.");
       }
+      validateConfiguredRequiredFields(
+        formSchema,
+        "CHILD",
+        child,
+        childCustomAnswers,
+      );
       return {
         application_type: applicationType,
         existing_matricule: existingMatricule,
@@ -1063,6 +1265,35 @@ Deno.serve(async (req) => {
         birth_certificate_place: nullable(child.birthCertificatePlace, 180),
         blood_type: nullable(child.bloodType, 20),
         medical_notes: nullable(child.medicalNotes, 1000),
+        form_schema_version: formSchemaVersion,
+        form_schema_snapshot: formSchema,
+        custom_answers: childCustomAnswers,
+        submitted_payload: {
+          child: {
+            type: applicationType,
+            existingMatricule,
+            lastName: lastName.toUpperCase(),
+            firstName,
+            gender: ["M", "F"].includes(clean(child.gender, 1))
+              ? clean(child.gender, 1)
+              : null,
+            birthDate: nullable(child.birthDate, 10),
+            birthPlace: nullable(child.birthPlace, 180),
+            nationality: nullable(child.nationality, 80) ?? "Malgache",
+            desiredClassId: desiredClassId || null,
+            previousSchool: nullable(child.previousSchool, 180),
+            birthCertificateNumber: nullable(child.birthCertificateNumber, 100),
+            birthCertificateDate: nullable(child.birthCertificateDate, 10),
+            birthCertificatePlace: nullable(child.birthCertificatePlace, 180),
+            bloodType: nullable(child.bloodType, 20),
+            address: nullable(child.address, 250),
+            neighborhood: nullable(child.neighborhood, 120),
+            city: nullable(child.city, 120),
+            medicalNotes: nullable(child.medicalNotes, 1000),
+          },
+          customAnswers: childCustomAnswers,
+          submittedAt: new Date().toISOString(),
+        },
       };
     });
 
@@ -1148,6 +1379,13 @@ Deno.serve(async (req) => {
           ? clean(guardian.preferredContact, 20)
           : "PHONE",
         client_request_id: clientRequestId || null,
+        form_schema_version: formSchemaVersion,
+        form_schema_snapshot: formSchema,
+        custom_answers: familyCustomAnswers,
+        submitted_payload: guardianSubmissionSnapshot(
+          guardian,
+          familyCustomAnswers,
+        ),
       })
       .select("id,reference_code")
       .single();
