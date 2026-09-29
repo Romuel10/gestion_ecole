@@ -1240,6 +1240,14 @@ export class CloudSyncService {
     const existing = await this.getOpenEnrollmentCampaign(db);
     if (existing) return existing;
 
+    const previousCampaigns = await restSelect<any>(
+      'sekoly_enrollment_campaigns',
+      `select=form_schema&school_id=eq.${schoolId}&order=created_at.desc&limit=1`
+    );
+    const inheritedSchema = previousCampaigns[0]?.form_schema as
+      | EnrollmentFormSchema
+      | undefined;
+
     const campaign = await restInsertReturning<any>(
       'sekoly_enrollment_campaigns',
       {
@@ -1253,6 +1261,12 @@ export class CloudSyncService {
           "Remplissez les informations de la famille et de chaque enfant. L'établissement vous contactera avant toute validation définitive.",
         opens_at: new Date().toISOString(),
         created_by: session?.user?.id || null,
+        ...(inheritedSchema
+          ? {
+              form_schema: inheritedSchema,
+              form_schema_version: 1,
+            }
+          : {}),
       }
     );
 
@@ -1261,6 +1275,92 @@ export class CloudSyncService {
       ...campaign,
       publicUrl,
       qrUrl: this.publicEnrollmentQrUrl(campaign.public_code),
+    } as EnrollmentCampaign;
+  }
+
+  static async updateEnrollmentFormSchema(
+    campaign: EnrollmentCampaign,
+    schema: EnrollmentFormSchema
+  ): Promise<EnrollmentCampaign> {
+    const schoolId = this.getSchoolId();
+    if (!schoolId) throw new Error('Établissement Cloud non lié.');
+
+    const fields = Array.isArray(schema.fields) ? schema.fields : [];
+    const documents = Array.isArray(schema.documents) ? schema.documents : [];
+    const lockedRequired = [
+      ['FAMILY', 'guardianLastName'],
+      ['FAMILY', 'relationship'],
+      ['FAMILY', 'phonePrimary'],
+      ['CHILD', 'type'],
+      ['CHILD', 'existingMatricule'],
+      ['CHILD', 'lastName'],
+      ['CHILD', 'firstName'],
+    ] as const;
+
+    for (const [scope, key] of lockedRequired) {
+      const field = fields.find((item) => item.scope === scope && item.key === key);
+      if (!field || !field.visible) {
+        throw new Error(`Le champ essentiel « ${key} » ne peut pas être masqué.`);
+      }
+      if (key !== 'existingMatricule' && !field.required) {
+        throw new Error(`Le champ essentiel « ${field.label} » doit rester obligatoire.`);
+      }
+    }
+
+    const customKeys = new Set<string>();
+    for (const field of fields) {
+      if (!field.key || !field.label || !field.scope || !field.type) {
+        throw new Error('La configuration contient un champ incomplet.');
+      }
+      if (field.custom) {
+        const composite = `${field.scope}:${field.key}`;
+        if (customKeys.has(composite)) {
+          throw new Error(`Le champ personnalisé « ${field.label} » est présent deux fois.`);
+        }
+        customKeys.add(composite);
+      }
+      if (field.type === 'SELECT' && (!field.options || field.options.length === 0)) {
+        throw new Error(`Ajoutez au moins une option au champ « ${field.label} ».`);
+      }
+    }
+
+    const nextVersion = Math.max(1, Number(campaign.form_schema_version || 1) + 1);
+    await restPatch(
+      'sekoly_enrollment_campaigns',
+      `id=eq.${encodeURIComponent(campaign.id)}&school_id=eq.${schoolId}`,
+      {
+        form_schema: {
+          schemaVersion: Math.max(1, Number(schema.schemaVersion || 1)),
+          fields: fields
+            .map((item, index) => ({
+              ...item,
+              label: item.label.trim(),
+              order: Number.isFinite(item.order) ? item.order : (index + 1) * 10,
+            }))
+            .sort((a, b) => a.order - b.order),
+          documents: documents
+            .map((item, index) => ({
+              ...item,
+              label: item.label.trim(),
+              order: Number.isFinite(item.order) ? item.order : (index + 1) * 10,
+            }))
+            .sort((a, b) => a.order - b.order),
+        },
+        form_schema_version: nextVersion,
+      }
+    );
+
+    const rows = await restSelect<any>(
+      'sekoly_enrollment_campaigns',
+      `select=*&id=eq.${encodeURIComponent(campaign.id)}&school_id=eq.${schoolId}&limit=1`
+    );
+    const updated = rows[0];
+    if (!updated) throw new Error('Campagne introuvable après la mise à jour.');
+
+    return {
+      ...updated,
+      publicUrl: this.publicEnrollmentUrl(updated.public_code),
+      qrUrl: this.publicEnrollmentQrUrl(updated.public_code),
     } as EnrollmentCampaign;
   }
 
