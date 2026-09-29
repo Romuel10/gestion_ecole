@@ -148,6 +148,67 @@ Deno.serve(async (req) => {
       return response({ backups: data ?? [] });
     }
 
+    if (action === "status") {
+      const [
+        { data: limits, error: limitsError },
+        { data: latestBackup, error: backupError },
+        { count: students, error: studentError },
+        { count: teachers, error: teacherError },
+        { count: families, error: familyError },
+        documents,
+      ] = await Promise.all([
+        admin
+          .from("sekoly_school_limits")
+          .select("*")
+          .eq("school_id", schoolId)
+          .single(),
+        admin
+          .from("sekoly_school_backups")
+          .select("id,backup_type,status,size_bytes,row_counts,created_at,expires_at")
+          .eq("school_id", schoolId)
+          .eq("status", "READY")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        admin
+          .from("sekoly_students")
+          .select("id", { count: "exact", head: true })
+          .eq("school_id", schoolId),
+        admin
+          .from("sekoly_teachers")
+          .select("id", { count: "exact", head: true })
+          .eq("school_id", schoolId),
+        admin
+          .from("sekoly_families")
+          .select("id", { count: "exact", head: true })
+          .eq("school_id", schoolId)
+          .neq("status", "ARCHIVED"),
+        fetchAll(admin, "sekoly_enrollment_documents", schoolId),
+      ]);
+
+      if (limitsError) throw limitsError;
+      if (backupError) throw backupError;
+      if (studentError) throw studentError;
+      if (teacherError) throw teacherError;
+      if (familyError) throw familyError;
+
+      const documentBytes = documents.reduce(
+        (sum, row: any) => sum + Number(row?.file_size ?? 0),
+        0,
+      );
+
+      return response({
+        limits,
+        usage: {
+          students: students ?? 0,
+          teachers: teachers ?? 0,
+          families: families ?? 0,
+          documentBytes,
+        },
+        latestBackup,
+      });
+    }
+
     if (action === "signed_url") {
       const backupId = String(body.backupId ?? "").trim();
       if (!backupId) return response({ error: "Sauvegarde manquante." }, 400);
