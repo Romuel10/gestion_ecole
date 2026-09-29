@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import QRCode from "npm:qrcode@1.5.4";
+import { PUBLIC_REGISTRATION_HTML } from "./publicPage.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -32,11 +33,77 @@ function publicEnrollmentEndpoint(supabaseUrl: string) {
   return supabaseUrl.replace(/\/+$/, "") + "/functions/v1/sekoly-public-enrollment";
 }
 
-const FAMILY_FRONTEND_URL =
-  "https://romuel10.github.io/gestion_ecole/enrollment/";
+const FAMILY_SITE_BUCKET = "sekoly-family-portal";
+const FAMILY_SITE_PATH = "enrollment/index.html";
+const FAMILY_SITE_VERSION = "20260929-3";
+let familySitePublishPromise: Promise<void> | null = null;
 
-function familyFrontendUrl(params: Record<string, string | null | undefined>) {
-  const url = new URL(FAMILY_FRONTEND_URL);
+async function ensureFamilySite(admin: any) {
+  if (!familySitePublishPromise) {
+    familySitePublishPromise = (async () => {
+      const { data: buckets, error: bucketsError } =
+        await admin.storage.listBuckets();
+      if (bucketsError) throw bucketsError;
+
+      const exists = (buckets ?? []).some(
+        (bucket: any) => bucket.id === FAMILY_SITE_BUCKET,
+      );
+
+      if (!exists) {
+        const { error: createError } = await admin.storage.createBucket(
+          FAMILY_SITE_BUCKET,
+          {
+            public: true,
+            fileSizeLimit: 2 * 1024 * 1024,
+            allowedMimeTypes: ["text/html"],
+          },
+        );
+        if (createError) throw createError;
+      } else {
+        const { error: updateError } = await admin.storage.updateBucket(
+          FAMILY_SITE_BUCKET,
+          {
+            public: true,
+            fileSizeLimit: 2 * 1024 * 1024,
+            allowedMimeTypes: ["text/html"],
+          },
+        );
+        if (updateError) throw updateError;
+      }
+
+      const file = new Blob([PUBLIC_REGISTRATION_HTML], {
+        type: "text/html; charset=utf-8",
+      });
+      const { error: uploadError } = await admin.storage
+        .from(FAMILY_SITE_BUCKET)
+        .upload(FAMILY_SITE_PATH, file, {
+          contentType: "text/html; charset=utf-8",
+          cacheControl: "60",
+          upsert: true,
+        });
+
+      if (uploadError) throw uploadError;
+    })().catch((error) => {
+      familySitePublishPromise = null;
+      throw error;
+    });
+  }
+
+  await familySitePublishPromise;
+}
+
+function familyFrontendUrl(
+  supabaseUrl: string,
+  params: Record<string, string | null | undefined>,
+) {
+  const base =
+    supabaseUrl.replace(/\/+$/, "") +
+    "/storage/v1/object/public/" +
+    FAMILY_SITE_BUCKET +
+    "/" +
+    FAMILY_SITE_PATH;
+  const url = new URL(base);
+  url.searchParams.set("v", FAMILY_SITE_VERSION);
   for (const [key, value] of Object.entries(params)) {
     if (value) url.searchParams.set(key, value);
   }
@@ -1539,13 +1606,20 @@ Deno.serve(async (req) => {
     const publicEndpoint = publicEnrollmentEndpoint(supabaseUrl);
 
     if (
+      req.method === "GET" &&
+      !url.searchParams.get("action")
+    ) {
+      await ensureFamilySite(admin);
+    }
+
+    if (
       url.searchParams.get("action") === "portal-bootstrap" &&
       req.method === "GET"
     ) {
       const portalToken = clean(url.searchParams.get("portal"), 160);
     if (portalToken && req.method === "GET") {
       return Response.redirect(
-        familyFrontendUrl({ portal: portalToken }),
+        familyFrontendUrl(supabaseUrl, { portal: portalToken }),
         302,
       );
     }
@@ -1681,7 +1755,7 @@ Deno.serve(async (req) => {
     if (req.method === "GET") {
       if (url.searchParams.get("format") === "qr") {
         const familyToken = clean(url.searchParams.get("family"), 160);
-        const target = familyFrontendUrl({
+        const target = familyFrontendUrl(supabaseUrl, {
           code: publicCode,
           family: familyToken || null,
         });
@@ -1702,7 +1776,7 @@ Deno.serve(async (req) => {
 
       const familyToken = clean(url.searchParams.get("family"), 160);
       return Response.redirect(
-        familyFrontendUrl({
+        familyFrontendUrl(supabaseUrl, {
           code: publicCode,
           family: familyToken || null,
         }),
@@ -1884,7 +1958,7 @@ Deno.serve(async (req) => {
         context.campaign.school_id,
         persistent.family.id,
       ));
-    const portalUrl = familyFrontendUrl({ portal: familyToken });
+    const portalUrl = familyFrontendUrl(supabaseUrl, { portal: familyToken });
 
     return jsonResponse({
       ok: true,
