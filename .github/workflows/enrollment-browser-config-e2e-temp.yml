@@ -1,0 +1,31 @@
+name: Enrollment Browser Config E2E Temporary
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/enrollment-browser-config-e2e-temp.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Render customized parent form in Chrome
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME="$(command -v google-chrome || command -v google-chrome-stable || true)"
+          test -n "$CHROME"
+          URL="https://romuel10.github.io/romuel-app-store/sekoly/enrollment/index.html?code=e2ebrowserconfig20260929&e2e=1"
+          "$CHROME" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage             --virtual-time-budget=8000 --dump-dom "$URL" > /tmp/dom.html
+          grep -q "Sekoly E2E Browser Config" /tmp/dom.html
+          grep -q "Langue de contact test" /tmp/dom.html
+          grep -q "Transport scolaire test" /tmp/dom.html
+          grep -q "Acte test" /tmp/dom.html
+          grep -q 'data-custom-family-key="custom_family_language"' /tmp/dom.html
+          grep -q 'data-custom-child-key="custom_transport"' /tmp/dom.html
