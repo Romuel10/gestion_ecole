@@ -1582,6 +1582,7 @@ export class CloudSyncService {
       localStorage.setItem(throttleKey, String(Date.now()));
       return result;
     } catch (error) {
+      localStorage.setItem(throttleKey, String(Date.now()));
       console.warn('Sekoly automatic backup:', error);
       return null;
     }
