@@ -31,6 +31,21 @@ function nullable(value: unknown, max = 250) {
 type FormScope = "FAMILY" | "CHILD";
 
 function configuredFields(schema: any, scope: FormScope) {
+  const hasSections = Array.isArray(schema?.sections) && schema.sections.length > 0;
+  const visibleSectionIds = new Set(
+    hasSections
+      ? schema.sections
+          .filter(
+            (section: any) =>
+              section &&
+              section.scope === scope &&
+              section.visible !== false &&
+              typeof section.id === "string",
+          )
+          .map((section: any) => section.id)
+      : [],
+  );
+
   return Array.isArray(schema?.fields)
     ? schema.fields
         .filter(
@@ -38,7 +53,10 @@ function configuredFields(schema: any, scope: FormScope) {
             field &&
             field.scope === scope &&
             field.visible !== false &&
-            typeof field.key === "string",
+            typeof field.key === "string" &&
+            (!hasSections ||
+              !field.sectionId ||
+              visibleSectionIds.has(field.sectionId)),
         )
         .sort(
           (a: any, b: any) =>

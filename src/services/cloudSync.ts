@@ -165,6 +165,16 @@ export type EnrollmentFormFieldType =
   | 'YES_NO'
   | 'CLASS';
 
+export type EnrollmentFormSection = {
+  id: string;
+  scope: 'FAMILY' | 'CHILD';
+  title: string;
+  description?: string;
+  order: number;
+  visible: boolean;
+  locked?: boolean;
+};
+
 export type EnrollmentFormField = {
   key: string;
   scope: 'FAMILY' | 'CHILD';
@@ -175,6 +185,7 @@ export type EnrollmentFormField = {
   required: boolean;
   locked?: boolean;
   custom?: boolean;
+  sectionId?: string;
   order: number;
   placeholder?: string;
   helpText?: string;
@@ -192,6 +203,7 @@ export type EnrollmentFormDocument = {
 
 export type EnrollmentFormSchema = {
   schemaVersion: number;
+  sections?: EnrollmentFormSection[];
   fields: EnrollmentFormField[];
   documents: EnrollmentFormDocument[];
 };
@@ -1286,7 +1298,20 @@ export class CloudSyncService {
     if (!schoolId) throw new Error('Établissement Cloud non lié.');
 
     const fields = Array.isArray(schema.fields) ? schema.fields : [];
+    const sections = Array.isArray(schema.sections) ? schema.sections : [];
     const documents = Array.isArray(schema.documents) ? schema.documents : [];
+
+    const sectionIds = new Set<string>();
+    for (const section of sections) {
+      if (!section.id || !section.title || !['FAMILY', 'CHILD'].includes(section.scope)) {
+        throw new Error('La configuration contient une section incomplète.');
+      }
+      if (sectionIds.has(section.id)) {
+        throw new Error(`La section « ${section.title} » est présente deux fois.`);
+      }
+      sectionIds.add(section.id);
+    }
+
     const lockedRequired = [
       ['FAMILY', 'guardianLastName'],
       ['FAMILY', 'relationship'],
@@ -1305,12 +1330,28 @@ export class CloudSyncService {
       if (key !== 'existingMatricule' && !field.required) {
         throw new Error(`Le champ essentiel « ${field.label} » doit rester obligatoire.`);
       }
+      if (field.sectionId) {
+        const section = sections.find((item) => item.id === field.sectionId);
+        if (section && section.visible === false) {
+          throw new Error(
+            `La section « ${section.title} » contient un champ essentiel et doit rester visible.`
+          );
+        }
+      }
     }
 
     const customKeys = new Set<string>();
     for (const field of fields) {
       if (!field.key || !field.label || !field.scope || !field.type) {
         throw new Error('La configuration contient un champ incomplet.');
+      }
+      if (field.sectionId) {
+        const section = sections.find((item) => item.id === field.sectionId);
+        if (!section || section.scope !== field.scope) {
+          throw new Error(
+            `Le champ « ${field.label} » est rattaché à une section invalide.`
+          );
+        }
       }
       if (field.custom) {
         const composite = `${field.scope}:${field.key}`;
@@ -1330,7 +1371,17 @@ export class CloudSyncService {
       `id=eq.${encodeURIComponent(campaign.id)}&school_id=eq.${schoolId}`,
       {
         form_schema: {
-          schemaVersion: Math.max(1, Number(schema.schemaVersion || 1)),
+          schemaVersion: Math.max(2, Number(schema.schemaVersion || 2)),
+          sections: sections
+            .map((item, index) => ({
+              ...item,
+              id: item.id.trim(),
+              title: item.title.trim(),
+              description: item.description?.trim() || undefined,
+              order: Number.isFinite(item.order) ? item.order : (index + 1) * 10,
+              visible: item.visible !== false,
+            }))
+            .sort((a, b) => a.order - b.order),
           fields: fields
             .map((item, index) => ({
               ...item,

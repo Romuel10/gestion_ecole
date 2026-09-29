@@ -1,12 +1,8 @@
 import React from 'react';
-import {
-  FileText,
-  ShieldCheck,
-  UserRound,
-  UsersRound,
-} from 'lucide-react';
+import { FileText, ShieldCheck } from 'lucide-react';
 import {
   EnrollmentFormField,
+  EnrollmentFormSection,
   EnrollmentQueueItem,
 } from '../../services/cloudSync';
 import { Modal } from '../common/Modal';
@@ -86,6 +82,72 @@ const legacyChildFields: EnrollmentFormField[] = [
   legacyField('CHILD', 'CHILD', 'city', 'Ville / Commune', 170),
   legacyField('CHILD', 'CHILD', 'medicalNotes', 'Informations utiles / médicales', 180, 'TEXTAREA'),
 ];
+
+const legacySections: EnrollmentFormSection[] = [
+  {
+    id: 'family_primary',
+    scope: 'FAMILY',
+    title: 'Responsable principal',
+    order: 10,
+    visible: true,
+  },
+  {
+    id: 'family_secondary',
+    scope: 'FAMILY',
+    title: 'Deuxième responsable',
+    order: 20,
+    visible: true,
+  },
+  {
+    id: 'child_identity',
+    scope: 'CHILD',
+    title: 'Identité de l’élève',
+    order: 10,
+    visible: true,
+  },
+  {
+    id: 'child_schooling',
+    scope: 'CHILD',
+    title: 'Scolarité',
+    order: 20,
+    visible: true,
+  },
+  {
+    id: 'child_civil',
+    scope: 'CHILD',
+    title: 'État civil et adresse',
+    order: 30,
+    visible: true,
+  },
+  {
+    id: 'child_health',
+    scope: 'CHILD',
+    title: 'Santé et informations utiles',
+    order: 40,
+    visible: true,
+  },
+];
+
+const schoolingKeys = new Set(['desiredClassId', 'previousSchool']);
+const civilKeys = new Set([
+  'birthCertificateNumber',
+  'birthCertificateDate',
+  'birthCertificatePlace',
+  'address',
+  'neighborhood',
+  'city',
+]);
+const healthKeys = new Set(['bloodType', 'medicalNotes']);
+
+const legacySectionId = (field: EnrollmentFormField) => {
+  if (field.scope === 'FAMILY') {
+    return field.group === 'SECONDARY' ? 'family_secondary' : 'family_primary';
+  }
+  if (schoolingKeys.has(field.key)) return 'child_schooling';
+  if (civilKeys.has(field.key)) return 'child_civil';
+  if (healthKeys.has(field.key)) return 'child_health';
+  return 'child_identity';
+};
 
 const relationshipLabel: Record<string, string> = {
   FATHER: 'Père',
@@ -223,29 +285,20 @@ export const EnrollmentApplicationDetailModal: React.FC<EnrollmentApplicationDet
     application.form_schema_snapshot ||
     application.family?.form_schema_snapshot ||
     null;
-  const schemaFields =
+
+  const fields =
     schema && Array.isArray(schema.fields) && schema.fields.length
       ? schema.fields
           .filter((field) => field.visible !== false)
           .sort((a, b) => a.order - b.order)
-      : null;
+      : [...legacyFamilyFields, ...legacyChildFields];
 
-  const familyFields = schemaFields
-    ? schemaFields.filter((field) => field.scope === 'FAMILY')
-    : legacyFamilyFields;
-  const childFields = schemaFields
-    ? schemaFields.filter((field) => field.scope === 'CHILD')
-    : legacyChildFields;
-
-  const primaryFields = familyFields.filter(
-    (field) => field.group === 'PRIMARY' && !field.custom
-  );
-  const secondaryFields = familyFields.filter(
-    (field) => field.group === 'SECONDARY' && !field.custom
-  );
-  const familyCustomFields = familyFields.filter((field) => field.custom);
-  const childStandardFields = childFields.filter((field) => !field.custom);
-  const childCustomFields = childFields.filter((field) => field.custom);
+  const sections =
+    schema && Array.isArray(schema.sections) && schema.sections.length
+      ? schema.sections
+          .filter((section) => section.visible !== false)
+          .sort((a, b) => a.order - b.order)
+      : legacySections;
 
   const familyCustomAnswers = application.family?.custom_answers ?? {};
   const childCustomAnswers = application.custom_answers ?? {};
@@ -288,9 +341,20 @@ export const EnrollmentApplicationDetailModal: React.FC<EnrollmentApplicationDet
     return child[field.key];
   };
 
-  const hasSecondary = secondaryFields.some((field) =>
-    hasValue(familyValue(field))
-  );
+  const fieldsForSection = (section: EnrollmentFormSection) =>
+    fields
+      .filter((field) => {
+        if (field.scope !== section.scope) return false;
+        return (field.sectionId || legacySectionId(field)) === section.id;
+      })
+      .sort((a, b) => a.order - b.order);
+
+  const shouldShowSection = (section: EnrollmentFormSection) => {
+    const sectionFields = fieldsForSection(section);
+    if (!sectionFields.length) return false;
+    if (section.id !== 'family_secondary') return true;
+    return sectionFields.some((field) => hasValue(familyValue(field)));
+  };
 
   return (
     <Modal
@@ -313,67 +377,31 @@ export const EnrollmentApplicationDetailModal: React.FC<EnrollmentApplicationDet
             '—'}
         </span>
         <span className="text-[10px] text-slate-400">
-          Affichage basé sur la version exacte du formulaire remplie par la famille.
+          Affichage basé sur la structure exacte du formulaire remplie par la famille.
         </span>
       </div>
 
-      {primaryFields.length > 0 && (
-        <section className="space-y-3">
-          <div className="flex items-center gap-2">
-            <UserRound className="w-4 h-4 text-blue-600" />
-            <h4 className="text-xs font-bold m-0">Responsable principal</h4>
-          </div>
-          <FieldGrid fields={primaryFields} valueFor={familyValue} />
-        </section>
-      )}
+      {sections.filter(shouldShowSection).map((section) => {
+        const sectionFields = fieldsForSection(section);
+        const valueFor = section.scope === 'FAMILY' ? familyValue : childValue;
 
-      {hasSecondary && (
-        <section className="space-y-3">
-          <div className="flex items-center gap-2">
-            <UsersRound className="w-4 h-4 text-violet-600" />
-            <h4 className="text-xs font-bold m-0">Deuxième responsable</h4>
-          </div>
-          <FieldGrid fields={secondaryFields} valueFor={familyValue} />
-        </section>
-      )}
-
-      {familyCustomFields.length > 0 && (
-        <section className="space-y-3">
-          <div>
-            <h4 className="text-xs font-bold m-0">
-              Informations complémentaires — famille
-            </h4>
-            <p className="mt-1 text-[10px] text-slate-500">
-              Champs ajoutés par l’établissement dans cette version du formulaire.
-            </p>
-          </div>
-          <FieldGrid fields={familyCustomFields} valueFor={familyValue} />
-        </section>
-      )}
-
-      {childStandardFields.length > 0 && (
-        <section className="space-y-3">
-          <div className="flex items-center gap-2">
-            <UserRound className="w-4 h-4 text-emerald-600" />
-            <h4 className="text-xs font-bold m-0">Enfant</h4>
-          </div>
-          <FieldGrid fields={childStandardFields} valueFor={childValue} />
-        </section>
-      )}
-
-      {childCustomFields.length > 0 && (
-        <section className="space-y-3">
-          <div>
-            <h4 className="text-xs font-bold m-0">
-              Informations complémentaires — enfant
-            </h4>
-            <p className="mt-1 text-[10px] text-slate-500">
-              Champs ajoutés par l’établissement dans cette version du formulaire.
-            </p>
-          </div>
-          <FieldGrid fields={childCustomFields} valueFor={childValue} />
-        </section>
-      )}
+        return (
+          <section
+            key={section.id}
+            className="space-y-3 rounded-xl border border-slate-200 dark:border-slate-700 p-3"
+          >
+            <div>
+              <h4 className="text-xs font-bold m-0">{section.title}</h4>
+              {section.description && (
+                <p className="mt-1 text-[10px] text-slate-500">
+                  {section.description}
+                </p>
+              )}
+            </div>
+            <FieldGrid fields={sectionFields} valueFor={valueFor} />
+          </section>
+        );
+      })}
 
       <section className="space-y-3">
         <div className="flex items-center gap-2">

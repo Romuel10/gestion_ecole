@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "desktop:dev": "cargo tauri dev",
     "desktop:build": "cargo tauri build",
-    "test": "node --experimental-strip-types --test tests/calculations.test.ts"
+    "test": "node --experimental-strip-types --test tests/*.test.ts"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",
