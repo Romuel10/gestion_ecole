@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { DatabaseSchema } from './types/school';
 import { StorageService } from './services/storage';
+import { DesktopStorageService } from './services/desktopStorage';
 import { Sidebar, NavTab } from './components/layout/Sidebar';
 import { Header } from './components/layout/Header';
 import { CommandPalette } from './components/layout/CommandPalette';
@@ -24,6 +25,10 @@ export function App() {
   const [selectedEntityId, setSelectedEntityId] = useState<string | undefined>();
   const [pendingFinanceAction, setPendingFinanceAction] = useState<'NEW_PAYMENT' | null>(null);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const [isStartupReady, setIsStartupReady] = useState(
+    () => !DesktopStorageService.isDesktop()
+  );
+  const [startupWarning, setStartupWarning] = useState('');
   const dbRef = useRef(db);
 
   useEffect(() => {
@@ -38,11 +43,28 @@ export function App() {
   });
 
   useEffect(() => {
+    if (!DesktopStorageService.isDesktop()) {
+      setIsStartupReady(true);
+      return;
+    }
+
     let mounted = true;
 
-    StorageService.hydrateDesktopDatabase().then((desktopDb) => {
-      if (mounted && desktopDb) setDb(desktopDb);
-    });
+    void StorageService.hydrateDesktopDatabase()
+      .then((desktopDb) => {
+        if (!mounted) return;
+        if (desktopDb) {
+          setDb(desktopDb);
+          dbRef.current = desktopDb;
+        } else {
+          setStartupWarning(
+            'La base locale n’a pas pu être chargée. Sekoly utilise temporairement le cache local.'
+          );
+        }
+      })
+      .finally(() => {
+        if (mounted) setIsStartupReady(true);
+      });
 
     return () => {
       mounted = false;
@@ -185,8 +207,28 @@ export function App() {
     }
   }, [currentTab, pendingFinanceAction]);
 
+  if (!isStartupReady) {
+    return (
+      <div className="app-startup" role="status" aria-live="polite">
+        <div className="app-startup__card">
+          <img src="/sekoly-app.svg" alt="" className="app-startup__logo" />
+          <h1 className="app-startup__title">Sekoly</h1>
+          <p className="app-startup__message">
+            Chargement sécurisé des données de l’établissement…
+          </p>
+          <div className="app-startup__spinner" aria-hidden="true" />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="app-shell">
+      {startupWarning && (
+        <div className="sr-only" role="status" aria-live="polite">
+          {startupWarning}
+        </div>
+      )}
       <Sidebar
         currentTab={currentTab}
         onSelectTab={(tab) => handleNavigate(tab)}
