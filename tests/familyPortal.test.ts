@@ -32,3 +32,12 @@ test('le formulaire conserve les quatre étapes et les hôtes dynamiques', () =>
   assert.match(html, /id="customFamilyFields"/);
   assert.match(html, /data-custom-child-fields/);
 });
+
+
+test('les pièces justificatives sont rendues depuis le schéma et envoyées par code', () => {
+  assert.match(html, /function schemaDocuments\(scope\)/);
+  assert.match(html, /data-family-doc-code/);
+  assert.match(html, /data-doc-code/);
+  assert.match(html, /fd\.append\('documentCode',documentCode\|\|''\)/);
+  assert.doesNotMatch(html, /data-family-doc="CIN_PRIMARY"/);
+});
