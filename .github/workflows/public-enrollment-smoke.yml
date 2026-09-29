@@ -1,4 +1,5 @@
 name: Public Enrollment Smoke
+# configurable-form-rerun
 
 on:
   push:
