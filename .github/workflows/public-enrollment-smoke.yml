@@ -1,5 +1,4 @@
 name: Public Enrollment Smoke
-# edge-v13
 
 on:
   push:
@@ -16,66 +15,93 @@ permissions:
 jobs:
   verify-public-enrollment:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 8
     steps:
-      - name: Verify public form end to end
-        continue-on-error: true
+      - name: Verify static family frontend
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL="https://romuel10.github.io/romuel-app-store/sekoly/enrollment/index.html?code=b9cf624c992b4a2e9a56"
+          curl -sS -D /tmp/site.headers -o /tmp/site.body "$URL"
+          STATUS="$(awk 'NR==1{print $2}' /tmp/site.headers)"
+          TYPE="$(grep -i '^content-type:' /tmp/site.headers | tail -1 | tr -d '\r')"
+          echo "status=$STATUS"
+          echo "type=$TYPE"
+          test "$STATUS" = "200"
+          echo "$TYPE" | grep -qi "text/html"
+          grep -qi "<!doctype html" /tmp/site.body
+          grep -q "2026-09-29-cloudflare-v1" /tmp/site.body
+          grep -qi "SEKOLY · INSCRIPTION" /tmp/site.body
+
+      - name: Verify Edge redirects browsers to the frontend
         shell: bash
         run: |
           set -euo pipefail
           BASE="https://cmpbrouwcfoauwyeiyfj.supabase.co/functions/v1/sekoly-public-enrollment"
-          CODE="b9cf624c992b4a2e9a56"
-
-          curl -L -sS -D /tmp/form.headers -o /tmp/form.body "$BASE?code=$CODE"
-          STATUS="$(grep -E '^HTTP/' /tmp/form.headers | tail -1 | awk '{print $2}')"
-          TYPE="$(grep -i '^content-type:' /tmp/form.headers | tail -1 | tr -d '\r')"
-          FINAL_URL="$(curl -L -sS -o /dev/null -w '%{url_effective}' "$BASE?code=$CODE")"
-
-          echo "Final status: $STATUS"
-          echo "Final content type: $TYPE"
-          echo "Final URL: $FINAL_URL"
-          head -c 180 /tmp/form.body; echo
-
-          test "$STATUS" = "200"
-          echo "$TYPE" | grep -qi "text/html"
-          grep -qi "<!doctype html" /tmp/form.body
-          grep -qi "SEKOLY" /tmp/form.body
+          for CODE in b9cf624c992b4a2e9a56 46abb7a4a3244d5ba669; do
+            curl -sS -L -D /tmp/edge.headers -o /tmp/edge.body -w '%{url_effective}\n%{http_code}\n%{content_type}\n' "$BASE?code=$CODE" > /tmp/edge.meta
+            FINAL_URL="$(sed -n '1p' /tmp/edge.meta)"
+            STATUS="$(sed -n '2p' /tmp/edge.meta)"
+            TYPE="$(sed -n '3p' /tmp/edge.meta)"
+            echo "code=$CODE final=$FINAL_URL status=$STATUS type=$TYPE"
+            test "$STATUS" = "200"
+            echo "$TYPE" | grep -qi "text/html"
+            echo "$FINAL_URL" | grep -q "romuel10.github.io/romuel-app-store/sekoly/enrollment/index.html"
+            grep -qi "<!doctype html" /tmp/edge.body
+          done
 
       - name: Verify bootstrap API
         shell: bash
         run: |
           set -euo pipefail
           BASE="https://cmpbrouwcfoauwyeiyfj.supabase.co/functions/v1/sekoly-public-enrollment"
-          CODE="b9cf624c992b4a2e9a56"
+          OPEN="b9cf624c992b4a2e9a56"
+          CLOSED="46abb7a4a3244d5ba669"
 
-          curl -sS -D /tmp/api.headers -o /tmp/api.body "$BASE?action=bootstrap&code=$CODE"
-          STATUS="$(awk 'NR==1{print $2}' /tmp/api.headers)"
-          TYPE="$(grep -i '^content-type:' /tmp/api.headers | tail -1 | tr -d '\r')"
-
-          echo "API status: $STATUS"
-          echo "API content type: $TYPE"
-          head -c 180 /tmp/api.body; echo
-
+          curl -sS -D /tmp/open.headers -o /tmp/open.body "$BASE?action=bootstrap&code=$OPEN"
+          STATUS="$(awk 'NR==1{print $2}' /tmp/open.headers)"
+          TYPE="$(grep -i '^content-type:' /tmp/open.headers | tail -1 | tr -d '\r')"
           test "$STATUS" = "200"
           echo "$TYPE" | grep -qi "application/json"
-          grep -q '"campaign"' /tmp/api.body
-          grep -q '"school"' /tmp/api.body
+          grep -q '"school"' /tmp/open.body
+          grep -q '"campaign"' /tmp/open.body
 
-      - name: Verify QR end to end
+          curl -sS -D /tmp/closed.headers -o /tmp/closed.body "$BASE?action=bootstrap&code=$CLOSED"
+          CLOSED_STATUS="$(awk 'NR==1{print $2}' /tmp/closed.headers)"
+          CLOSED_TYPE="$(grep -i '^content-type:' /tmp/closed.headers | tail -1 | tr -d '\r')"
+          test "$CLOSED_STATUS" = "404"
+          echo "$CLOSED_TYPE" | grep -qi "application/json"
+          grep -q '"error"' /tmp/closed.body
+
+      - name: Verify QR target
         shell: bash
         run: |
           set -euo pipefail
-          BASE="https://cmpbrouwcfoauwyeiyfj.supabase.co/functions/v1/sekoly-public-enrollment"
-          CODE="b9cf624c992b4a2e9a56"
-
-          curl -sS -D /tmp/qr.headers -o /tmp/qr.body "$BASE?code=$CODE&format=qr&smoke=1"
+          URL="https://cmpbrouwcfoauwyeiyfj.supabase.co/functions/v1/sekoly-public-enrollment?code=b9cf624c992b4a2e9a56&format=qr&smoke=1"
+          curl -sS -D /tmp/qr.headers -o /tmp/qr.body "$URL"
           STATUS="$(awk 'NR==1{print $2}' /tmp/qr.headers)"
           TYPE="$(grep -i '^content-type:' /tmp/qr.headers | tail -1 | tr -d '\r')"
-
-          echo "QR status: $STATUS"
-          echo "QR content type: $TYPE"
-          head -c 120 /tmp/qr.body; echo
-
+          TARGET="$(grep -i '^x-sekoly-qr-target:' /tmp/qr.headers | tail -1 | sed 's/^[^:]*:[[:space:]]*//' | tr -d '\r')"
+          echo "status=$STATUS"
+          echo "type=$TYPE"
+          echo "target=$TARGET"
           test "$STATUS" = "200"
           echo "$TYPE" | grep -qi "image/svg+xml"
+          echo "$TARGET" | grep -q "romuel10.github.io/romuel-app-store/sekoly/enrollment/index.html"
           grep -qi "<svg" /tmp/qr.body
+
+      - name: Verify real browser rendering
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME="$(command -v google-chrome || command -v google-chrome-stable || true)"
+          test -n "$CHROME"
+          URL="https://romuel10.github.io/romuel-app-store/sekoly/enrollment/index.html?code=b9cf624c992b4a2e9a56&browser-smoke=1"
+          "$CHROME" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage --virtual-time-budget=7000 --dump-dom "$URL" > /tmp/dom.html
+          grep -q "Romuel's School" /tmp/dom.html
+          grep -q "Responsable familial" /tmp/dom.html
+          grep -q "Inscriptions 2026 - 2027" /tmp/dom.html
+          if grep -q "Chargement du formulaire" /tmp/dom.html && ! grep -q '<form id="form" class=""' /tmp/dom.html; then
+            echo "The dynamic form did not finish loading."
+            exit 1
+          fi
