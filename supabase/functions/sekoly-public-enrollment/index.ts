@@ -28,6 +28,10 @@ function nullable(value: unknown, max = 250) {
   return normalized || null;
 }
 
+function publicEnrollmentEndpoint(supabaseUrl: string) {
+  return supabaseUrl.replace(/\/+$/, "") + "/functions/v1/sekoly-public-enrollment";
+}
+
 function htmlEscape(value: unknown) {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -772,7 +776,7 @@ async function loadPortalData(admin: any, token: string) {
   };
 }
 
-function renderPortalPage(ctx: any, token: string, basePath: string) {
+function renderPortalPage(ctx: any, token: string, publicEndpoint: string) {
   const statusLabels: Record<string, string> = {
     SUBMITTED: "Demande reçue",
     TO_CONTACT: "À contacter",
@@ -865,7 +869,7 @@ function renderPortalPage(ctx: any, token: string, basePath: string) {
     : '<div class="empty">Aucune demande récente.</div>';
 
   const campaignAction = ctx.campaign
-    ? '<a class="primary" href="' + basePath + '?code=' +
+    ? '<a class="primary" href="' + publicEndpoint + '?code=' +
       encodeURIComponent(ctx.campaign.public_code) + '&family=' +
       encodeURIComponent(token) + '">Inscrire ou réinscrire un enfant</a>'
     : '<div class="notice">Aucune campagne d’inscription n’est ouverte actuellement.</div>';
@@ -890,10 +894,15 @@ function renderPortalPage(ctx: any, token: string, basePath: string) {
     '<section class="card"><h2>Mes enfants inscrits</h2>' + childrenHtml + '</section>' +
     '<section class="card"><h2>Mes demandes</h2>' + requestsHtml + campaignAction + '</section>' +
     '<p class="security">Ce lien est personnel. Conservez-le pour les prochaines inscriptions et réinscriptions. Ne le partagez pas.</p>' +
-    '</main><script>(function(){var token=' + JSON.stringify(token) + ';var themeButton=document.getElementById("portalTheme");var netDot=document.getElementById("portalNetDot");var netLabel=document.getElementById("portalNetLabel");function applyTheme(theme){document.documentElement.dataset.theme=theme;themeButton.textContent=theme==="dark"?"Mode clair":"Mode sombre";try{localStorage.setItem("sekoly-family-theme",theme)}catch(_){}}var preferred="light";try{preferred=localStorage.getItem("sekoly-family-theme")||(window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light")}catch(_){}applyTheme(preferred);themeButton.addEventListener("click",function(){applyTheme(document.documentElement.dataset.theme==="dark"?"light":"dark")});function network(){var online=navigator.onLine;netDot.classList.toggle("offline",!online);netLabel.textContent=online?"En ligne":"Hors connexion"}window.addEventListener("online",network);window.addEventListener("offline",network);network();document.querySelectorAll("[data-portal-upload]").forEach(function(input){input.addEventListener("change",async function(){var file=input.files&&input.files[0];if(!file)return;var label=input.closest(".mini-upload");label.classList.add("uploading");label.firstChild.textContent="Envoi…";var fd=new FormData();fd.append("file",file);fd.append("applicationId",input.dataset.portalUpload);fd.append("documentType",input.dataset.docType);try{var response=await fetch(location.pathname+"?action=upload&family="+encodeURIComponent(token),{method:"POST",body:fd});var result=await response.json();if(!response.ok)throw new Error(result.error||"Envoi impossible.");location.reload();}catch(error){alert(error.message||"Envoi impossible.");label.classList.remove("uploading");label.firstChild.textContent="Ajouter";}});});})();<\/script></body></html>';
+    '</main><script>(function(){var token=' + JSON.stringify(token) + ';var PUBLIC_ENDPOINT=' + JSON.stringify(publicEndpoint) + ';var themeButton=document.getElementById("portalTheme");var netDot=document.getElementById("portalNetDot");var netLabel=document.getElementById("portalNetLabel");function applyTheme(theme){document.documentElement.dataset.theme=theme;themeButton.textContent=theme==="dark"?"Mode clair":"Mode sombre";try{localStorage.setItem("sekoly-family-theme",theme)}catch(_){}}var preferred="light";try{preferred=localStorage.getItem("sekoly-family-theme")||(window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light")}catch(_){}applyTheme(preferred);themeButton.addEventListener("click",function(){applyTheme(document.documentElement.dataset.theme==="dark"?"light":"dark")});function network(){var online=navigator.onLine;netDot.classList.toggle("offline",!online);netLabel.textContent=online?"En ligne":"Hors connexion"}window.addEventListener("online",network);window.addEventListener("offline",network);network();document.querySelectorAll("[data-portal-upload]").forEach(function(input){input.addEventListener("change",async function(){var file=input.files&&input.files[0];if(!file)return;var label=input.closest(".mini-upload");label.classList.add("uploading");label.firstChild.textContent="Envoi…";var fd=new FormData();fd.append("file",file);fd.append("applicationId",input.dataset.portalUpload);fd.append("documentType",input.dataset.docType);try{var response=await fetch(PUBLIC_ENDPOINT+"?action=upload&family="+encodeURIComponent(token),{method:"POST",body:fd});var result=await response.json();if(!response.ok)throw new Error(result.error||"Envoi impossible.");location.reload();}catch(error){alert(error.message||"Envoi impossible.");label.classList.remove("uploading");label.firstChild.textContent="Ajouter";}});});})();<\/script></body></html>';
 }
 
-function renderPage(ctx: any, publicCode: string, familyAccess: any = null) {
+function renderPage(
+  ctx: any,
+  publicCode: string,
+  familyAccess: any = null,
+  publicEndpoint = "",
+) {
   const classOptions = ctx.classes
     .map(
       (item: any) =>
@@ -1130,6 +1139,7 @@ window.addEventListener('online',refreshNetworkState);
 window.addEventListener('offline',refreshNetworkState);
 refreshNetworkState();
 
+const PUBLIC_ENDPOINT=${JSON.stringify(publicEndpoint)};
 const PUBLIC_CODE=${JSON.stringify(publicCode)};
 const CLASS_OPTIONS=${JSON.stringify(classOptions)};
 const TYPE_OPTIONS=${JSON.stringify(allowedTypes)};
@@ -1355,7 +1365,7 @@ async function uploadOne(file,applicationId,documentType,familyToken){
   fd.append('file',file);
   fd.append('applicationId',applicationId||'');
   fd.append('documentType',documentType);
-  const response=await fetch(location.pathname+'?action=upload&family='+encodeURIComponent(familyToken),{method:'POST',body:fd});
+  const response=await fetch(PUBLIC_ENDPOINT+'?action=upload&family='+encodeURIComponent(familyToken),{method:'POST',body:fd});
   const result=await response.json();
   if(!response.ok)throw new Error(result.error||'Envoi du document impossible.');
   return result;
@@ -1424,7 +1434,7 @@ form.addEventListener('submit',async function(event){
   button.textContent='Envoi en cours…';
   saving.textContent='Création sécurisée du dossier familial…';
   try{
-    const response=await fetch(location.pathname+'?code='+encodeURIComponent(PUBLIC_CODE),{
+    const response=await fetch(PUBLIC_ENDPOINT+'?code='+encodeURIComponent(PUBLIC_CODE),{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
@@ -1503,6 +1513,8 @@ Deno.serve(async (req) => {
       auth: { persistSession: false, autoRefreshToken: false },
     });
 
+    const publicEndpoint = publicEnrollmentEndpoint(supabaseUrl);
+
     if (url.searchParams.get("action") === "upload" && req.method === "POST") {
       return await uploadEnrollmentDocument(
         admin,
@@ -1520,7 +1532,7 @@ Deno.serve(async (req) => {
           headers: { "Content-Type": "text/plain; charset=utf-8" },
         });
       }
-      return new Response(renderPortalPage(portal, portalToken, url.pathname), {
+      return new Response(renderPortalPage(portal, portalToken, publicEndpoint), {
         headers: {
           "Content-Type": "text/html; charset=utf-8",
           "Cache-Control": "no-store",
@@ -1547,8 +1559,10 @@ Deno.serve(async (req) => {
 
     if (req.method === "GET") {
       if (url.searchParams.get("format") === "qr") {
-        const target = new URL(req.url);
-        target.searchParams.delete("format");
+        const target = new URL(publicEndpoint);
+        target.searchParams.set("code", publicCode);
+        const familyToken = clean(url.searchParams.get("family"), 160);
+        if (familyToken) target.searchParams.set("family", familyToken);
         const svg = await QRCode.toString(target.toString(), {
           type: "svg",
           width: 360,
@@ -1576,6 +1590,7 @@ Deno.serve(async (req) => {
           familyAccess?.family?.school_id === context.campaign.school_id
             ? familyAccess
             : null,
+          publicEndpoint,
         ),
         {
         headers: {
@@ -1767,8 +1782,7 @@ Deno.serve(async (req) => {
         persistent.family.id,
       ));
     const portalUrl =
-      url.origin +
-      url.pathname +
+      publicEndpoint +
       "?portal=" +
       encodeURIComponent(familyToken);
 
