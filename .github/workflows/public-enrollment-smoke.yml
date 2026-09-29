@@ -22,7 +22,7 @@ jobs:
         run: |
           set -euo pipefail
           BASE="https://cmpbrouwcfoauwyeiyfj.supabase.co/functions/v1/sekoly-public-enrollment"
-          CODE="46abb7a4a3244d5ba669"
+          CODE="b9cf624c992b4a2e9a56"
 
           curl -L -sS -D /tmp/form.headers -o /tmp/form.body "$BASE?code=$CODE"
           STATUS="$(grep -E '^HTTP/' /tmp/form.headers | tail -1 | awk '{print $2}')"
@@ -44,7 +44,7 @@ jobs:
         run: |
           set -euo pipefail
           BASE="https://cmpbrouwcfoauwyeiyfj.supabase.co/functions/v1/sekoly-public-enrollment"
-          CODE="46abb7a4a3244d5ba669"
+          CODE="b9cf624c992b4a2e9a56"
 
           curl -sS -D /tmp/api.headers -o /tmp/api.body "$BASE?action=bootstrap&code=$CODE"
           STATUS="$(awk 'NR==1{print $2}' /tmp/api.headers)"
@@ -64,7 +64,7 @@ jobs:
         run: |
           set -euo pipefail
           BASE="https://cmpbrouwcfoauwyeiyfj.supabase.co/functions/v1/sekoly-public-enrollment"
-          CODE="46abb7a4a3244d5ba669"
+          CODE="b9cf624c992b4a2e9a56"
 
           curl -sS -D /tmp/qr.headers -o /tmp/qr.body "$BASE?code=$CODE&format=qr&smoke=1"
           STATUS="$(awk 'NR==1{print $2}' /tmp/qr.headers)"
