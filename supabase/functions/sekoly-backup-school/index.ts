@@ -57,6 +57,33 @@ async function gzipJson(payload: unknown) {
   };
 }
 
+async function purgeExpiredBackups(
+  admin: ReturnType<typeof createClient>,
+  schoolId: string,
+) {
+  const now = new Date().toISOString();
+  const { data, error } = await admin
+    .from("sekoly_school_backups")
+    .select("id,storage_path")
+    .eq("school_id", schoolId)
+    .eq("status", "READY")
+    .lt("expires_at", now)
+    .limit(50);
+  if (error) throw error;
+
+  for (const backup of data ?? []) {
+    if (backup.storage_path) {
+      await admin.storage
+        .from("sekoly-school-backups")
+        .remove([backup.storage_path]);
+    }
+    await admin
+      .from("sekoly_school_backups")
+      .update({ status: "EXPIRED" })
+      .eq("id", backup.id);
+  }
+}
+
 const SCHOOL_TABLES = [
   "sekoly_memberships",
   "sekoly_school_limits",
@@ -138,6 +165,8 @@ Deno.serve(async (req) => {
     ) {
       return response({ error: "Droits insuffisants pour les sauvegardes." }, 403);
     }
+
+    await purgeExpiredBackups(admin, schoolId);
 
     if (action === "list") {
       const { data, error } = await admin
