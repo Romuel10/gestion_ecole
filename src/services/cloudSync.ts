@@ -1131,9 +1131,14 @@ export class CloudSyncService {
   }
 
   static publicEnrollmentUrl(publicCode: string) {
+    const base = 'https://romuel10.github.io/gestion_ecole/enrollment/';
+    return `${base}?code=${encodeURIComponent(publicCode)}`;
+  }
+
+  static publicEnrollmentQrUrl(publicCode: string) {
     return `${DEFAULT_URL}/functions/v1/sekoly-public-enrollment?code=${encodeURIComponent(
       publicCode
-    )}`;
+    )}&format=qr&v=5`;
   }
 
   static async getOpenEnrollmentCampaign(
@@ -1156,7 +1161,7 @@ export class CloudSyncService {
     return {
       ...campaign,
       publicUrl,
-      qrUrl: `${publicUrl}&format=qr&v=4`,
+      qrUrl: this.publicEnrollmentQrUrl(campaign.public_code),
     } as EnrollmentCampaign;
   }
 
@@ -1195,7 +1200,7 @@ export class CloudSyncService {
     return {
       ...campaign,
       publicUrl,
-      qrUrl: `${publicUrl}&format=qr&v=4`,
+      qrUrl: this.publicEnrollmentQrUrl(campaign.public_code),
     } as EnrollmentCampaign;
   }
 
