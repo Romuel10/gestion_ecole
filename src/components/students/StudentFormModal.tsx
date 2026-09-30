@@ -1,3 +1,5 @@
+import { DateInput } from '../common/DateInput';
+import { reportInvalidDates } from '../../services/dateInputValidation';
 import React, { useState, useEffect } from 'react';
 import { DatabaseSchema, Guardian, Student, StudentGuardianLink, StudentStatus } from '../../types/school';
 import { Modal } from '../common/Modal';
@@ -114,6 +116,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (reportInvalidDates()) return;
     if (!formData.lastName || !formData.firstName) {
       onShowToast('Nom et prénom obligatoires', 'error');
       return;
@@ -390,7 +393,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
 
           <div>
             <label className="block font-semibold mb-1">Date de Naissance</label>
-            <input
+            <DateInput
               type="date"
               value={formData.birthDate || ''}
               onChange={(e) => setFormData({ ...formData, birthDate: e.target.value })}
@@ -460,7 +463,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
           </div>
           <div>
             <label className="block font-semibold mb-1">Date acte de naissance</label>
-            <input
+            <DateInput
               type="date"
               value={formData.birthCertificateDate || ''}
               onChange={(e) => setFormData({ ...formData, birthCertificateDate: e.target.value })}
@@ -486,7 +489,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
               <input type="text" placeholder="Nom complet" value={formData.fatherName || ''} onChange={(e) => setFormData({ ...formData, fatherName: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" />
               <input type="text" placeholder="Téléphone" value={formData.fatherPhone || ''} onChange={(e) => setFormData({ ...formData, fatherPhone: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" />
               <input type="text" placeholder="N° CIN" value={formData.fatherCinNumber || ''} onChange={(e) => setFormData({ ...formData, fatherCinNumber: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" />
-              <input type="date" value={formData.fatherCinIssuedAt || ''} onChange={(e) => setFormData({ ...formData, fatherCinIssuedAt: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" />
+              <DateInput type="date" value={formData.fatherCinIssuedAt || ''} onChange={(e) => setFormData({ ...formData, fatherCinIssuedAt: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" />
               <input type="text" placeholder="Lieu CIN" value={formData.fatherCinIssuePlace || ''} onChange={(e) => setFormData({ ...formData, fatherCinIssuePlace: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" />
               <input type="email" placeholder="Email" value={formData.fatherEmail || ''} onChange={(e) => setFormData({ ...formData, fatherEmail: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" />
               <input type="text" placeholder="Profession" value={formData.fatherJob || ''} onChange={(e) => setFormData({ ...formData, fatherJob: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" />
@@ -496,7 +499,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
               <input type="text" placeholder="Nom complet" value={formData.motherName || ''} onChange={(e) => setFormData({ ...formData, motherName: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" />
               <input type="text" placeholder="Téléphone" value={formData.motherPhone || ''} onChange={(e) => setFormData({ ...formData, motherPhone: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" />
               <input type="text" placeholder="N° CIN" value={formData.motherCinNumber || ''} onChange={(e) => setFormData({ ...formData, motherCinNumber: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" />
-              <input type="date" value={formData.motherCinIssuedAt || ''} onChange={(e) => setFormData({ ...formData, motherCinIssuedAt: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" />
+              <DateInput type="date" value={formData.motherCinIssuedAt || ''} onChange={(e) => setFormData({ ...formData, motherCinIssuedAt: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" />
               <input type="text" placeholder="Lieu CIN" value={formData.motherCinIssuePlace || ''} onChange={(e) => setFormData({ ...formData, motherCinIssuePlace: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" />
               <input type="email" placeholder="Email" value={formData.motherEmail || ''} onChange={(e) => setFormData({ ...formData, motherEmail: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" />
               <input type="text" placeholder="Profession" value={formData.motherJob || ''} onChange={(e) => setFormData({ ...formData, motherJob: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" />
@@ -508,7 +511,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                 <input type="text" placeholder="Nom complet" value={formData.guardianName || ''} onChange={(e) => setFormData({ ...formData, guardianName: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" />
                 <input type="text" placeholder="Téléphone" value={formData.guardianPhone || ''} onChange={(e) => setFormData({ ...formData, guardianPhone: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" />
                 <input type="text" placeholder="N° CIN" value={formData.guardianCinNumber || ''} onChange={(e) => setFormData({ ...formData, guardianCinNumber: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" />
-                <input type="date" value={formData.guardianCinIssuedAt || ''} onChange={(e) => setFormData({ ...formData, guardianCinIssuedAt: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" />
+                <DateInput type="date" value={formData.guardianCinIssuedAt || ''} onChange={(e) => setFormData({ ...formData, guardianCinIssuedAt: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" />
                 <input type="text" placeholder="Lieu CIN" value={formData.guardianCinIssuePlace || ''} onChange={(e) => setFormData({ ...formData, guardianCinIssuePlace: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" />
                 <input type="email" placeholder="Email" value={formData.guardianEmail || ''} onChange={(e) => setFormData({ ...formData, guardianEmail: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" />
                 <input type="text" placeholder="Profession" value={formData.guardianJob || ''} onChange={(e) => setFormData({ ...formData, guardianJob: e.target.value })} className="sm:col-span-2 w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" />

@@ -1,3 +1,7 @@
+import { localDateIso } from '../../services/dateFormat';
+import { DateInput } from '../common/DateInput';
+import { reportInvalidDates } from '../../services/dateInputValidation';
+import { formatDate } from '../../services/dateFormat';
 import React, { useMemo, useState } from 'react';
 import { CalendarDays, CheckCircle2, Save, UsersRound } from 'lucide-react';
 import { AttendanceRecord, DatabaseSchema } from '../../types/school';
@@ -21,7 +25,7 @@ export const AttendanceManagerView: React.FC<AttendanceManagerViewProps> = ({
   onShowToast,
 }) => {
   const currentYear = db.schoolYears.find((year) => year.id === db.currentSchoolYearId);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localDateIso();
   const initialDate =
     currentYear && today >= currentYear.startDate && today <= currentYear.endDate
       ? today
@@ -88,6 +92,8 @@ export const AttendanceManagerView: React.FC<AttendanceManagerViewProps> = ({
   };
 
   const saveAttendance = () => {
+    if (!selectedDate) { onShowToast('Choisissez une date d’appel valide.', 'error'); return; }
+    if (reportInvalidDates()) return;
     const studentIds = new Set(students.map((student) => student.id));
     const preserved = db.attendanceRecords.filter(
       (record) =>
@@ -167,7 +173,7 @@ export const AttendanceManagerView: React.FC<AttendanceManagerViewProps> = ({
     return (
       <div className="page-panel p-8 text-center">
         <div className="text-sm font-semibold">Aucune classe configurée</div>
-        <p className="mt-2 text-[11px] text-slate-500">
+        <p className="mt-2 text-[0.6875rem] text-slate-500">
           Ajoutez vos classes dans Paramètres avant de commencer l’appel quotidien.
         </p>
       </div>
@@ -179,7 +185,7 @@ export const AttendanceManagerView: React.FC<AttendanceManagerViewProps> = ({
       <div className="page-panel p-3 flex flex-col xl:flex-row xl:items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
           <label className="min-w-[190px]">
-            <span className="block mb-1 text-[9px] font-bold uppercase tracking-wide text-slate-500">
+            <span className="block mb-1 text-[0.5625rem] font-bold uppercase tracking-wide text-slate-500">
               Classe
             </span>
             <select
@@ -199,10 +205,10 @@ export const AttendanceManagerView: React.FC<AttendanceManagerViewProps> = ({
           </label>
 
           <label>
-            <span className="block mb-1 text-[9px] font-bold uppercase tracking-wide text-slate-500">
+            <span className="block mb-1 text-[0.5625rem] font-bold uppercase tracking-wide text-slate-500">
               Date de l’appel
             </span>
-            <input
+            <DateInput
               type="date"
               value={selectedDate}
               min={currentYear?.startDate}
@@ -252,7 +258,7 @@ export const AttendanceManagerView: React.FC<AttendanceManagerViewProps> = ({
           <div>
             <h2 className="page-panel__title">Appel quotidien</h2>
             <p className="page-panel__subtitle">
-              {students.length} élève(s) · {selectedDate}
+              {students.length} élève(s) · {formatDate(selectedDate)}
             </p>
           </div>
           <CalendarDays className="w-4 h-4 text-slate-400" />

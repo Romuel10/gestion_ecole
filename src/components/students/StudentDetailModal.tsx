@@ -1,3 +1,4 @@
+import { formatDate } from '../../services/dateFormat';
 import React, { useState } from 'react';
 import {
   Phone,
@@ -131,7 +132,7 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                 {student.lastName} {student.firstName}
               </h4>
               <div className="text-xs text-slate-500 dark:text-slate-400">
-                Né(e) le {student.birthDate} à {student.birthPlace || 'Madagascar'} ({student.gender === 'M' ? 'Masculin' : 'Féminin'})
+                Né(e) le {formatDate(student.birthDate)} à {student.birthPlace || 'Madagascar'} ({student.gender === 'M' ? 'Masculin' : 'Féminin'})
               </div>
             </div>
           </div>
@@ -249,7 +250,7 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                     <div key={link.id} className="flex items-start justify-between gap-3">
                       <div>
                         <strong>{guardian.lastName} {guardian.firstName}</strong>
-                        <span className="ml-2 text-[10px] text-slate-400">
+                        <span className="ml-2 text-[0.625rem] text-slate-400">
                           {link.relationship === 'FATHER'
                             ? 'Père'
                             : link.relationship === 'MOTHER'
@@ -260,7 +261,7 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                           {link.isPrimary ? ' · principal' : ''}
                         </span>
                       </div>
-                      <div className="text-right text-[10px] text-slate-500">
+                      <div className="text-right text-[0.625rem] text-slate-500">
                         <div className="font-mono">{guardian.phonePrimary || '—'}</div>
                         {guardian.cinNumber && <div>CIN {guardian.cinNumber}</div>}
                       </div>
@@ -270,14 +271,14 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
               )}
               {siblings.length > 0 && (
                 <div className="pt-2 border-t border-slate-200 dark:border-slate-700">
-                  <div className="text-[10px] uppercase font-bold tracking-wide text-slate-400 mb-1">
+                  <div className="text-[0.625rem] uppercase font-bold tracking-wide text-slate-400 mb-1">
                     Fratrie liée au même responsable
                   </div>
                   <div className="flex flex-wrap gap-1.5">
                     {siblings.map((sibling) => (
                       <span
                         key={sibling.matricule}
-                        className="px-2 py-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-[10px]"
+                        className="px-2 py-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-[0.625rem]"
                       >
                         {sibling.lastName} {sibling.firstName}
                       </span>
@@ -305,7 +306,7 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                 </div>
                 <div>
                   <span className="text-slate-400">Date :</span>{' '}
-                  <strong>{student.birthCertificateDate || '—'}</strong>
+                  <strong>{formatDate(student.birthCertificateDate)}</strong>
                 </div>
                 <div>
                   <span className="text-slate-400">Lieu :</span>{' '}
@@ -351,7 +352,7 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                     </strong>
                   </div>
                   <div>
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                    <span className="px-2.5 py-0.5 rounded-full text-[0.625rem] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
                       {studentSummary.honorMention}
                     </span>
                   </div>
@@ -360,7 +361,7 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                 <div className="overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-xl">
                   <table className="w-full text-left text-xs">
                     <thead>
-                      <tr className="bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 text-[11px] font-semibold text-slate-500">
+                      <tr className="bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 text-[0.6875rem] font-semibold text-slate-500">
                         <th className="py-2 px-3">Matière</th>
                         <th className="py-2 px-3 text-center">Coeff</th>
                         <th className="py-2 px-3 text-center">Contrôles</th>
@@ -412,7 +413,7 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                   {CalculationService.formatAriary(totalPaid)}
                 </strong>
               </div>
-              <div className="text-[11px] text-slate-400">
+              <div className="text-[0.6875rem] text-slate-400">
                 {studentPayments.length} règlement(s) enregistré(s)
               </div>
             </div>
@@ -428,8 +429,8 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                       <div className="font-bold text-slate-900 dark:text-white">
                         {p.feeType.replace('_', ' ')} — {p.monthTarget}
                       </div>
-                      <div className="text-[10px] text-slate-400 font-mono">
-                        Reçu : {p.receiptNumber} • {p.paymentDate} • {p.paymentMethod}
+                      <div className="text-[0.625rem] text-slate-400 font-mono">
+                        Reçu : {p.receiptNumber} • {formatDate(p.paymentDate)} • {p.paymentMethod}
                       </div>
                     </div>
                     <div className="flex items-center space-x-3">
@@ -463,11 +464,11 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                 {studentAttendance.map((att) => (
                   <div key={att.id} className="p-3 flex items-center justify-between text-xs">
                     <div>
-                      <span className="font-semibold text-slate-800 dark:text-slate-200">{att.date}</span>
-                      {att.reason && <div className="text-[11px] text-slate-400">{att.reason}</div>}
+                      <span className="font-semibold text-slate-800 dark:text-slate-200">{formatDate(att.date)}</span>
+                      {att.reason && <div className="text-[0.6875rem] text-slate-400">{att.reason}</div>}
                     </div>
                     <span
-                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                      className={`px-2 py-0.5 rounded-full text-[0.625rem] font-bold ${
                         att.type === 'PRESENT'
                           ? 'bg-emerald-100 text-emerald-800'
                           : att.type === 'ABSENT_JUSTIFIE'

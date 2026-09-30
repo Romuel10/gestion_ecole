@@ -20,6 +20,7 @@ import {
   useColorScheme,
 } from 'react-native';
 import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
+import { offlineStore } from './src/lib/offlineStore';
 import { acceptAuthDeepLink, supabase } from './src/lib/supabase';
 import {
   Assignment,
@@ -75,6 +76,8 @@ type MobileThemeContextValue = {
   colors: MobileColors;
   styles: ReturnType<typeof createStyles>;
   toggleTheme: () => void;
+  textScale: number;
+  changeTextScale: (value: number) => void;
 };
 
 const MobileThemeContext = createContext<MobileThemeContextValue | null>(null);
@@ -85,7 +88,26 @@ function useMobileTheme() {
   return value;
 }
 
-const todayIso = () => new Date().toISOString().slice(0, 10);
+const todayIso = () => {
+  const date = new Date();
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+};
+const displayDate = (iso: string) => iso.replace(/^(\d{4})-(\d{2})-(\d{2})$/, '$3-$2-$1');
+
+function TextSizeControl() {
+  const { styles, textScale, changeTextScale } = useMobileTheme();
+  return <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, paddingVertical: 8 }}>
+    <Text style={styles.helper}>Taille des textes : {textScale} %</Text>
+    <Pressable accessibilityRole="button" accessibilityLabel="Réduire les textes" disabled={textScale <= 100}
+      onPress={() => changeTextScale(Math.max(100, textScale - 10))} style={styles.segment}>
+      <Text style={styles.segmentText}>A−</Text>
+    </Pressable>
+    <Pressable accessibilityRole="button" accessibilityLabel="Agrandir les textes" disabled={textScale >= 150}
+      onPress={() => changeTextScale(Math.min(150, textScale + 10))} style={styles.segment}>
+      <Text style={styles.segmentText}>A+</Text>
+    </Pressable>
+  </View>;
+}
 
 const assignmentLabel = (assignment?: Assignment | null) => {
   if (!assignment) return 'Classe / matière';
@@ -334,6 +356,7 @@ function LoginScreen({
           <Text style={styles.helper}>
             Votre compte est créé ou invité par la direction de votre établissement.
           </Text>
+          <TextSizeControl />
         </View>
       </SafeAreaView>
     </KeyboardAvoidingView>
@@ -419,14 +442,11 @@ function HomeScreen({
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
       }
     >
+      <TextSizeControl />
       <View style={styles.hero}>
         <Text style={styles.heroEyebrow}>AUJOURD’HUI</Text>
         <Text style={styles.heroTitle}>
-          {new Intl.DateTimeFormat('fr-FR', {
-            weekday: 'long',
-            day: 'numeric',
-            month: 'long',
-          }).format(new Date())}
+          {displayDate(todayIso())}
         </Text>
         <Text style={styles.heroSubtitle}>
           {todaySlots.length} cours prévu(s) · {assignments.length} affectation(s)
@@ -934,7 +954,7 @@ function GradesScreen({
           <Segmented
             options={assessments.map((item) => ({
               key: item.id,
-              label: `${item.title} · ${item.assessment_date}`,
+              label: `${item.title} · ${displayDate(item.assessment_date)}`,
             }))}
             value={assessmentId}
             onChange={setAssessmentId}
@@ -1279,14 +1299,23 @@ export default function App() {
     systemScheme === 'dark' ? 'dark' : 'light'
   );
 
+  const [textScale, setTextScale] = useState(() => {
+    const saved = offlineStore.getCache<number>('text-scale');
+    return typeof saved === 'number' && saved >= 100 && saved <= 150 ? saved : 100;
+  });
+  const changeTextScale = useCallback((value: number) => {
+    const safe = Math.max(100, Math.min(150, value));
+    setTextScale(safe);
+    offlineStore.setCache('text-scale', safe);
+  }, []);
   const colors = mode === 'dark' ? DARK_COLORS : LIGHT_COLORS;
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const styles = useMemo(() => createStyles(colors, textScale / 100), [colors, textScale]);
   const toggleTheme = useCallback(() => {
     setMode((current) => (current === 'dark' ? 'light' : 'dark'));
   }, []);
   const themeValue = useMemo(
-    () => ({ mode, colors, styles, toggleTheme }),
-    [mode, colors, styles, toggleTheme]
+    () => ({ mode, colors, styles, toggleTheme, textScale, changeTextScale }),
+    [mode, colors, styles, toggleTheme, textScale, changeTextScale]
   );
 
   return (
@@ -1296,7 +1325,7 @@ export default function App() {
   );
 }
 
-function createStyles(COLORS: MobileColors) {
+function createStyles(COLORS: MobileColors, textScale = 1) {
   return StyleSheet.create({
   full: { flex: 1, backgroundColor: COLORS.soft },
   safeRoot: {
@@ -1305,7 +1334,7 @@ function createStyles(COLORS: MobileColors) {
   },
   screenStage: { flex: 1, backgroundColor: COLORS.soft },
   center: { alignItems: 'center', justifyContent: 'center' },
-  bootText: { marginTop: 14, color: COLORS.muted, fontSize: 13 },
+  bootText: { marginTop: 14, color: COLORS.muted, fontSize: 13 * textScale },
 
   loginPage: {
     flex: 1,
@@ -1324,12 +1353,12 @@ function createStyles(COLORS: MobileColors) {
     borderWidth: 3,
     borderColor: COLORS.green,
   },
-  brandSealText: { color: COLORS.white, fontSize: 27, fontWeight: '800' },
+  brandSealText: { color: COLORS.white, fontSize: 27 * textScale, fontWeight: '800' },
   brandTitle: {
     marginTop: 16,
     textAlign: 'center',
     color: COLORS.ink,
-    fontSize: 21,
+    fontSize: 21 * textScale,
     fontWeight: '800',
     letterSpacing: 2,
   },
@@ -1338,7 +1367,7 @@ function createStyles(COLORS: MobileColors) {
     marginBottom: 28,
     textAlign: 'center',
     color: COLORS.muted,
-    fontSize: 12,
+    fontSize: 12 * textScale,
   },
   loginCard: {
     backgroundColor: COLORS.surface,
@@ -1372,7 +1401,7 @@ function createStyles(COLORS: MobileColors) {
   },
   headerProduct: {
     color: COLORS.white,
-    fontSize: 14,
+    fontSize: 14 * textScale,
     fontWeight: '900',
     letterSpacing: 3.2,
     opacity: 0.94,
@@ -1380,14 +1409,14 @@ function createStyles(COLORS: MobileColors) {
   headerSchool: {
     marginTop: 8,
     color: COLORS.white,
-    fontSize: 18,
+    fontSize: 18 * textScale,
     fontWeight: '800',
     letterSpacing: -0.2,
   },
   headerTeacher: {
     marginTop: 4,
     color: '#c9d7da',
-    fontSize: 10.5,
+    fontSize: 10.5 * textScale,
   },
   headerActions: { alignItems: 'flex-end', gap: 10 },
   headerActionRow: { flexDirection: 'row', gap: 7, alignItems: 'center' },
@@ -1399,7 +1428,7 @@ function createStyles(COLORS: MobileColors) {
     borderRadius: 10,
     backgroundColor: 'rgba(255,255,255,0.06)',
   },
-  syncChipText: { color: COLORS.white, fontSize: 9, fontWeight: '800' },
+  syncChipText: { color: COLORS.white, fontSize: 9 * textScale, fontWeight: '800' },
   themeChip: {
     paddingHorizontal: 9,
     paddingVertical: 7,
@@ -1407,8 +1436,8 @@ function createStyles(COLORS: MobileColors) {
     borderColor: '#6d8990',
     borderRadius: 10,
   },
-  themeChipText: { color: COLORS.white, fontSize: 9, fontWeight: '800' },
-  logoutText: { color: '#d8e3e5', fontSize: 9.5, fontWeight: '700' },
+  themeChipText: { color: COLORS.white, fontSize: 9 * textScale, fontWeight: '800' },
+  logoutText: { color: '#d8e3e5', fontSize: 9.5 * textScale, fontWeight: '700' },
 
   screen: { flex: 1, backgroundColor: COLORS.soft },
   screenContent: { padding: 18, paddingBottom: 48 },
@@ -1428,24 +1457,24 @@ function createStyles(COLORS: MobileColors) {
   },
   heroEyebrow: {
     color: COLORS.muted,
-    fontSize: 9,
+    fontSize: 9 * textScale,
     fontWeight: '800',
     letterSpacing: 1.3,
   },
   heroTitle: {
     marginTop: 5,
     color: COLORS.ink,
-    fontSize: 20,
+    fontSize: 20 * textScale,
     fontWeight: '800',
     textTransform: 'capitalize',
   },
-  heroSubtitle: { marginTop: 4, color: COLORS.muted, fontSize: 11 },
+  heroSubtitle: { marginTop: 4, color: COLORS.muted, fontSize: 11 * textScale },
 
   sectionTitle: {
     marginTop: 22,
     marginBottom: 9,
     color: COLORS.ink,
-    fontSize: 12,
+    fontSize: 12 * textScale,
     fontWeight: '800',
     textTransform: 'uppercase',
     letterSpacing: 0.7,
@@ -1467,11 +1496,11 @@ function createStyles(COLORS: MobileColors) {
     borderRightColor: COLORS.border,
     backgroundColor: COLORS.navySoft,
   },
-  courseTimeText: { color: COLORS.green, fontSize: 14, fontWeight: '800' },
-  courseTimeEnd: { marginTop: 3, color: COLORS.muted, fontSize: 9 },
+  courseTimeText: { color: COLORS.green, fontSize: 14 * textScale, fontWeight: '800' },
+  courseTimeEnd: { marginTop: 3, color: COLORS.muted, fontSize: 9 * textScale },
   courseBody: { flex: 1, padding: 13 },
-  courseSubject: { color: COLORS.ink, fontSize: 14, fontWeight: '800' },
-  courseMeta: { marginTop: 3, color: COLORS.muted, fontSize: 10 },
+  courseSubject: { color: COLORS.ink, fontSize: 14 * textScale, fontWeight: '800' },
+  courseMeta: { marginTop: 3, color: COLORS.muted, fontSize: 10 * textScale },
   courseButtons: { marginTop: 10, flexDirection: 'row', gap: 7 },
 
   assignmentRow: {
@@ -1489,8 +1518,8 @@ function createStyles(COLORS: MobileColors) {
     shadowOffset: { width: 0, height: 4 },
     elevation: 1,
   },
-  assignmentTitle: { color: COLORS.ink, fontSize: 12, fontWeight: '800' },
-  assignmentMeta: { marginTop: 2, color: COLORS.muted, fontSize: 9.5 },
+  assignmentTitle: { color: COLORS.ink, fontSize: 12 * textScale, fontWeight: '800' },
+  assignmentMeta: { marginTop: 2, color: COLORS.muted, fontSize: 9.5 * textScale },
   assignmentButtons: { flexDirection: 'row', gap: 6 },
   smallLink: {
     borderWidth: 1,
@@ -1500,7 +1529,7 @@ function createStyles(COLORS: MobileColors) {
     borderRadius: 10,
     backgroundColor: COLORS.surface,
   },
-  smallLinkText: { color: COLORS.green, fontSize: 9, fontWeight: '800' },
+  smallLinkText: { color: COLORS.green, fontSize: 9 * textScale, fontWeight: '800' },
 
   emptyCard: {
     borderWidth: 1,
@@ -1509,8 +1538,8 @@ function createStyles(COLORS: MobileColors) {
     padding: 18,
     borderRadius: 16,
   },
-  emptyTitle: { color: COLORS.ink, fontSize: 12, fontWeight: '800' },
-  emptyText: { marginTop: 4, color: COLORS.muted, fontSize: 10.5 },
+  emptyTitle: { color: COLORS.ink, fontSize: 12 * textScale, fontWeight: '800' },
+  emptyText: { marginTop: 4, color: COLORS.muted, fontSize: 10.5 * textScale },
 
   button: {
     minHeight: 40,
@@ -1520,7 +1549,7 @@ function createStyles(COLORS: MobileColors) {
     justifyContent: 'center',
     borderRadius: 11,
   },
-  buttonText: { fontSize: 10.5, fontWeight: '800' },
+  buttonText: { fontSize: 10.5 * textScale, fontWeight: '800' },
 
   subHeader: {
     minHeight: 60,
@@ -1531,18 +1560,18 @@ function createStyles(COLORS: MobileColors) {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  backText: { color: COLORS.green, fontSize: 13, fontWeight: '700' },
+  backText: { color: COLORS.green, fontSize: 13 * textScale, fontWeight: '700' },
   subHeaderTitle: {
     marginLeft: 18,
     color: COLORS.ink,
-    fontSize: 14,
+    fontSize: 14 * textScale,
     fontWeight: '800',
   },
 
   label: {
     marginBottom: 6,
     color: COLORS.muted,
-    fontSize: 9,
+    fontSize: 9 * textScale,
     fontWeight: '800',
     textTransform: 'uppercase',
     letterSpacing: 0.7,
@@ -1554,14 +1583,14 @@ function createStyles(COLORS: MobileColors) {
     borderWidth: 1,
     borderColor: COLORS.border,
     color: COLORS.ink,
-    fontSize: 12,
+    fontSize: 12 * textScale,
     borderRadius: 12,
   },
   helper: {
     marginTop: 14,
     color: COLORS.muted,
-    fontSize: 9.5,
-    lineHeight: 14,
+    fontSize: 9.5 * textScale,
+    lineHeight: 14 * textScale,
   },
 
   segmentRow: { gap: 6, paddingBottom: 4 },
@@ -1579,7 +1608,7 @@ function createStyles(COLORS: MobileColors) {
     backgroundColor: COLORS.navy,
     borderColor: COLORS.navy,
   },
-  segmentText: { color: COLORS.ink, fontSize: 9.5, fontWeight: '700' },
+  segmentText: { color: COLORS.ink, fontSize: 9.5 * textScale, fontWeight: '700' },
   segmentTextActive: { color: COLORS.white },
 
   summaryStrip: {
@@ -1594,8 +1623,8 @@ function createStyles(COLORS: MobileColors) {
     gap: 8,
     borderRadius: 14,
   },
-  summaryValue: { color: COLORS.green, fontSize: 20, fontWeight: '900' },
-  summaryLabel: { color: COLORS.muted, fontSize: 10 },
+  summaryValue: { color: COLORS.green, fontSize: 20 * textScale, fontWeight: '900' },
+  summaryLabel: { color: COLORS.muted, fontSize: 10 * textScale },
 
   studentCard: {
     marginBottom: 9,
@@ -1606,11 +1635,11 @@ function createStyles(COLORS: MobileColors) {
     borderRadius: 14,
   },
   studentTop: { flexDirection: 'row', alignItems: 'center' },
-  studentName: { color: COLORS.ink, fontSize: 11.5, fontWeight: '800' },
+  studentName: { color: COLORS.ink, fontSize: 11.5 * textScale, fontWeight: '800' },
   studentMatricule: {
     marginTop: 2,
     color: COLORS.muted,
-    fontSize: 8.5,
+    fontSize: 8.5 * textScale,
     fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace' }),
   },
 
@@ -1626,7 +1655,7 @@ function createStyles(COLORS: MobileColors) {
   createTitle: {
     marginBottom: 8,
     color: COLORS.ink,
-    fontSize: 11,
+    fontSize: 11 * textScale,
     fontWeight: '800',
   },
 
@@ -1649,14 +1678,14 @@ function createStyles(COLORS: MobileColors) {
     backgroundColor: COLORS.navySoft,
     textAlign: 'center',
     color: COLORS.ink,
-    fontSize: 14,
+    fontSize: 14 * textScale,
     fontWeight: '800',
   },
   scoreMax: {
     width: 32,
     marginLeft: 5,
     color: COLORS.muted,
-    fontSize: 9,
+    fontSize: 9 * textScale,
   },
   });
 }

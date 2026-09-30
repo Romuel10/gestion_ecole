@@ -1,3 +1,4 @@
+import { formatDate } from '../../services/dateFormat';
 import React, { useEffect, useState } from 'react';
 import { Check, Printer, Sliders } from 'lucide-react';
 import { DatabaseSchema, SchoolClass, Student } from '../../types/school';
@@ -109,7 +110,7 @@ export const StudentCardGeneratorModal: React.FC<StudentCardGeneratorModalProps>
           </div>
 
           <label className="block">
-            <span className="block mb-1.5 text-[10.5px] font-semibold text-slate-600 dark:text-slate-300">
+            <span className="block mb-1.5 text-[0.65625rem] font-semibold text-slate-600 dark:text-slate-300">
               Intitulé
             </span>
             <input
@@ -121,7 +122,7 @@ export const StudentCardGeneratorModal: React.FC<StudentCardGeneratorModalProps>
           </label>
 
           <div>
-            <div className="mb-1.5 text-[10.5px] font-semibold text-slate-600 dark:text-slate-300">
+            <div className="mb-1.5 text-[0.65625rem] font-semibold text-slate-600 dark:text-slate-300">
               Couleur d'identification
             </div>
             <div className="flex gap-2">
@@ -141,7 +142,7 @@ export const StudentCardGeneratorModal: React.FC<StudentCardGeneratorModalProps>
           </div>
 
           <div className="space-y-2 pt-3 border-t border-slate-200 dark:border-slate-800">
-            <div className="text-[10.5px] font-semibold text-slate-600 dark:text-slate-300">
+            <div className="text-[0.65625rem] font-semibold text-slate-600 dark:text-slate-300">
               Informations visibles
             </div>
             {[
@@ -165,7 +166,7 @@ export const StudentCardGeneratorModal: React.FC<StudentCardGeneratorModalProps>
           </div>
 
           <label className="block pt-3 border-t border-slate-200 dark:border-slate-800">
-            <span className="block mb-1.5 text-[10.5px] font-semibold text-slate-600 dark:text-slate-300">
+            <span className="block mb-1.5 text-[0.65625rem] font-semibold text-slate-600 dark:text-slate-300">
               Élève
             </span>
             <select
@@ -184,14 +185,14 @@ export const StudentCardGeneratorModal: React.FC<StudentCardGeneratorModalProps>
           </label>
 
           <div className="pt-3 border-t border-slate-200 dark:border-slate-800">
-            <div className="mb-2 text-[10.5px] font-semibold text-slate-600 dark:text-slate-300">
+            <div className="mb-2 text-[0.65625rem] font-semibold text-slate-600 dark:text-slate-300">
               Impression
             </div>
             <div className="grid grid-cols-2 border border-slate-200 dark:border-slate-700">
               <button
                 type="button"
                 onClick={() => setPrintMode('SINGLE')}
-                className={`px-2 py-2 text-[10.5px] font-semibold ${
+                className={`px-2 py-2 text-[0.65625rem] font-semibold ${
                   printMode === 'SINGLE'
                     ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
                     : 'bg-white dark:bg-slate-900'
@@ -202,7 +203,7 @@ export const StudentCardGeneratorModal: React.FC<StudentCardGeneratorModalProps>
               <button
                 type="button"
                 onClick={() => setPrintMode('BATCH_CLASS')}
-                className={`px-2 py-2 text-[10.5px] font-semibold border-l border-slate-200 dark:border-slate-700 ${
+                className={`px-2 py-2 text-[0.65625rem] font-semibold border-l border-slate-200 dark:border-slate-700 ${
                   printMode === 'BATCH_CLASS'
                     ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
                     : 'bg-white dark:bg-slate-900'
@@ -216,10 +217,10 @@ export const StudentCardGeneratorModal: React.FC<StudentCardGeneratorModalProps>
 
         <div className="min-w-0 space-y-3">
           <div className="flex items-center justify-between">
-            <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">
+            <div className="text-[0.625rem] font-semibold uppercase tracking-[0.08em] text-slate-500">
               Aperçu carte ISO/IEC 7810 ID-1
             </div>
-            <div className="text-[10px] text-slate-500">
+            <div className="text-[0.625rem] text-slate-500">
               {studentsToPrint.length} carte(s)
             </div>
           </div>
@@ -293,7 +294,7 @@ export const StudentCardGeneratorModal: React.FC<StudentCardGeneratorModalProps>
                       {showBirthDate && (
                         <div className="student-id-card__row">
                           <span>Naissance</span>
-                          <strong>{stu.birthDate} · {stu.birthPlace}</strong>
+                          <strong>{formatDate(stu.birthDate)} · {stu.birthPlace}</strong>
                         </div>
                       )}
 

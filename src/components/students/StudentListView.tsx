@@ -309,7 +309,7 @@ export const StudentListView: React.FC<StudentListViewProps> = ({
         <div className="overflow-x-auto">
           <table className="erp-table">
             <thead>
-              <tr className="border-b border-slate-200 dark:border-slate-800 text-[11px] font-semibold text-slate-400 uppercase tracking-wider bg-slate-50/50 dark:bg-slate-800/40">
+              <tr className="border-b border-slate-200 dark:border-slate-800 text-[0.6875rem] font-semibold text-slate-400 uppercase tracking-wider bg-slate-50/50 dark:bg-slate-800/40">
                 <th className="py-3 px-3">Matricule</th>
                 <th className="py-3 px-3">Nom & Prénoms</th>
                 <th className="py-3 px-3">Classe</th>
@@ -337,7 +337,7 @@ export const StudentListView: React.FC<StudentListViewProps> = ({
                       <div className="font-bold text-slate-900 dark:text-white">
                         {s.lastName} {s.firstName}
                       </div>
-                      <div className="text-[10px] text-slate-400">{s.city}</div>
+                      <div className="text-[0.625rem] text-slate-400">{s.city}</div>
                     </td>
                     <td className="py-3 px-3 font-semibold text-slate-700 dark:text-slate-300">
                       {classMap.get(s.classId) || s.classId}
@@ -347,11 +347,11 @@ export const StudentListView: React.FC<StudentListViewProps> = ({
                     </td>
                     <td className="py-3 px-3 text-slate-600 dark:text-slate-400">
                       <div>{s.emergencyContact}</div>
-                      <div className="text-[10px] font-mono text-slate-400">{s.emergencyPhone}</div>
+                      <div className="text-[0.625rem] font-mono text-slate-400">{s.emergencyPhone}</div>
                     </td>
                     <td className="py-3 px-3">
                       <span
-                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        className={`px-2 py-0.5 rounded-full text-[0.625rem] font-bold ${
                           s.status === 'INSCRIT'
                             ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-300'
                             : s.status === 'REINSCRIT'

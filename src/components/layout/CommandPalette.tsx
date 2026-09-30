@@ -179,7 +179,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
           {/* Section: Élèves */}
           {matchedStudents.length > 0 && (
             <div>
-              <div className="px-3 py-1 text-[10px] uppercase font-bold tracking-wider text-slate-400">
+              <div className="px-3 py-1 text-[0.625rem] uppercase font-bold tracking-wider text-slate-400">
                 Élèves ({matchedStudents.length})
               </div>
               <div className="space-y-1 mt-1">
@@ -196,14 +196,14 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                     className={highlightClass(idx)}
                   >
                     <div className="flex items-center space-x-3">
-                      <div className="w-7 h-7 rounded-lg bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 flex items-center justify-center font-bold text-[11px]">
+                      <div className="w-7 h-7 rounded-lg bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 flex items-center justify-center font-bold text-[0.6875rem]">
                         {s.firstName.charAt(0)}
                       </div>
                       <div>
                         <div className="font-semibold text-slate-900 dark:text-white">
                           {s.lastName} {s.firstName}
                         </div>
-                        <div className="text-[11px] text-slate-400">
+                        <div className="text-[0.6875rem] text-slate-400">
                           Matricule: <span className="font-mono">{s.matricule}</span> • Classe: {classMap.get(s.classId)}
                         </div>
                       </div>
@@ -219,7 +219,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
           {/* Section: Enseignants */}
           {matchedTeachers.length > 0 && (
             <div>
-              <div className="px-3 py-1 text-[10px] uppercase font-bold tracking-wider text-slate-400">
+              <div className="px-3 py-1 text-[0.625rem] uppercase font-bold tracking-wider text-slate-400">
                 Enseignants ({matchedTeachers.length})
               </div>
               <div className="space-y-1 mt-1">
@@ -236,14 +236,14 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                     className={highlightClass(idx)}
                   >
                     <div className="flex items-center space-x-3">
-                      <div className="w-7 h-7 rounded-lg bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 flex items-center justify-center font-bold text-[11px]">
+                      <div className="w-7 h-7 rounded-lg bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 flex items-center justify-center font-bold text-[0.6875rem]">
                         {t.firstName.charAt(0)}
                       </div>
                       <div>
                         <div className="font-semibold text-slate-900 dark:text-white">
                           {t.lastName} {t.firstName}
                         </div>
-                        <div className="text-[11px] text-slate-400">
+                        <div className="text-[0.6875rem] text-slate-400">
                           {t.qualification} • {t.contractType}
                         </div>
                       </div>
@@ -259,7 +259,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
           {/* Section: Classes */}
           {matchedClasses.length > 0 && (
             <div>
-              <div className="px-3 py-1 text-[10px] uppercase font-bold tracking-wider text-slate-400">
+              <div className="px-3 py-1 text-[0.625rem] uppercase font-bold tracking-wider text-slate-400">
                 Classes ({matchedClasses.length})
               </div>
               <div className="space-y-1 mt-1">
@@ -276,14 +276,14 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                     className={highlightClass(idx)}
                   >
                     <div className="flex items-center space-x-3">
-                      <div className="w-7 h-7 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 flex items-center justify-center font-bold text-[11px]">
+                      <div className="w-7 h-7 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 flex items-center justify-center font-bold text-[0.6875rem]">
                         {c.code.slice(0, 3)}
                       </div>
                       <div>
                         <div className="font-semibold text-slate-900 dark:text-white">
                           {c.name}
                         </div>
-                        <div className="text-[11px] text-slate-400">
+                        <div className="text-[0.6875rem] text-slate-400">
                           Niveau: {c.level.toUpperCase()} • Série: {c.serie || 'Générale'}
                         </div>
                       </div>
@@ -299,7 +299,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
           {/* Section: Reçus de Caisse */}
           {matchedPayments.length > 0 && (
             <div>
-              <div className="px-3 py-1 text-[10px] uppercase font-bold tracking-wider text-slate-400">
+              <div className="px-3 py-1 text-[0.625rem] uppercase font-bold tracking-wider text-slate-400">
                 Reçus & Quittances ({matchedPayments.length})
               </div>
               <div className="space-y-1 mt-1">
@@ -316,14 +316,14 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                     className={highlightClass(idx)}
                   >
                     <div className="flex items-center space-x-3">
-                      <div className="w-7 h-7 rounded-lg bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 flex items-center justify-center font-bold text-[11px]">
+                      <div className="w-7 h-7 rounded-lg bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 flex items-center justify-center font-bold text-[0.6875rem]">
                         REC
                       </div>
                       <div>
                         <div className="font-semibold text-slate-900 dark:text-white">
                           Reçu N° {p.receiptNumber} — {p.amount.toLocaleString()} Ar
                         </div>
-                        <div className="text-[11px] text-slate-400">
+                        <div className="text-[0.6875rem] text-slate-400">
                           {p.feeType} • {p.paymentMethod}
                         </div>
                       </div>
@@ -349,13 +349,13 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
         </div>
 
         {/* Footer shortcuts */}
-        <div className="flex items-center justify-between px-4 py-2.5 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 text-[11px] text-slate-400">
+        <div className="flex items-center justify-between px-4 py-2.5 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 text-[0.6875rem] text-slate-400">
           <span>
-            Naviguez avec <kbd className="px-1 py-0.5 font-mono text-[10px] bg-slate-200 dark:bg-slate-800 rounded mx-0.5">↑</kbd>
-            <kbd className="px-1 py-0.5 font-mono text-[10px] bg-slate-200 dark:bg-slate-800 rounded mx-0.5">↓</kbd>
-            puis <kbd className="px-1 py-0.5 font-mono text-[10px] bg-slate-200 dark:bg-slate-800 rounded mx-0.5">Entrée</kbd> pour ouvrir
+            Naviguez avec <kbd className="px-1 py-0.5 font-mono text-[0.625rem] bg-slate-200 dark:bg-slate-800 rounded mx-0.5">↑</kbd>
+            <kbd className="px-1 py-0.5 font-mono text-[0.625rem] bg-slate-200 dark:bg-slate-800 rounded mx-0.5">↓</kbd>
+            puis <kbd className="px-1 py-0.5 font-mono text-[0.625rem] bg-slate-200 dark:bg-slate-800 rounded mx-0.5">Entrée</kbd> pour ouvrir
           </span>
-          <kbd className="px-1.5 py-0.5 font-mono text-[10px] bg-slate-200 dark:bg-slate-800 rounded">
+          <kbd className="px-1.5 py-0.5 font-mono text-[0.625rem] bg-slate-200 dark:bg-slate-800 rounded">
             ECHAP pour fermer
           </kbd>
         </div>

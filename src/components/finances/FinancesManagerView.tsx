@@ -1,3 +1,7 @@
+import { localDateIso } from '../../services/dateFormat';
+import { DateInput } from '../common/DateInput';
+import { reportInvalidDates } from '../../services/dateInputValidation';
+import { formatDate, formatDateTime } from '../../services/dateFormat';
 import React, { useEffect, useState } from 'react';
 import {
   Wallet,
@@ -52,7 +56,7 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
   const [isNewExpenseModalOpen, setIsNewExpenseModalOpen] = useState(false);
   const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
   const [selectedStudentForReminder, setSelectedStudentForReminder] = useState<string | null>(null);
-  const [closingDate, setClosingDate] = useState(new Date().toISOString().slice(0, 10));
+  const [closingDate, setClosingDate] = useState(localDateIso());
   const [countedBalance, setCountedBalance] = useState('');
   const [cashClosingNote, setCashClosingNote] = useState('');
 
@@ -139,6 +143,8 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
   );
 
   const handleSaveCashClosing = () => {
+    if (!closingDate) { onShowToast('Choisissez une date de clôture valide.', 'error'); return; }
+    if (reportInvalidDates()) return;
     if (countedBalance === '' || Number.isNaN(Number(countedBalance))) {
       onShowToast('Saisissez le montant réellement compté en caisse.', 'error');
       return;
@@ -168,7 +174,7 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
     StorageService.saveDatabase(updatedDb);
     onUpdateDb(updatedDb);
     onShowToast(
-      `Caisse du ${closingDate} clôturée. Écart : ${CalculationService.formatAriary(closure.difference)}.`,
+      `Caisse du ${formatDate(closingDate)} clôturée. Écart : ${CalculationService.formatAriary(closure.difference)}.`,
       closure.difference === 0 ? 'success' : 'info'
     );
   };
@@ -310,7 +316,7 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
       amount: netAmount,
       discount,
       totalDue: baseAmount,
-      paymentDate: new Date().toISOString().slice(0, 10),
+      paymentDate: localDateIso(),
       paymentMethod: tuitionForm.paymentMethod,
       referenceNumber: tuitionForm.referenceNumber,
       payerName: tuitionForm.payerName || `${stu.lastName} Parent`,
@@ -324,7 +330,7 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
       type: 'RECETTE',
       category: 'Écolages & Scolarité',
       amount: netAmount,
-      date: new Date().toISOString().slice(0, 10),
+      date: localDateIso(),
       paymentMethod: tuitionForm.paymentMethod,
       beneficiaryOrPayer: newPayment.payerName,
       description: `Règlement écolage ${stu.lastName} ${stu.firstName} (${newPayment.monthTarget})`,
@@ -393,7 +399,7 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
       teacherId: teacher.id,
       schoolYearId: db.currentSchoolYearId,
       month: salaryForm.month,
-      paymentDate: new Date().toISOString().slice(0, 10),
+      paymentDate: localDateIso(),
       contractType: teacher.contractType,
       baseSalaryOrRate: isTitulaire ? teacher.baseMonthlySalary : teacher.hourlyRate,
       hoursWorked: isTitulaire ? 0 : Number(salaryForm.hoursWorked),
@@ -415,7 +421,7 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
       type: 'DEPENSE',
       category: 'Salaires & Vacations',
       amount: net,
-      date: new Date().toISOString().slice(0, 10),
+      date: localDateIso(),
       paymentMethod: salaryForm.paymentMethod,
       beneficiaryOrPayer: `${teacher.lastName} ${teacher.firstName}`,
       description: `Règlement salaire ${teacher.lastName} (${salaryForm.month})`,
@@ -454,7 +460,7 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
       type: txForm.type,
       category: txForm.category,
       amount: transactionAmount,
-      date: new Date().toISOString().slice(0, 10),
+      date: localDateIso(),
       paymentMethod: txForm.paymentMethod,
       beneficiaryOrPayer: txForm.beneficiaryOrPayer || 'Administration',
       description: txForm.description,
@@ -513,7 +519,7 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
               key={id}
               type="button"
               onClick={() => setActiveTab(id as typeof activeTab)}
-              className={`px-3 py-2 rounded-md text-[11px] font-semibold transition ${
+              className={`px-3 py-2 rounded-md text-[0.6875rem] font-semibold transition ${
                 activeTab === id
                   ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
                   : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -590,7 +596,7 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
             <div className="flex items-center gap-3 min-w-0">
               <Calendar className="w-5 h-5 text-blue-600 shrink-0" />
               <div className="min-w-0 flex-1">
-                <label htmlFor="finance-field-1" className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                <label htmlFor="finance-field-1" className="block text-[0.625rem] font-bold uppercase tracking-wider text-slate-400">
                   Sélectionner la classe à pointer
                 </label>
                 <select id="finance-field-1"
@@ -625,10 +631,10 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="border-b border-slate-200 dark:border-slate-800 text-[11px] font-bold text-slate-500 uppercase tracking-wider bg-slate-50/70 dark:bg-slate-800/50">
+                <tr className="border-b border-slate-200 dark:border-slate-800 text-[0.6875rem] font-bold text-slate-500 uppercase tracking-wider bg-slate-50/70 dark:bg-slate-800/50">
                   <th className="py-3 px-3 w-44">Élève ({studentsInClass.length})</th>
                   {schoolMonths.map((m) => (
-                    <th key={m} className="py-3 px-1.5 text-center text-[10px]">
+                    <th key={m} className="py-3 px-1.5 text-center text-[0.625rem]">
                       {m.slice(0, 4)}
                     </th>
                   ))}
@@ -643,7 +649,7 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
                     <tr key={student.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
                       <td className="py-2.5 px-3 font-semibold text-slate-900 dark:text-white">
                         <div className="truncate font-bold">{student.lastName} {student.firstName}</div>
-                        <div className="text-[10px] text-slate-400 font-mono">{student.matricule}</div>
+                        <div className="text-[0.625rem] text-slate-400 font-mono">{student.matricule}</div>
                       </td>
 
                       {schoolMonths.map((m) => {
@@ -654,7 +660,7 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
                               <button
                                 onClick={() => PdfGeneratorService.generateTuitionReceiptPDF(paidRecord, db)}
                                 className="w-7 h-7 mx-auto rounded-lg bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 flex items-center justify-center font-bold text-xs hover:scale-110 transition shadow-sm"
-                                title={`Payé le ${paidRecord.paymentDate} (${paidRecord.receiptNumber}) - Cliquez pour imprimer le reçu`}
+                                title={`Payé le ${formatDate(paidRecord.paymentDate)} (${paidRecord.receiptNumber}) - Cliquez pour imprimer le reçu`}
                               >
                                 <Check className="w-4 h-4 stroke-[3]" />
                               </button>
@@ -664,7 +670,7 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
                                   handleStudentSelectInModal(student.id, getSchoolMonthTarget(m));
                                   setIsNewPaymentModalOpen(true);
                                 }}
-                                className="w-7 h-7 mx-auto rounded-lg bg-rose-50 dark:bg-rose-950/40 text-rose-500 hover:bg-rose-100 hover:text-rose-700 flex items-center justify-center text-[10px] font-bold border border-rose-200 dark:border-rose-900/60 transition"
+                                className="w-7 h-7 mx-auto rounded-lg bg-rose-50 dark:bg-rose-950/40 text-rose-500 hover:bg-rose-100 hover:text-rose-700 flex items-center justify-center text-[0.625rem] font-bold border border-rose-200 dark:border-rose-900/60 transition"
                                 title={`Non réglé pour ${m} - Cliquez pour encaisser`}
                               >
                                 -
@@ -677,7 +683,7 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
                       <td className="py-2.5 px-3 text-right">
                         <div className="flex items-center justify-end space-x-2">
                           <span
-                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            className={`px-2 py-0.5 rounded-full text-[0.625rem] font-bold ${
                               paidCount >= 3
                                 ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
                                 : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
@@ -690,7 +696,7 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
                               setSelectedStudentForReminder(student.id);
                               setIsReminderModalOpen(true);
                             }}
-                            className="p-1 rounded bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-600 dark:text-slate-300 text-[10px]"
+                            className="p-1 rounded bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-600 dark:text-slate-300 text-[0.625rem]"
                             title="Imprimer un mot de rappel personnalisé"
                           >
                             <FileText className="w-3.5 h-3.5" />
@@ -718,7 +724,7 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead>
-                <tr className="border-b border-slate-200 dark:border-slate-800 text-[11px] font-semibold text-slate-400 uppercase tracking-wider bg-slate-50/50 dark:bg-slate-800/40">
+                <tr className="border-b border-slate-200 dark:border-slate-800 text-[0.6875rem] font-semibold text-slate-400 uppercase tracking-wider bg-slate-50/50 dark:bg-slate-800/40">
                   <th className="py-3 px-3">N° Quittance</th>
                   <th className="py-3 px-3">Date</th>
                   <th className="py-3 px-3">Élève & Classe</th>
@@ -737,12 +743,12 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
                       <td className="py-3 px-3 font-mono font-bold text-blue-600 dark:text-blue-400">
                         {p.receiptNumber}
                       </td>
-                      <td className="py-3 px-3 text-slate-500">{p.paymentDate}</td>
+                      <td className="py-3 px-3 text-slate-500">{formatDate(p.paymentDate)}</td>
                       <td className="py-3 px-3">
                         <div className="font-bold text-slate-900 dark:text-white">
                           {stu ? `${stu.lastName} ${stu.firstName}` : 'Élève'}
                         </div>
-                        <div className="text-[10px] text-slate-400 font-mono">
+                        <div className="text-[0.625rem] text-slate-400 font-mono">
                           {cls?.name} • Mat: {stu?.matricule}
                         </div>
                       </td>
@@ -750,10 +756,10 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
                         <span className="font-semibold text-slate-800 dark:text-slate-200">
                           {p.feeType.replace('_', ' ')}
                         </span>
-                        <div className="text-[11px] text-slate-400">{p.monthTarget}</div>
+                        <div className="text-[0.6875rem] text-slate-400">{p.monthTarget}</div>
                       </td>
                       <td className="py-3 px-3">
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                        <span className="px-2 py-0.5 rounded text-[0.625rem] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
                           {p.paymentMethod}
                         </span>
                       </td>
@@ -797,7 +803,7 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead>
-                <tr className="border-b border-slate-200 dark:border-slate-800 text-[11px] font-semibold text-slate-400 uppercase tracking-wider bg-slate-50/50 dark:bg-slate-800/40">
+                <tr className="border-b border-slate-200 dark:border-slate-800 text-[0.6875rem] font-semibold text-slate-400 uppercase tracking-wider bg-slate-50/50 dark:bg-slate-800/40">
                   <th className="py-3 px-3">N° Fiche</th>
                   <th className="py-3 px-3">Mois / Date</th>
                   <th className="py-3 px-3">Enseignant</th>
@@ -818,7 +824,7 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
                       </td>
                       <td className="py-3 px-3">
                         <div className="font-semibold text-slate-900 dark:text-white">{sal.month}</div>
-                        <div className="text-[10px] text-slate-400">{sal.paymentDate}</div>
+                        <div className="text-[0.625rem] text-slate-400">{formatDate(sal.paymentDate)}</div>
                       </td>
                       <td className="py-3 px-3">
                         <div className="font-bold text-slate-900 dark:text-white">
@@ -826,7 +832,7 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
                         </div>
                       </td>
                       <td className="py-3 px-3">
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-slate-800">
+                        <span className="px-2 py-0.5 rounded text-[0.625rem] font-bold bg-slate-100 dark:bg-slate-800">
                           {sal.contractType}
                         </span>
                       </td>
@@ -876,7 +882,7 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead>
-                <tr className="border-b border-slate-200 dark:border-slate-800 text-[11px] font-semibold text-slate-400 uppercase tracking-wider bg-slate-50/50 dark:bg-slate-800/40">
+                <tr className="border-b border-slate-200 dark:border-slate-800 text-[0.6875rem] font-semibold text-slate-400 uppercase tracking-wider bg-slate-50/50 dark:bg-slate-800/40">
                   <th className="py-3 px-3">Pièce N°</th>
                   <th className="py-3 px-3">Date</th>
                   <th className="py-3 px-3">Type</th>
@@ -892,10 +898,10 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
                     <td className="py-3 px-3 font-mono font-bold text-slate-600 dark:text-slate-400">
                       {tx.voucherNumber}
                     </td>
-                    <td className="py-3 px-3 text-slate-500">{tx.date}</td>
+                    <td className="py-3 px-3 text-slate-500">{formatDate(tx.date)}</td>
                     <td className="py-3 px-3">
                       <span
-                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        className={`px-2 py-0.5 rounded-full text-[0.625rem] font-bold ${
                           tx.type === 'RECETTE'
                             ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
                             : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
@@ -930,10 +936,10 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
           <div className="page-panel p-4">
             <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
               <label>
-                <span className="block mb-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                <span className="block mb-1.5 text-[0.625rem] font-bold uppercase tracking-wide text-slate-500">
                   Date de clôture
                 </span>
-                <input
+                <DateInput
                   type="date"
                   value={closingDate}
                   onChange={(event) => {
@@ -951,8 +957,8 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
               </label>
 
               {existingClosure && (
-                <div className="text-[10.5px] text-slate-500">
-                  Déjà clôturée le {new Date(existingClosure.closedAt).toLocaleString('fr-FR')}
+                <div className="text-[0.65625rem] text-slate-500">
+                  Déjà clôturée le {formatDateTime(existingClosure.closedAt)}
                 </div>
               )}
             </div>
@@ -982,7 +988,7 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
               <div>
                 <h3 className="page-panel__title">Comptage de caisse</h3>
                 <p className="page-panel__subtitle">
-                  {cashOnClosingDate.length} écriture(s) enregistrée(s) le {closingDate}.
+                  {cashOnClosingDate.length} écriture(s) enregistrée(s) le {formatDate(closingDate)}.
                 </p>
               </div>
               <LockKeyhole className="w-4 h-4 text-slate-400" />
@@ -990,7 +996,7 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
 
             <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
               <label>
-                <span className="block mb-1.5 text-[10.5px] font-semibold text-slate-600 dark:text-slate-300">
+                <span className="block mb-1.5 text-[0.65625rem] font-semibold text-slate-600 dark:text-slate-300">
                   Montant réellement compté
                 </span>
                 <input
@@ -1004,7 +1010,7 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
               </label>
 
               <div className="border border-slate-200 dark:border-slate-700 p-3">
-                <span className="block text-[9px] uppercase tracking-wide font-bold text-slate-500">
+                <span className="block text-[0.5625rem] uppercase tracking-wide font-bold text-slate-500">
                   Écart
                 </span>
                 <strong
@@ -1023,7 +1029,7 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
               </div>
 
               <label className="md:col-span-2">
-                <span className="block mb-1.5 text-[10.5px] font-semibold text-slate-600 dark:text-slate-300">
+                <span className="block mb-1.5 text-[0.65625rem] font-semibold text-slate-600 dark:text-slate-300">
                   Observation
                 </span>
                 <textarea
@@ -1069,7 +1075,7 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
                     .sort((a, b) => b.date.localeCompare(a.date))
                     .map((closure) => (
                       <tr key={closure.id}>
-                        <td className="font-semibold">{closure.date}</td>
+                        <td className="font-semibold">{formatDate(closure.date)}</td>
                         <td className="text-right font-mono">
                           {CalculationService.formatAriary(closure.expectedBalance)}
                         </td>
@@ -1140,7 +1146,7 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
               onChange={(e) => setCustomReminderText(e.target.value)}
               className="w-full text-xs p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 font-sans"
             />
-            <div className="text-[10px] text-slate-400">
+            <div className="text-[0.625rem] text-slate-400">
               Variables disponibles : <code className="bg-slate-200 dark:bg-slate-800 px-1 rounded">{'{NOM}'}</code>,{' '}
               <code className="bg-slate-200 dark:bg-slate-800 px-1 rounded">{'{CLASSE}'}</code>,{' '}
               <code className="bg-slate-200 dark:bg-slate-800 px-1 rounded">{'{MOIS_IMPAYES}'}</code>,{' '}
@@ -1162,20 +1168,20 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
                     className="p-4 rounded-xl border-2 border-dashed border-amber-400 bg-amber-50/50 text-slate-900 font-sans space-y-2 shadow-sm relative"
                   >
                     <div className="flex items-center justify-between border-b border-amber-200 pb-1.5">
-                      <div className="font-extrabold text-[10px] uppercase text-amber-900">
+                      <div className="font-extrabold text-[0.625rem] uppercase text-amber-900">
                         {db.schoolConfig.name}
                       </div>
-                      <div className="text-[9px] font-mono font-bold text-amber-800">
+                      <div className="text-[0.5625rem] font-mono font-bold text-amber-800">
                         Rappel d'Écolage
                       </div>
                     </div>
 
-                    <p className="text-[10px] leading-relaxed text-slate-800 whitespace-pre-wrap">
+                    <p className="text-[0.625rem] leading-relaxed text-slate-800 whitespace-pre-wrap">
                       {text}
                     </p>
 
-                    <div className="pt-2 border-t border-amber-200 flex items-center justify-between text-[9px] text-slate-500 font-medium">
-                      <span>Date : {new Date().toLocaleDateString('fr-FR')}</span>
+                    <div className="pt-2 border-t border-amber-200 flex items-center justify-between text-[0.5625rem] text-slate-500 font-medium">
+                      <span>Date : {formatDate(new Date())}</span>
                       <span className="italic">Le Service Caisse</span>
                     </div>
                   </div>
@@ -1318,7 +1324,7 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
             const netAmount = Math.max(0, Number(tuitionForm.amount) - Number(tuitionForm.discount || 0));
             return (
               <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-2">
-                <div className="font-bold uppercase tracking-wider text-[10px] text-slate-500">Récapitulatif de l'opération</div>
+                <div className="font-bold uppercase tracking-wider text-[0.625rem] text-slate-500">Récapitulatif de l'opération</div>
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-slate-500">Élève</span>
                   <span className="font-semibold text-slate-900 dark:text-white">
@@ -1346,7 +1352,7 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
                   </span>
                 </div>
                 {cls && Number(tuitionForm.amount) !== cls.monthlyTuitionFee && tuitionForm.feeType === 'ECOLAGE_MENSUEL' && (
-                  <p className="text-[11px] text-amber-600 dark:text-amber-400 m-0">
+                  <p className="text-[0.6875rem] text-amber-600 dark:text-amber-400 m-0">
                     Le montant saisi diffère du tarif de la classe ({CalculationService.formatAriary(cls.monthlyTuitionFee)}). Vérifiez s'il s'agit d'un ajout volontaire.
                   </p>
                 )}

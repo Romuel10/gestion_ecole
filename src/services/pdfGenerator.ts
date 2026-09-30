@@ -1,3 +1,4 @@
+import { formatDate } from './dateFormat';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import {
@@ -128,7 +129,7 @@ export class PdfGeneratorService {
       pageHeight - 9
     );
     doc.text(
-      `Document généré le ${new Date().toLocaleDateString('fr-FR')}`,
+      `Document généré le ${formatDate(new Date())}`,
       right,
       pageHeight - 9,
       { align: 'right' }
@@ -146,7 +147,7 @@ export class PdfGeneratorService {
     const variables: Record<string, string> = {
       '{NOM_ET_PRENOMS}': `${student.lastName.toUpperCase()} ${student.firstName}`,
       '{MATRICULE}': student.matricule,
-      '{DATE_NAISSANCE}': student.birthDate,
+      '{DATE_NAISSANCE}': formatDate(student.birthDate, ''),
       '{LIEU_NAISSANCE}': student.birthPlace || 'Madagascar',
       '{CLASSE}': className,
       '{ANNEE_SCOLAIRE}': schoolYearLabel,
@@ -199,7 +200,7 @@ export class PdfGeneratorService {
         ],
         [
           { content: 'NÉ(E) LE', styles: { fontStyle: 'bold', textColor: muted, fontSize: 6.7 } },
-          `${summary.student.birthDate} à ${summary.student.birthPlace || 'Madagascar'}`,
+          `${formatDate(summary.student.birthDate)} à ${summary.student.birthPlace || 'Madagascar'}`,
           { content: 'SÉRIE / SECTION', styles: { fontStyle: 'bold', textColor: muted, fontSize: 6.7 } },
           summary.schoolClass.serie || 'Générale',
         ],
@@ -363,7 +364,7 @@ export class PdfGeneratorService {
     doc.setFontSize(6.5);
     doc.setTextColor(...muted);
     doc.text(
-      `Fait à ${db.schoolConfig.city || 'Antananarivo'}, le ${new Date().toLocaleDateString('fr-FR')}`,
+      `Fait à ${db.schoolConfig.city || 'Antananarivo'}, le ${formatDate(new Date())}`,
       170,
       signY + 24,
       { align: 'center', maxWidth: 52 }
@@ -509,7 +510,7 @@ export class PdfGeneratorService {
       startY: y,
       theme: 'grid',
       body: [
-        ['DATE', payment.paymentDate],
+        ['DATE', formatDate(payment.paymentDate)],
         ['ÉLÈVE', student ? `${student.lastName.toUpperCase()} ${student.firstName}` : '—'],
         ['MATRICULE', student?.matricule || '—'],
         ['CLASSE', schoolClass?.name || '—'],
@@ -595,7 +596,7 @@ export class PdfGeneratorService {
       theme: 'grid',
       body: [
         ['SALARIÉ', teacher ? `${teacher.lastName.toUpperCase()} ${teacher.firstName}` : 'Enseignant', 'MATRICULE', teacher?.matricule || '—'],
-        ['CONTRAT', salary.contractType, 'DATE DE PAIEMENT', salary.paymentDate],
+        ['CONTRAT', salary.contractType, 'DATE DE PAIEMENT', formatDate(salary.paymentDate)],
         ['CIN', teacher?.cinNumber || '—', 'MODE DE PAIEMENT', salary.paymentMethod],
       ],
       styles: {
@@ -736,7 +737,7 @@ export class PdfGeneratorService {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
     doc.setTextColor(...muted);
-    const dateText = `Fait à ${cfg.city}, le ${new Date().toLocaleDateString('fr-FR')}`;
+    const dateText = `Fait à ${cfg.city}, le ${formatDate(new Date())}`;
     const dateLines = doc.splitTextToSize(dateText, 60);
     doc.text(dateLines, 128, infoY + 10);
 

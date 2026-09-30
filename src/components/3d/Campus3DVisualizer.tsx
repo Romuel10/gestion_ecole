@@ -338,7 +338,7 @@ export const Campus3DVisualizer: React.FC<Campus3DVisualizerProps> = ({ db, isDa
       )}
 
       {/* Bottom KPI summary bar */}
-      <div className="absolute bottom-3 right-3 z-10 hidden sm:flex items-center space-x-3 bg-slate-900/80 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-700/60 text-[11px] text-slate-300">
+      <div className="absolute bottom-3 right-3 z-10 hidden sm:flex items-center space-x-3 bg-slate-900/80 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-700/60 text-[0.6875rem] text-slate-300">
         <div>
           <span className="text-slate-400">Effectif: </span>
           <span className="font-bold text-white">{totalStudents}</span>
