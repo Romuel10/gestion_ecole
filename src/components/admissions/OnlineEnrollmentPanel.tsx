@@ -1,3 +1,6 @@
+import { DateInput } from '../common/DateInput';
+import { reportInvalidDates } from '../../services/dateInputValidation';
+import { formatDate, formatDateTime } from '../../services/dateFormat';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   CalendarClock,
@@ -224,6 +227,7 @@ export const OnlineEnrollmentPanel: React.FC<OnlineEnrollmentPanelProps> = ({
   };
 
   const scheduleAppointment = async () => {
+    if (reportInvalidDates()) return;
     if (!appointmentApplication || !appointmentAt) {
       onShowToast('Choisissez une date et une heure de rendez-vous.', 'error');
       return;
@@ -344,7 +348,7 @@ export const OnlineEnrollmentPanel: React.FC<OnlineEnrollmentPanelProps> = ({
               ) : (
                 <div className="w-[210px] h-[210px] flex flex-col items-center justify-center gap-3 text-center border border-dashed border-slate-300 dark:border-slate-700 rounded-xl p-4">
                   <QrCode className="w-10 h-10 text-slate-400" />
-                  <div className="text-[10px] text-slate-500">
+                  <div className="text-[0.625rem] text-slate-500">
                     Le QR n’a pas pu être chargé.
                   </div>
                   <button
@@ -360,22 +364,22 @@ export const OnlineEnrollmentPanel: React.FC<OnlineEnrollmentPanelProps> = ({
                   </button>
                 </div>
               )}
-              <div className="mt-2 text-[10px] uppercase tracking-wide font-bold text-slate-500">
+              <div className="mt-2 text-[0.625rem] uppercase tracking-wide font-bold text-slate-500">
                 À afficher à l’accueil
               </div>
             </div>
             <div className="space-y-3">
               <div>
-                <div className="text-[10px] uppercase tracking-wide font-bold text-slate-500">
+                <div className="text-[0.625rem] uppercase tracking-wide font-bold text-slate-500">
                   Campagne active
                 </div>
                 <div className="mt-1 text-base font-bold">{campaign.name}</div>
               </div>
               <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-                <div className="text-[10px] uppercase font-bold text-slate-500">
+                <div className="text-[0.625rem] uppercase font-bold text-slate-500">
                   Lien public
                 </div>
-                <div className="mt-1 text-[11px] font-mono break-all">
+                <div className="mt-1 text-[0.6875rem] font-mono break-all">
                   {campaign.publicUrl}
                 </div>
               </div>
@@ -475,7 +479,7 @@ export const OnlineEnrollmentPanel: React.FC<OnlineEnrollmentPanelProps> = ({
                         {item.familyProfileCode || item.family?.reference_code || '—'}
                       </div>
                       {item.familyProfileCode && item.family?.reference_code && (
-                        <div className="mt-0.5 text-[9px] text-slate-400 font-mono">
+                        <div className="mt-0.5 text-[0.5625rem] text-slate-400 font-mono">
                           Demande {item.family.reference_code}
                         </div>
                       )}
@@ -484,8 +488,8 @@ export const OnlineEnrollmentPanel: React.FC<OnlineEnrollmentPanelProps> = ({
                       <div className="font-semibold">
                         {item.child_last_name} {item.child_first_name}
                       </div>
-                      <div className="text-[10px] text-slate-500">
-                        {item.child_birth_date || 'Date naissance non fournie'}
+                      <div className="text-[0.625rem] text-slate-500">
+                        {formatDate(item.child_birth_date, 'Date naissance non fournie')}
                       </div>
                     </td>
                     <td>
@@ -502,7 +506,7 @@ export const OnlineEnrollmentPanel: React.FC<OnlineEnrollmentPanelProps> = ({
                     <td className="font-mono">{item.family?.phone_primary || '—'}</td>
                     <td>
                       <div className="space-y-1.5 min-w-[170px]">
-                        <div className="flex items-center gap-1.5 text-[10px]">
+                        <div className="flex items-center gap-1.5 text-[0.625rem]">
                           <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
                           <span>
                             {item.checklist.filter((row) => row.required && row.status === 'VERIFIED').length}/
@@ -515,7 +519,7 @@ export const OnlineEnrollmentPanel: React.FC<OnlineEnrollmentPanelProps> = ({
                               <button
                                 key={document.id}
                                 type="button"
-                                className="px-1.5 py-1 rounded-md border border-slate-200 dark:border-slate-700 text-[9px] hover:bg-slate-50 dark:hover:bg-slate-800"
+                                className="px-1.5 py-1 rounded-md border border-slate-200 dark:border-slate-700 text-[0.5625rem] hover:bg-slate-50 dark:hover:bg-slate-800"
                                 title={document.original_name}
                                 onClick={() => void openDocument(document.id)}
                               >
@@ -533,7 +537,7 @@ export const OnlineEnrollmentPanel: React.FC<OnlineEnrollmentPanelProps> = ({
                               key={row.id}
                               type="button"
                               onClick={() => void verifyChecklist(item, row)}
-                              className="block text-left text-[9px] text-amber-700 dark:text-amber-300 hover:underline"
+                              className="block text-left text-[0.5625rem] text-amber-700 dark:text-amber-300 hover:underline"
                               title="Marquer comme vérifié après contrôle"
                             >
                               • {row.label}
@@ -546,9 +550,9 @@ export const OnlineEnrollmentPanel: React.FC<OnlineEnrollmentPanelProps> = ({
                         {statusLabel[item.status]}
                       </span>
                       {item.appointment_at && (
-                        <div className="mt-1 text-[9px] text-slate-500">
+                        <div className="mt-1 text-[0.5625rem] text-slate-500">
                           <CalendarClock className="inline w-3 h-3 mr-1" />
-                          {new Date(item.appointment_at).toLocaleString('fr-FR')}
+                          {formatDateTime(item.appointment_at)}
                         </div>
                       )}
                     </td>
@@ -715,10 +719,10 @@ export const OnlineEnrollmentPanel: React.FC<OnlineEnrollmentPanelProps> = ({
         }
       >
         <div>
-          <label className="block text-[10px] uppercase font-bold tracking-wide text-slate-500 mb-1.5">
+          <label className="block text-[0.625rem] uppercase font-bold tracking-wide text-slate-500 mb-1.5">
             Date et heure
           </label>
-          <input
+          <DateInput
             type="datetime-local"
             value={appointmentAt}
             onChange={(event) => setAppointmentAt(event.target.value)}
@@ -726,7 +730,7 @@ export const OnlineEnrollmentPanel: React.FC<OnlineEnrollmentPanelProps> = ({
           />
         </div>
         <div>
-          <label className="block text-[10px] uppercase font-bold tracking-wide text-slate-500 mb-1.5">
+          <label className="block text-[0.625rem] uppercase font-bold tracking-wide text-slate-500 mb-1.5">
             Note pour le rendez-vous
           </label>
           <textarea

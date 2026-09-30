@@ -347,7 +347,7 @@ export const TimetableView: React.FC<TimetableViewProps> = ({
     return (
       <div className="page-panel p-8 text-center">
         <div className="text-sm font-semibold">Configuration nécessaire</div>
-        <p className="mt-2 text-[11px] text-slate-500">
+        <p className="mt-2 text-[0.6875rem] text-slate-500">
           Configurez d’abord les classes, matières et enseignants. Sekoly pourra ensuite
           générer ou saisir l’emploi du temps.
         </p>
@@ -374,7 +374,7 @@ export const TimetableView: React.FC<TimetableViewProps> = ({
                 if (next === 'TEACHER') setSelectedEntityId(db.teachers[0]?.id || '');
                 if (next === 'ROOM') setSelectedEntityId(allRooms[0] || '');
               }}
-              className={`px-3 py-2 rounded-md text-[11px] font-semibold transition ${
+              className={`px-3 py-2 rounded-md text-[0.6875rem] font-semibold transition ${
                 viewType === id
                   ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
                   : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -470,7 +470,7 @@ export const TimetableView: React.FC<TimetableViewProps> = ({
         <table className="w-full border-collapse min-w-[700px]">
           <thead>
             <tr>
-              <th className="p-3 w-28 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[11px] font-bold text-slate-500 uppercase tracking-wider text-center">
+              <th className="p-3 w-28 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[0.6875rem] font-bold text-slate-500 uppercase tracking-wider text-center">
                 Horaires
               </th>
               {days.map((day) => (
@@ -486,7 +486,7 @@ export const TimetableView: React.FC<TimetableViewProps> = ({
           <tbody>
             {timeSlots.map((ts) => (
               <tr key={ts.start}>
-                <td className="p-2.5 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 font-mono text-[11px] font-bold text-slate-600 dark:text-slate-400 text-center">
+                <td className="p-2.5 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 font-mono text-[0.6875rem] font-bold text-slate-600 dark:text-slate-400 text-center">
                   {ts.label}
                 </td>
                 {days.map((day) => {
@@ -558,7 +558,7 @@ export const TimetableView: React.FC<TimetableViewProps> = ({
                               setSlotForm(buildSlotDefaults(day.id, ts.start, ts.end));
                               setIsSlotModalOpen(true);
                             }}
-                            className="p-1.5 border border-slate-300 text-slate-500 hover:text-slate-900 text-[10px] font-semibold no-print"
+                            className="p-1.5 border border-slate-300 text-slate-500 hover:text-slate-900 text-[0.625rem] font-semibold no-print"
                           >
                             + Cours
                           </button>
@@ -687,7 +687,7 @@ export const TimetableView: React.FC<TimetableViewProps> = ({
                 <AlertTriangle className="w-4 h-4 text-amber-700 dark:text-amber-300 mt-0.5" />
                 <div>
                   <div className="font-semibold text-amber-900 dark:text-amber-200">Conflit détecté</div>
-                  <ul className="mt-1 space-y-1 text-[10.5px] text-amber-800 dark:text-amber-300">
+                  <ul className="mt-1 space-y-1 text-[0.65625rem] text-amber-800 dark:text-amber-300">
                     {conflictState.messages.map((message) => (
                       <li key={message}>• {message}</li>
                     ))}
@@ -696,7 +696,7 @@ export const TimetableView: React.FC<TimetableViewProps> = ({
               </div>
               {conflictState.alternatives.length > 0 && (
                 <div>
-                  <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
+                  <div className="text-[0.625rem] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
                     Créneaux disponibles proposés
                   </div>
                   <div className="flex flex-wrap gap-1.5">

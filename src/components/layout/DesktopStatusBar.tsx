@@ -12,7 +12,7 @@ export const DesktopStatusBar: React.FC<DesktopStatusBarProps> = ({ db }) => {
   const activeStudentCount = db.students.filter((student) => student.schoolYearId === db.currentSchoolYearId).length;
 
   return (
-    <footer className="h-6 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 text-[11px] text-slate-500 dark:text-slate-400 px-3 flex items-center justify-between select-none z-30">
+    <footer className="h-6 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 text-[0.6875rem] text-slate-500 dark:text-slate-400 px-3 flex items-center justify-between select-none z-30">
       {/* État de l'application */}
       <div className="flex items-center space-x-4">
         <div className="flex items-center space-x-1.5 text-slate-600 dark:text-slate-300">

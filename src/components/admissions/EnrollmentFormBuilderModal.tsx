@@ -167,7 +167,7 @@ const normalizeSchema = (schema: EnrollmentFormSchema): EnrollmentFormSchema => 
 
 const PreviewControl: React.FC<{ field: EnrollmentFormField }> = ({ field }) => {
   const className =
-    'w-full min-h-[38px] rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-2.5 text-[10px] text-slate-400';
+    'w-full min-h-[38px] rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-2.5 text-[0.625rem] text-slate-400';
 
   if (field.type === 'TEXTAREA') {
     return <textarea className={className} rows={2} disabled placeholder={field.placeholder || ''} />;
@@ -583,27 +583,27 @@ export const EnrollmentFormBuilderModal: React.FC<EnrollmentFormBuilderModalProp
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <div className="font-semibold text-xs">{field.label}</div>
-              <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-500">
+              <span className="px-2 py-0.5 rounded-full text-[0.5625rem] font-bold bg-slate-100 dark:bg-slate-800 text-slate-500">
                 {typeLabel[field.type]}
               </span>
               {field.custom && (
-                <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-violet-100 dark:bg-violet-950 text-violet-700 dark:text-violet-300">
+                <span className="px-2 py-0.5 rounded-full text-[0.5625rem] font-bold bg-violet-100 dark:bg-violet-950 text-violet-700 dark:text-violet-300">
                   Personnalisé
                 </span>
               )}
               {field.locked && (
-                <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300">
+                <span className="px-2 py-0.5 rounded-full text-[0.5625rem] font-bold bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300">
                   Essentiel
                 </span>
               )}
             </div>
             {field.helpText && !field.custom && (
-              <div className="mt-1 text-[10px] text-slate-500">{field.helpText}</div>
+              <div className="mt-1 text-[0.625rem] text-slate-500">{field.helpText}</div>
             )}
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <label className="flex items-center gap-1.5 text-[10px] font-semibold">
+            <label className="flex items-center gap-1.5 text-[0.625rem] font-semibold">
               <input
                 type="checkbox"
                 checked={field.visible}
@@ -617,7 +617,7 @@ export const EnrollmentFormBuilderModal: React.FC<EnrollmentFormBuilderModalProp
               />
               Afficher
             </label>
-            <label className="flex items-center gap-1.5 text-[10px] font-semibold">
+            <label className="flex items-center gap-1.5 text-[0.625rem] font-semibold">
               <input
                 type="checkbox"
                 checked={field.required}
@@ -662,7 +662,7 @@ export const EnrollmentFormBuilderModal: React.FC<EnrollmentFormBuilderModalProp
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
           <div>
-            <label className="block text-[9px] font-bold text-slate-400 mb-1">
+            <label className="block text-[0.5625rem] font-bold text-slate-400 mb-1">
               Section
             </label>
             <select
@@ -685,7 +685,7 @@ export const EnrollmentFormBuilderModal: React.FC<EnrollmentFormBuilderModalProp
 
           {field.custom && (
             <div>
-              <label className="block text-[9px] font-bold text-slate-400 mb-1">
+              <label className="block text-[0.5625rem] font-bold text-slate-400 mb-1">
                 Libellé affiché
               </label>
               <input
@@ -702,7 +702,7 @@ export const EnrollmentFormBuilderModal: React.FC<EnrollmentFormBuilderModalProp
 
           {field.custom && (
             <div>
-              <label className="block text-[9px] font-bold text-slate-400 mb-1">
+              <label className="block text-[0.5625rem] font-bold text-slate-400 mb-1">
                 Type de réponse
               </label>
               <select
@@ -742,7 +742,7 @@ export const EnrollmentFormBuilderModal: React.FC<EnrollmentFormBuilderModalProp
 
           {field.custom && field.type === 'SELECT' && (
             <div>
-              <label className="block text-[9px] font-bold text-slate-400 mb-1">
+              <label className="block text-[0.5625rem] font-bold text-slate-400 mb-1">
                 Choix proposés
               </label>
               <textarea
@@ -763,7 +763,7 @@ export const EnrollmentFormBuilderModal: React.FC<EnrollmentFormBuilderModalProp
 
           {field.custom && (
             <div className="md:col-span-2">
-              <label className="block text-[9px] font-bold text-slate-400 mb-1">
+              <label className="block text-[0.5625rem] font-bold text-slate-400 mb-1">
                 Aide pour le parent
               </label>
               <input
@@ -796,7 +796,7 @@ export const EnrollmentFormBuilderModal: React.FC<EnrollmentFormBuilderModalProp
           <div className="flex flex-col xl:flex-row xl:items-start justify-between gap-3">
             <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-2">
               <div>
-                <label className="block text-[9px] font-bold text-slate-400 mb-1">
+                <label className="block text-[0.5625rem] font-bold text-slate-400 mb-1">
                   Titre de section
                 </label>
                 <input
@@ -808,7 +808,7 @@ export const EnrollmentFormBuilderModal: React.FC<EnrollmentFormBuilderModalProp
                 />
               </div>
               <div>
-                <label className="block text-[9px] font-bold text-slate-400 mb-1">
+                <label className="block text-[0.5625rem] font-bold text-slate-400 mb-1">
                   Description courte
                 </label>
                 <input
@@ -825,7 +825,7 @@ export const EnrollmentFormBuilderModal: React.FC<EnrollmentFormBuilderModalProp
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <label className="flex items-center gap-1.5 text-[10px] font-semibold">
+              <label className="flex items-center gap-1.5 text-[0.625rem] font-semibold">
                 <input
                   type="checkbox"
                   checked={section.visible}
@@ -864,7 +864,7 @@ export const EnrollmentFormBuilderModal: React.FC<EnrollmentFormBuilderModalProp
               )}
             </div>
           </div>
-          <div className="text-[9px] text-slate-400">
+          <div className="text-[0.5625rem] text-slate-400">
             {fields.length} champ(s)
             {section.locked ? ' · section essentielle' : ''}
           </div>
@@ -874,7 +874,7 @@ export const EnrollmentFormBuilderModal: React.FC<EnrollmentFormBuilderModalProp
           {fields.length ? (
             fields.map(renderField)
           ) : (
-            <div className="py-4 text-center text-[10px] text-slate-400 italic">
+            <div className="py-4 text-center text-[0.625rem] text-slate-400 italic">
               Cette section est vide. Ajoutez un champ ou déplacez-en un ici.
             </div>
           )}
@@ -917,7 +917,7 @@ export const EnrollmentFormBuilderModal: React.FC<EnrollmentFormBuilderModalProp
         </>
       }
     >
-      <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 text-[11px] text-blue-900 dark:text-blue-200">
+      <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 text-[0.6875rem] text-blue-900 dark:text-blue-200">
         Organisez le formulaire en sections courtes et cohérentes. Les champs essentiels
         restent protégés. Les anciennes demandes conservent leur propre version du
         formulaire, même après une nouvelle publication.
@@ -928,7 +928,7 @@ export const EnrollmentFormBuilderModal: React.FC<EnrollmentFormBuilderModalProp
           <section className="space-y-3">
             <div>
               <div className="text-xs font-bold">Sections du formulaire</div>
-              <div className="text-[10px] text-slate-500 mt-1">
+              <div className="text-[0.625rem] text-slate-500 mt-1">
                 Une section regroupe des questions liées entre elles. Vous pouvez la
                 renommer, la déplacer, la masquer ou créer vos propres blocs.
               </div>
@@ -936,7 +936,7 @@ export const EnrollmentFormBuilderModal: React.FC<EnrollmentFormBuilderModalProp
 
             {(['FAMILY', 'CHILD'] as const).map((scope) => (
               <div key={scope} className="space-y-3">
-                <div className="text-[10px] uppercase tracking-wide font-bold text-slate-500">
+                <div className="text-[0.625rem] uppercase tracking-wide font-bold text-slate-500">
                   {scope === 'FAMILY' ? 'Famille / responsables' : 'Enfant'}
                 </div>
                 {sectionsByScope[scope].map(renderSectionEditor)}
@@ -949,7 +949,7 @@ export const EnrollmentFormBuilderModal: React.FC<EnrollmentFormBuilderModalProp
               <FolderPlus className="w-4 h-4 text-emerald-600" />
               <div>
                 <div className="font-semibold text-xs">Ajouter une section</div>
-                <div className="text-[10px] text-slate-500">
+                <div className="text-[0.625rem] text-slate-500">
                   Ex. Transport scolaire, situation familiale, autorisations ou
                   informations administratives.
                 </div>
@@ -957,7 +957,7 @@ export const EnrollmentFormBuilderModal: React.FC<EnrollmentFormBuilderModalProp
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
-                <label className="block text-[10px] font-bold text-slate-500 mb-1">
+                <label className="block text-[0.625rem] font-bold text-slate-500 mb-1">
                   Titre
                 </label>
                 <input
@@ -968,7 +968,7 @@ export const EnrollmentFormBuilderModal: React.FC<EnrollmentFormBuilderModalProp
                 />
               </div>
               <div>
-                <label className="block text-[10px] font-bold text-slate-500 mb-1">
+                <label className="block text-[0.625rem] font-bold text-slate-500 mb-1">
                   Partie du formulaire
                 </label>
                 <select
@@ -983,7 +983,7 @@ export const EnrollmentFormBuilderModal: React.FC<EnrollmentFormBuilderModalProp
                 </select>
               </div>
               <div className="md:col-span-2">
-                <label className="block text-[10px] font-bold text-slate-500 mb-1">
+                <label className="block text-[0.625rem] font-bold text-slate-500 mb-1">
                   Description (facultatif)
                 </label>
                 <input
@@ -1010,7 +1010,7 @@ export const EnrollmentFormBuilderModal: React.FC<EnrollmentFormBuilderModalProp
               <Plus className="w-4 h-4 text-violet-600" />
               <div>
                 <div className="font-semibold text-xs">Ajouter un champ</div>
-                <div className="text-[10px] text-slate-500">
+                <div className="text-[0.625rem] text-slate-500">
                   Ajoutez uniquement une information utile au traitement du dossier.
                 </div>
               </div>
@@ -1018,7 +1018,7 @@ export const EnrollmentFormBuilderModal: React.FC<EnrollmentFormBuilderModalProp
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
-                <label className="block text-[10px] font-bold text-slate-500 mb-1">
+                <label className="block text-[0.625rem] font-bold text-slate-500 mb-1">
                   Libellé
                 </label>
                 <input
@@ -1029,7 +1029,7 @@ export const EnrollmentFormBuilderModal: React.FC<EnrollmentFormBuilderModalProp
                 />
               </div>
               <div>
-                <label className="block text-[10px] font-bold text-slate-500 mb-1">
+                <label className="block text-[0.625rem] font-bold text-slate-500 mb-1">
                   Pour qui ?
                 </label>
                 <select
@@ -1049,7 +1049,7 @@ export const EnrollmentFormBuilderModal: React.FC<EnrollmentFormBuilderModalProp
                 </select>
               </div>
               <div>
-                <label className="block text-[10px] font-bold text-slate-500 mb-1">
+                <label className="block text-[0.625rem] font-bold text-slate-500 mb-1">
                   Section
                 </label>
                 <select
@@ -1071,7 +1071,7 @@ export const EnrollmentFormBuilderModal: React.FC<EnrollmentFormBuilderModalProp
                 </select>
               </div>
               <div>
-                <label className="block text-[10px] font-bold text-slate-500 mb-1">
+                <label className="block text-[0.625rem] font-bold text-slate-500 mb-1">
                   Type de réponse
                 </label>
                 <select
@@ -1102,7 +1102,7 @@ export const EnrollmentFormBuilderModal: React.FC<EnrollmentFormBuilderModalProp
 
               {customType === 'SELECT' && (
                 <div className="md:col-span-2">
-                  <label className="block text-[10px] font-bold text-slate-500 mb-1">
+                  <label className="block text-[0.625rem] font-bold text-slate-500 mb-1">
                     Choix proposés
                   </label>
                   <textarea
@@ -1116,7 +1116,7 @@ export const EnrollmentFormBuilderModal: React.FC<EnrollmentFormBuilderModalProp
               )}
 
               <div className="md:col-span-2">
-                <label className="block text-[10px] font-bold text-slate-500 mb-1">
+                <label className="block text-[0.625rem] font-bold text-slate-500 mb-1">
                   Aide affichée sous le champ (facultatif)
                 </label>
                 <input
@@ -1160,7 +1160,7 @@ export const EnrollmentFormBuilderModal: React.FC<EnrollmentFormBuilderModalProp
               <FileCheck2 className="w-4 h-4 text-emerald-600" />
               <div>
                 <div className="font-semibold text-xs">Pièces justificatives</div>
-                <div className="text-[10px] text-slate-500">
+                <div className="text-[0.625rem] text-slate-500">
                   L’école peut maintenant définir sa propre liste de pièces, leur libellé,
                   leur ordre et leur caractère obligatoire.
                 </div>
@@ -1174,7 +1174,7 @@ export const EnrollmentFormBuilderModal: React.FC<EnrollmentFormBuilderModalProp
 
               return (
                 <div key={scope} className="space-y-2">
-                  <div className="text-[10px] uppercase tracking-wide font-bold text-slate-500">
+                  <div className="text-[0.625rem] uppercase tracking-wide font-bold text-slate-500">
                     {scope === 'FAMILY'
                       ? 'Documents de la famille / responsables'
                       : 'Documents pour chaque enfant'}
@@ -1191,18 +1191,18 @@ export const EnrollmentFormBuilderModal: React.FC<EnrollmentFormBuilderModalProp
                             <div className="flex flex-wrap items-center gap-2">
                               <div className="text-xs font-semibold">{document.label}</div>
                               {document.custom && (
-                                <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-violet-100 dark:bg-violet-950 text-violet-700 dark:text-violet-300">
+                                <span className="px-2 py-0.5 rounded-full text-[0.5625rem] font-bold bg-violet-100 dark:bg-violet-950 text-violet-700 dark:text-violet-300">
                                   Personnalisée
                                 </span>
                               )}
                             </div>
-                            <div className="mt-1 text-[8px] font-mono text-slate-400 break-all">
+                            <div className="mt-1 text-[0.5rem] font-mono text-slate-400 break-all">
                               {document.code}
                             </div>
                           </div>
 
                           <div className="flex flex-wrap items-center gap-2">
-                            <label className="flex items-center gap-1.5 text-[10px] font-semibold">
+                            <label className="flex items-center gap-1.5 text-[0.625rem] font-semibold">
                               <input
                                 type="checkbox"
                                 checked={document.visible}
@@ -1217,7 +1217,7 @@ export const EnrollmentFormBuilderModal: React.FC<EnrollmentFormBuilderModalProp
                               />
                               Afficher
                             </label>
-                            <label className="flex items-center gap-1.5 text-[10px] font-semibold">
+                            <label className="flex items-center gap-1.5 text-[0.625rem] font-semibold">
                               <input
                                 type="checkbox"
                                 checked={document.required}
@@ -1263,7 +1263,7 @@ export const EnrollmentFormBuilderModal: React.FC<EnrollmentFormBuilderModalProp
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                           <div>
-                            <label className="block text-[9px] font-bold text-slate-400 mb-1">
+                            <label className="block text-[0.5625rem] font-bold text-slate-400 mb-1">
                               Libellé affiché aux parents
                             </label>
                             <input
@@ -1277,7 +1277,7 @@ export const EnrollmentFormBuilderModal: React.FC<EnrollmentFormBuilderModalProp
                             />
                           </div>
                           <div>
-                            <label className="block text-[9px] font-bold text-slate-400 mb-1">
+                            <label className="block text-[0.5625rem] font-bold text-slate-400 mb-1">
                               Aide / précision (facultatif)
                             </label>
                             <input
@@ -1295,7 +1295,7 @@ export const EnrollmentFormBuilderModal: React.FC<EnrollmentFormBuilderModalProp
                       </div>
                     ))
                   ) : (
-                    <div className="text-[10px] text-slate-400 italic">
+                    <div className="text-[0.625rem] text-slate-400 italic">
                       Aucune pièce dans cette catégorie.
                     </div>
                   )}
@@ -1308,7 +1308,7 @@ export const EnrollmentFormBuilderModal: React.FC<EnrollmentFormBuilderModalProp
                 <Plus className="w-4 h-4 text-emerald-600" />
                 <div>
                   <div className="font-semibold text-xs">Ajouter une pièce demandée</div>
-                  <div className="text-[10px] text-slate-500">
+                  <div className="text-[0.625rem] text-slate-500">
                     Ex. certificat médical, autorisation parentale, fiche sanitaire,
                     attestation de bourse ou autre document propre à l’école.
                   </div>
@@ -1317,7 +1317,7 @@ export const EnrollmentFormBuilderModal: React.FC<EnrollmentFormBuilderModalProp
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-500 mb-1">
+                  <label className="block text-[0.625rem] font-bold text-slate-500 mb-1">
                     Nom de la pièce
                   </label>
                   <input
@@ -1328,7 +1328,7 @@ export const EnrollmentFormBuilderModal: React.FC<EnrollmentFormBuilderModalProp
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-500 mb-1">
+                  <label className="block text-[0.625rem] font-bold text-slate-500 mb-1">
                     Demandée pour
                   </label>
                   <select
@@ -1343,7 +1343,7 @@ export const EnrollmentFormBuilderModal: React.FC<EnrollmentFormBuilderModalProp
                   </select>
                 </div>
                 <div className="md:col-span-2">
-                  <label className="block text-[10px] font-bold text-slate-500 mb-1">
+                  <label className="block text-[0.625rem] font-bold text-slate-500 mb-1">
                     Aide / précision (facultatif)
                   </label>
                   <input
@@ -1383,7 +1383,7 @@ export const EnrollmentFormBuilderModal: React.FC<EnrollmentFormBuilderModalProp
             <Eye className="w-4 h-4 text-slate-500" />
             <div>
               <div className="text-xs font-bold">Aperçu en temps réel</div>
-              <div className="text-[10px] text-slate-500">
+              <div className="text-[0.625rem] text-slate-500">
                 Simulation de ce que le parent verra.
               </div>
             </div>
@@ -1401,7 +1401,7 @@ export const EnrollmentFormBuilderModal: React.FC<EnrollmentFormBuilderModalProp
                 key={value}
                 type="button"
                 onClick={() => setPreviewScope(value)}
-                className={`flex-1 px-2 py-2 rounded-lg text-[10px] font-bold transition ${
+                className={`flex-1 px-2 py-2 rounded-lg text-[0.625rem] font-bold transition ${
                   previewScope === value
                     ? 'bg-white dark:bg-slate-900 shadow-sm text-slate-900 dark:text-white'
                     : 'text-slate-500'
@@ -1417,7 +1417,7 @@ export const EnrollmentFormBuilderModal: React.FC<EnrollmentFormBuilderModalProp
               <div className="space-y-3">
                 <div>
                   <div className="text-sm font-bold">Pièces justificatives</div>
-                  <div className="text-[10px] text-slate-500 mt-1">
+                  <div className="text-[0.625rem] text-slate-500 mt-1">
                     PDF ou photo lisible. Les pièces facultatives peuvent être remises
                     plus tard.
                   </div>
@@ -1430,13 +1430,13 @@ export const EnrollmentFormBuilderModal: React.FC<EnrollmentFormBuilderModalProp
                       key={document.code}
                       className="p-3 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
                     >
-                      <div className="text-[10px] font-semibold">{document.label}</div>
-                      <div className="mt-1 text-[9px] text-slate-400">
+                      <div className="text-[0.625rem] font-semibold">{document.label}</div>
+                      <div className="mt-1 text-[0.5625rem] text-slate-400">
                         {document.required ? 'Obligatoire' : 'Facultatif'} ·{' '}
                         {document.scope === 'FAMILY' ? 'Famille' : 'Chaque enfant'}
                       </div>
                       {document.helpText && (
-                        <div className="mt-1 text-[8px] text-slate-400">
+                        <div className="mt-1 text-[0.5rem] text-slate-400">
                           {document.helpText}
                         </div>
                       )}
@@ -1460,7 +1460,7 @@ export const EnrollmentFormBuilderModal: React.FC<EnrollmentFormBuilderModalProp
                         {section.title}
                       </legend>
                       {section.description && (
-                        <div className="text-[9px] text-slate-500 mb-3">
+                        <div className="text-[0.5625rem] text-slate-500 mb-3">
                           {section.description}
                         </div>
                       )}
@@ -1475,16 +1475,16 @@ export const EnrollmentFormBuilderModal: React.FC<EnrollmentFormBuilderModalProp
                             }
                           >
                             <div className="flex items-start justify-between gap-2 mb-1">
-                              <label className="text-[9px] font-semibold text-slate-600 dark:text-slate-300">
+                              <label className="text-[0.5625rem] font-semibold text-slate-600 dark:text-slate-300">
                                 {field.label}
                               </label>
-                              <span className="text-[8px] text-slate-400">
+                              <span className="text-[0.5rem] text-slate-400">
                                 {field.required ? 'Obligatoire' : 'Facultatif'}
                               </span>
                             </div>
                             <PreviewControl field={field} />
                             {field.helpText && (
-                              <div className="mt-1 text-[8px] text-slate-400">
+                              <div className="mt-1 text-[0.5rem] text-slate-400">
                                 {field.helpText}
                               </div>
                             )}

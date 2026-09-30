@@ -1,3 +1,4 @@
+import { formatDate } from '../../services/dateFormat';
 import React from 'react';
 import { ChevronRight } from 'lucide-react';
 import { DatabaseSchema } from '../../types/school';
@@ -62,7 +63,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ db, onNavigate }) 
         </button>
         <button type="button" onClick={() => onNavigate('finances')} className="dashboard-summary__cell">
           <span className="dashboard-summary__label">Solde de caisse</span>
-          <strong className="text-[18px]">{CalculationService.formatAriary(metrics.netTreasuryBalance)}</strong>
+          <strong className="text-[1.125rem]">{CalculationService.formatAriary(metrics.netTreasuryBalance)}</strong>
           <small>Recettes {CalculationService.formatAriary(metrics.grandTotalRevenues)}</small>
         </button>
       </div>
@@ -117,7 +118,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ db, onNavigate }) 
                               style={{ width: `${Math.min(occupancy, 100)}%` }}
                             />
                           </div>
-                          <span className="text-[10px] text-slate-500 w-8 text-right">{occupancy}%</span>
+                          <span className="text-[0.625rem] text-slate-500 w-8 text-right">{occupancy}%</span>
                         </div>
                       </td>
                       <td className="text-right font-mono">
@@ -137,7 +138,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ db, onNavigate }) 
               <h2 className="page-panel__title">Derniers encaissements</h2>
               <p className="page-panel__subtitle">Année scolaire active</p>
             </div>
-            <button type="button" onClick={() => onNavigate('finances')} className="text-[11px] font-semibold text-slate-500 hover:text-slate-900 dark:hover:text-white">
+            <button type="button" onClick={() => onNavigate('finances')} className="text-[0.6875rem] font-semibold text-slate-500 hover:text-slate-900 dark:hover:text-white">
               Voir tout
             </button>
           </div>
@@ -156,14 +157,14 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ db, onNavigate }) 
                     className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800/40"
                   >
                     <div className="min-w-0 flex-1">
-                      <div className="text-[11.5px] font-semibold text-slate-900 dark:text-white truncate">
+                      <div className="text-[0.71875rem] font-semibold text-slate-900 dark:text-white truncate">
                         {student ? `${student.lastName} ${student.firstName}` : 'Élève'}
                       </div>
-                      <div className="mt-0.5 text-[10px] text-slate-500">
-                        {payment.receiptNumber} · {payment.paymentDate}
+                      <div className="mt-0.5 text-[0.625rem] text-slate-500">
+                        {payment.receiptNumber} · {formatDate(payment.paymentDate)}
                       </div>
                     </div>
-                    <div className="text-[11px] font-mono font-semibold">
+                    <div className="text-[0.6875rem] font-mono font-semibold">
                       {CalculationService.formatAriary(payment.amount)}
                     </div>
                     <ChevronRight className="w-3.5 h-3.5 text-slate-400" />

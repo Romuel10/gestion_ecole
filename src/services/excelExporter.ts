@@ -1,3 +1,4 @@
+import { formatDate } from './dateFormat';
 import * as XLSX from 'xlsx';
 import { DatabaseSchema } from '../types/school';
 import { CalculationService } from './calculations';
@@ -16,7 +17,7 @@ export class ExcelExporterService {
       Nom: student.lastName,
       Prénoms: student.firstName,
       Sexe: student.gender,
-      'Date de naissance': student.birthDate,
+      'Date de naissance': formatDate(student.birthDate, ''),
       'Lieu de naissance': student.birthPlace,
       Classe: classMap.get(student.classId) || student.classId,
       'Année scolaire': yearMap.get(student.schoolYearId) || student.schoolYearId,
@@ -77,7 +78,7 @@ export class ExcelExporterService {
         const schoolClass = classMap.get(payment.classId);
         return {
           Reçu: payment.receiptNumber,
-          Date: payment.paymentDate,
+          Date: formatDate(payment.paymentDate),
           Matricule: student?.matricule || '',
           Élève: student ? `${student.lastName} ${student.firstName}` : '',
           Classe: schoolClass?.name || '',
@@ -99,7 +100,7 @@ export class ExcelExporterService {
       .filter((item) => item.schoolYearId === db.currentSchoolYearId)
       .map((item) => ({
         Pièce: item.voucherNumber,
-        Date: item.date,
+        Date: formatDate(item.date),
         Type: item.type,
         Catégorie: item.category,
         Montant: item.amount,
@@ -117,7 +118,7 @@ export class ExcelExporterService {
         const teacher = teacherMap.get(item.teacherId);
         return {
           Fiche: item.voucherNumber,
-          Date: item.paymentDate,
+          Date: formatDate(item.paymentDate),
           Mois: item.month,
           Enseignant: teacher ? `${teacher.lastName} ${teacher.firstName}` : '',
           Contrat: item.contractType,

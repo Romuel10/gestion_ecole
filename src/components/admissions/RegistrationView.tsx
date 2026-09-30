@@ -1,3 +1,7 @@
+import { localDateIso } from '../../services/dateFormat';
+import { DateInput } from '../common/DateInput';
+import { reportInvalidDates } from '../../services/dateInputValidation';
+import { formatDate } from '../../services/dateFormat';
 import React, { useState } from 'react';
 import {
   UserPlus,
@@ -138,6 +142,7 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
 
   const handleNewAdmissionSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (reportInvalidDates()) return;
     if (!formData.lastName.trim() || !formData.firstName.trim()) {
       onShowToast('Veuillez renseigner le nom et le prénom de l\'élève.', 'error');
       return;
@@ -183,7 +188,7 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
       classId: formData.classId,
       schoolYearId: db.currentSchoolYearId,
       status: 'INSCRIT',
-      enrollmentDate: new Date().toISOString().slice(0, 10),
+      enrollmentDate: localDateIso(),
       birthCertificateNumber: formData.birthCertificateNumber,
       birthCertificateDate: formData.birthCertificateDate,
       birthCertificatePlace: formData.birthCertificatePlace,
@@ -244,7 +249,7 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
         amount: actualAmount,
         discount,
         totalDue: regFee,
-        paymentDate: new Date().toISOString().slice(0, 10),
+        paymentDate: localDateIso(),
         paymentMethod: formData.paymentMethod,
         referenceNumber: formData.referenceNumber,
         payerName: formData.payerName || `${formData.fatherName || formData.motherName || 'Parent'}`,
@@ -261,7 +266,7 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
         type: 'RECETTE',
         category: 'Inscriptions & Droits',
         amount: actualAmount,
-        date: new Date().toISOString().slice(0, 10),
+        date: localDateIso(),
         paymentMethod: formData.paymentMethod,
         beneficiaryOrPayer: newPaymentObj.payerName,
         description: `Droit d'inscription pour l'élève ${newStudent.lastName} ${newStudent.firstName} (${selectedClass.name})`,
@@ -514,7 +519,7 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
 
     const receiptNum = getNextReceiptNumber();
     const now = Date.now();
-    const enrollmentDate = new Date().toISOString().slice(0, 10);
+    const enrollmentDate = localDateIso();
     const newEnrollmentStudent: Student = {
       ...selectedStudentForReReg,
       id: `stu-${now}`,
@@ -796,7 +801,7 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
         <button
           type="button"
           onClick={() => setActiveTab('NEW_ADMISSION')}
-          className={`px-3 py-2 rounded-md text-[11.5px] font-semibold transition ${
+          className={`px-3 py-2 rounded-md text-[0.71875rem] font-semibold transition ${
             activeTab === 'NEW_ADMISSION'
               ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
               : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -807,7 +812,7 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
         <button
           type="button"
           onClick={() => setActiveTab('RE_REGISTRATION')}
-          className={`px-3 py-2 rounded-md text-[11.5px] font-semibold transition ${
+          className={`px-3 py-2 rounded-md text-[0.71875rem] font-semibold transition ${
             activeTab === 'RE_REGISTRATION'
               ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
               : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -818,7 +823,7 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
         <button
           type="button"
           onClick={() => setActiveTab('ONLINE')}
-          className={`px-3 py-2 rounded-md text-[11.5px] font-semibold transition flex items-center gap-1.5 ${
+          className={`px-3 py-2 rounded-md text-[0.71875rem] font-semibold transition flex items-center gap-1.5 ${
             activeTab === 'ONLINE'
               ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
               : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -830,7 +835,7 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
         <button
           type="button"
           onClick={() => setActiveTab('LOG')}
-          className={`px-3 py-2 rounded-md text-[11.5px] font-semibold transition ${
+          className={`px-3 py-2 rounded-md text-[0.71875rem] font-semibold transition ${
             activeTab === 'LOG'
               ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
               : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -900,7 +905,7 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
                     <label htmlFor="admission-field-4" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                       Date de Naissance *
                     </label>
-                    <input id="admission-field-4"
+                    <DateInput id="admission-field-4"
                       type="date"
                       required
                       value={formData.birthDate}
@@ -983,7 +988,7 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
                     <label htmlFor="admission-field-10" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                       Date de l'acte
                     </label>
-                    <input id="admission-field-10"
+                    <DateInput id="admission-field-10"
                       type="date"
                       value={formData.birthCertificateDate}
                       onChange={(e) =>
@@ -1072,7 +1077,7 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pt-3 border-t border-slate-100 dark:border-slate-800">
                   <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-4 space-y-3">
-                    <div className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
+                    <div className="text-[0.625rem] font-extrabold uppercase tracking-wider text-slate-500">
                       Pièces & coordonnées du père
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1083,7 +1088,7 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
                         onChange={(e) => setFormData({ ...formData, fatherCinNumber: e.target.value })}
                         className="w-full text-xs px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
                       />
-                      <input
+                      <DateInput
                         type="date"
                         title="Date de délivrance CIN père"
                         value={formData.fatherCinIssuedAt}
@@ -1115,7 +1120,7 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
                   </div>
 
                   <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-4 space-y-3">
-                    <div className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
+                    <div className="text-[0.625rem] font-extrabold uppercase tracking-wider text-slate-500">
                       Pièces & coordonnées de la mère
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1126,7 +1131,7 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
                         onChange={(e) => setFormData({ ...formData, motherCinNumber: e.target.value })}
                         className="w-full text-xs px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
                       />
-                      <input
+                      <DateInput
                         type="date"
                         title="Date de délivrance CIN mère"
                         value={formData.motherCinIssuedAt}
@@ -1159,7 +1164,7 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
                 </div>
 
                 <div className="rounded-xl border border-dashed border-slate-300 dark:border-slate-700 p-4 space-y-3">
-                  <div className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
+                  <div className="text-[0.625rem] font-extrabold uppercase tracking-wider text-slate-500">
                     Tuteur / responsable légal si différent des parents
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -1191,7 +1196,7 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
                       onChange={(e) => setFormData({ ...formData, guardianEmail: e.target.value })}
                       className="w-full text-xs px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
                     />
-                    <input
+                    <DateInput
                       type="date"
                       title="Date de délivrance CIN tuteur"
                       value={formData.guardianCinIssuedAt}
@@ -1273,14 +1278,14 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
 
                 {/* Live Matricule Preview */}
                 <div className="p-3 rounded-xl bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900 space-y-1">
-                  <div className="flex items-center justify-between text-[11px] text-blue-900 dark:text-blue-300">
+                  <div className="flex items-center justify-between text-[0.6875rem] text-blue-900 dark:text-blue-300">
                     <span className="font-semibold">Format Matricule :</span>
-                    <span className="font-mono text-[10px] text-blue-500">{db.matriculeConfig.pattern}</span>
+                    <span className="font-mono text-[0.625rem] text-blue-500">{db.matriculeConfig.pattern}</span>
                   </div>
                   <div className="text-sm font-extrabold font-mono text-blue-600 dark:text-blue-400">
                     {generatedMatriculePreview}
                   </div>
-                  <div className="text-[10px] text-slate-400">
+                  <div className="text-[0.625rem] text-slate-400">
                     Format défini dans les paramètres de matricule
                   </div>
                 </div>
@@ -1311,7 +1316,7 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
                     <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
                       Encaisser les droits immédiatement
                     </span>
-                    <span className="text-[11px] text-slate-400">
+                    <span className="text-[0.6875rem] text-slate-400">
                       Montant fixé : {CalculationService.formatAriary(selectedClass?.registrationFee ?? 0)}
                     </span>
                   </div>
@@ -1338,7 +1343,7 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
                         className="w-full text-xs px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500 font-mono"
                       />
                       {Number(formData.discount || 0) > 0 && (
-                        <div className="mt-1 text-[11px] text-emerald-600 dark:text-emerald-400">
+                        <div className="mt-1 text-[0.6875rem] text-emerald-600 dark:text-emerald-400">
                           Net à encaisser : {CalculationService.formatAriary(
                             Math.max(
                               0,
@@ -1430,7 +1435,7 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
                       <div className="font-bold text-xs text-slate-900 dark:text-white">
                         {student.lastName} {student.firstName}
                       </div>
-                      <div className="text-[11px] text-slate-400">
+                      <div className="text-[0.6875rem] text-slate-400">
                         Matricule: <span className="font-mono">{student.matricule}</span> • Classe actuelle:{' '}
                         {classMap.get(student.classId)}
                       </div>
@@ -1449,7 +1454,7 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
             <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-blue-400 dark:border-blue-700 shadow-lg space-y-5 animate-in fade-in">
               <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
                 <div>
-                  <span className="text-[10px] uppercase font-bold text-blue-600 dark:text-blue-400">
+                  <span className="text-[0.625rem] uppercase font-bold text-blue-600 dark:text-blue-400">
                     Dossier Sélectionné
                   </span>
                   <h3 className="text-base font-extrabold text-slate-900 dark:text-white">
@@ -1562,7 +1567,7 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead>
-                <tr className="border-b border-slate-100 dark:border-slate-800 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                <tr className="border-b border-slate-100 dark:border-slate-800 text-[0.6875rem] font-semibold text-slate-400 uppercase tracking-wider">
                   <th className="py-2.5 px-3">Matricule</th>
                   <th className="py-2.5 px-3">Nom & Prénoms</th>
                   <th className="py-2.5 px-3">Classe</th>
@@ -1585,16 +1590,16 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
                     <td className="py-3 px-3 text-slate-600 dark:text-slate-300">
                       {classMap.get(student.classId) || student.classId}
                     </td>
-                    <td className="py-3 px-3 text-slate-500">{student.enrollmentDate}</td>
+                    <td className="py-3 px-3 text-slate-500">{formatDate(student.enrollmentDate)}</td>
                     <td className="py-3 px-3">
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-300">
+                      <span className="px-2 py-0.5 rounded-full text-[0.625rem] font-bold bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-300">
                         {student.status}
                       </span>
                     </td>
                     <td className="py-3 px-3 text-right space-x-2">
                       <button
                         onClick={() => PdfGeneratorService.generateEnrollmentCertificatePDF(student, db)}
-                        className="px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 inline-flex items-center space-x-1"
+                        className="px-2.5 py-1 text-[0.6875rem] font-semibold rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 inline-flex items-center space-x-1"
                         title="Imprimer le certificat de scolarité"
                       >
                         <Printer className="w-3 h-3" />

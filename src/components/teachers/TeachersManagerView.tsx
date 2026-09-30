@@ -1,3 +1,4 @@
+import { localDateIso } from '../../services/dateFormat';
 import React, { useEffect, useState } from 'react';
 import {
   UserPlus,
@@ -47,7 +48,7 @@ export const TeachersManagerView: React.FC<TeachersManagerViewProps> = ({
     baseMonthlySalary: 1200000,
     hourlyRate: 15000,
     weeklyAssignedHours: 18,
-    hireDate: new Date().toISOString().slice(0, 10),
+    hireDate: localDateIso(),
     cinNumber: '',
   });
 
@@ -95,7 +96,7 @@ export const TeachersManagerView: React.FC<TeachersManagerViewProps> = ({
       baseMonthlySalary: 1200000,
       hourlyRate: 15000,
       weeklyAssignedHours: 18,
-      hireDate: new Date().toISOString().slice(0, 10),
+      hireDate: localDateIso(),
       cinNumber: '',
     });
     setIsModalOpen(true);
@@ -164,7 +165,7 @@ export const TeachersManagerView: React.FC<TeachersManagerViewProps> = ({
         baseMonthlySalary: Number(formData.baseMonthlySalary || 0),
         hourlyRate: Number(formData.hourlyRate || 0),
         weeklyAssignedHours: Number(formData.weeklyAssignedHours || 0),
-        hireDate: formData.hireDate || new Date().toISOString().slice(0, 10),
+        hireDate: formData.hireDate || localDateIso(),
         cinNumber: formData.cinNumber || '',
       };
       updatedTeachers.push(newTeacher);
@@ -262,7 +263,7 @@ export const TeachersManagerView: React.FC<TeachersManagerViewProps> = ({
                   <td className="font-mono text-slate-500">{teacher.matricule}</td>
                   <td>
                     <div className="font-semibold">{teacher.lastName} {teacher.firstName}</div>
-                    <div className="text-[10px] text-slate-500">{teacher.qualification}</div>
+                    <div className="text-[0.625rem] text-slate-500">{teacher.qualification}</div>
                   </td>
                   <td>{teacher.contractType}</td>
                   <td>{teacher.specialtySubjectIds.map((id) => subjectMap.get(id)).filter(Boolean).join(', ') || '—'}</td>
@@ -275,7 +276,7 @@ export const TeachersManagerView: React.FC<TeachersManagerViewProps> = ({
                   <td className="text-slate-500">
                     <div className="font-mono">{teacher.phone || '—'}</div>
                     {teacher.email && (
-                      <div className="mt-0.5 text-[9px]">{teacher.email}</div>
+                      <div className="mt-0.5 text-[0.5625rem]">{teacher.email}</div>
                     )}
                   </td>
                   <td className="text-right whitespace-nowrap">
@@ -383,7 +384,7 @@ export const TeachersManagerView: React.FC<TeachersManagerViewProps> = ({
                 placeholder="enseignant@ecole.mg"
                 className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
               />
-              <p className="mt-1 text-[10px] text-slate-500">
+              <p className="mt-1 text-[0.625rem] text-slate-500">
                 Nécessaire uniquement si cet enseignant doit se connecter à Sekoly Enseignant.
               </p>
             </div>

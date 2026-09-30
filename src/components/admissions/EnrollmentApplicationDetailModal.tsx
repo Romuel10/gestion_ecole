@@ -1,3 +1,4 @@
+import { formatDate } from '../../services/dateFormat';
 import React from 'react';
 import { FileText, ShieldCheck } from 'lucide-react';
 import {
@@ -172,6 +173,7 @@ const valueLabel = (field: EnrollmentFormField, value: unknown) => {
   if (Array.isArray(value)) return value.map(String).join(', ');
 
   const normalized = String(value);
+  if (field.type === 'DATE') return formatDate(normalized);
   if (
     field.key === 'relationship' ||
     field.key === 'secondaryRelationship'
@@ -209,10 +211,10 @@ const FieldGrid: React.FC<{
         className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700"
       >
         <div className="flex items-start justify-between gap-2">
-          <div className="text-[9px] uppercase tracking-wide font-bold text-slate-400">
+          <div className="text-[0.5625rem] uppercase tracking-wide font-bold text-slate-400">
             {field.label}
           </div>
-          <span className="shrink-0 text-[8px] font-semibold text-slate-400">
+          <span className="shrink-0 text-[0.5rem] font-semibold text-slate-400">
             {field.required ? 'Obligatoire' : 'Facultatif'}
           </span>
         </div>
@@ -220,7 +222,7 @@ const FieldGrid: React.FC<{
           {valueLabel(field, valueFor(field))}
         </div>
         {field.helpText && (
-          <div className="mt-1 text-[9px] text-slate-400">{field.helpText}</div>
+          <div className="mt-1 text-[0.5625rem] text-slate-400">{field.helpText}</div>
         )}
       </div>
     ))}
@@ -370,13 +372,13 @@ export const EnrollmentApplicationDetailModal: React.FC<EnrollmentApplicationDet
       }
     >
       <div className="flex flex-wrap items-center gap-2 p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40">
-        <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
+        <span className="text-[0.625rem] font-bold uppercase tracking-wide text-slate-500">
           Formulaire version{' '}
           {application.form_schema_version ||
             application.family?.form_schema_version ||
             '—'}
         </span>
-        <span className="text-[10px] text-slate-400">
+        <span className="text-[0.625rem] text-slate-400">
           Affichage basé sur la structure exacte du formulaire remplie par la famille.
         </span>
       </div>
@@ -393,7 +395,7 @@ export const EnrollmentApplicationDetailModal: React.FC<EnrollmentApplicationDet
             <div>
               <h4 className="text-xs font-bold m-0">{section.title}</h4>
               {section.description && (
-                <p className="mt-1 text-[10px] text-slate-500">
+                <p className="mt-1 text-[0.625rem] text-slate-500">
                   {section.description}
                 </p>
               )}
@@ -410,7 +412,7 @@ export const EnrollmentApplicationDetailModal: React.FC<EnrollmentApplicationDet
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
           <div className="space-y-2">
-            <div className="text-[10px] uppercase font-bold text-slate-500">
+            <div className="text-[0.625rem] uppercase font-bold text-slate-500">
               Checklist
             </div>
             {application.checklist.length ? (
@@ -421,20 +423,20 @@ export const EnrollmentApplicationDetailModal: React.FC<EnrollmentApplicationDet
                 >
                   <div>
                     <div className="text-xs font-medium">{item.label}</div>
-                    <div className="text-[9px] text-slate-400">
+                    <div className="text-[0.5625rem] text-slate-400">
                       {item.required ? 'Obligatoire' : 'Facultatif'}
                     </div>
                   </div>
-                  <span className="text-[10px] font-bold">{item.status}</span>
+                  <span className="text-[0.625rem] font-bold">{item.status}</span>
                 </div>
               ))
             ) : (
-              <div className="text-[10px] text-slate-400">Aucune checklist.</div>
+              <div className="text-[0.625rem] text-slate-400">Aucune checklist.</div>
             )}
           </div>
 
           <div className="space-y-2">
-            <div className="text-[10px] uppercase font-bold text-slate-500">
+            <div className="text-[0.625rem] uppercase font-bold text-slate-500">
               Documents transmis
             </div>
             {application.documents.length ? (
@@ -449,7 +451,7 @@ export const EnrollmentApplicationDetailModal: React.FC<EnrollmentApplicationDet
                     <div className="text-xs font-medium truncate">
                       {document.original_name}
                     </div>
-                    <div className="text-[9px] text-slate-400">
+                    <div className="text-[0.5625rem] text-slate-400">
                       {document.document_type} ·{' '}
                       {Math.max(1, Math.round(document.file_size / 1024))} Ko
                     </div>
@@ -458,7 +460,7 @@ export const EnrollmentApplicationDetailModal: React.FC<EnrollmentApplicationDet
                 </button>
               ))
             ) : (
-              <div className="text-[10px] text-slate-400">
+              <div className="text-[0.625rem] text-slate-400">
                 Aucun document transmis.
               </div>
             )}

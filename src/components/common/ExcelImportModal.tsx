@@ -69,12 +69,12 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
 
       {issues.length > 0 && (
         <div className="border border-rose-200 dark:border-rose-900">
-          <div className="px-3 py-2 bg-rose-50 dark:bg-rose-950/30 text-[10.5px] font-semibold text-rose-800 dark:text-rose-200">
+          <div className="px-3 py-2 bg-rose-50 dark:bg-rose-950/30 text-[0.65625rem] font-semibold text-rose-800 dark:text-rose-200">
             Corrigez ces erreurs dans Excel avant l’import.
           </div>
           <div className="max-h-52 overflow-y-auto divide-y divide-rose-100 dark:divide-rose-900">
             {issues.slice(0, 100).map((issue, index) => (
-              <div key={`${issue.row}-${index}`} className="px-3 py-2 text-[10.5px]">
+              <div key={`${issue.row}-${index}`} className="px-3 py-2 text-[0.65625rem]">
                 <strong>Ligne {issue.row}</strong> — {issue.message}
               </div>
             ))}
@@ -84,12 +84,12 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
 
       {warnings.length > 0 && (
         <div className="border border-amber-200 dark:border-amber-900">
-          <div className="px-3 py-2 bg-amber-50 dark:bg-amber-950/30 text-[10.5px] font-semibold text-amber-800 dark:text-amber-200">
+          <div className="px-3 py-2 bg-amber-50 dark:bg-amber-950/30 text-[0.65625rem] font-semibold text-amber-800 dark:text-amber-200">
             Avertissements non bloquants
           </div>
           <div className="max-h-40 overflow-y-auto divide-y divide-amber-100 dark:divide-amber-900">
             {warnings.slice(0, 50).map((warning, index) => (
-              <div key={`${warning.row}-${index}`} className="px-3 py-2 text-[10.5px]">
+              <div key={`${warning.row}-${index}`} className="px-3 py-2 text-[0.65625rem]">
                 <strong>Ligne {warning.row}</strong> — {warning.message}
               </div>
             ))}
@@ -98,7 +98,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
       )}
 
       {issues.length === 0 && (
-        <div className="text-[10.5px] text-slate-500">
+        <div className="text-[0.65625rem] text-slate-500">
           Le fichier est prêt à être importé. Aucune donnée n’est modifiée tant que vous ne
           cliquez pas sur le bouton d’import.
         </div>

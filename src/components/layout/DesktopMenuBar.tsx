@@ -78,12 +78,12 @@ export const DesktopMenuBar: React.FC<DesktopMenuBarProps> = ({
       {/* Left Menu Items */}
       <div className="flex items-center space-x-1">
         {/* App Title Stamp */}
-        <div className="flex items-center space-x-1.5 font-bold text-slate-900 dark:text-white mr-3 pr-3 border-r border-slate-200 dark:border-slate-800 text-[11px] tracking-wide">
-          <div className="w-4 h-4 rounded bg-blue-600 text-white flex items-center justify-center text-[10px] font-black">
+        <div className="flex items-center space-x-1.5 font-bold text-slate-900 dark:text-white mr-3 pr-3 border-r border-slate-200 dark:border-slate-800 text-[0.6875rem] tracking-wide">
+          <div className="w-4 h-4 rounded bg-blue-600 text-white flex items-center justify-center text-[0.625rem] font-black">
             E
           </div>
           <span>EDUGASY PRO</span>
-          <span className="text-[9px] text-slate-400 font-normal">v2.4</span>
+          <span className="text-[0.5625rem] text-slate-400 font-normal">v2.4</span>
         </div>
 
         {/* Fichier Menu */}
@@ -107,7 +107,7 @@ export const DesktopMenuBar: React.FC<DesktopMenuBarProps> = ({
                   className="w-full text-left px-3 py-1.5 hover:bg-blue-600 hover:text-white flex items-center justify-between"
                 >
                   <span>Nouvelle Inscription Élève</span>
-                  <kbd className="text-[10px] text-slate-400 font-mono">Ctrl+N</kbd>
+                  <kbd className="text-[0.625rem] text-slate-400 font-mono">Ctrl+N</kbd>
                 </button>
                 <button
                   onClick={() => {
@@ -117,7 +117,7 @@ export const DesktopMenuBar: React.FC<DesktopMenuBarProps> = ({
                   className="w-full text-left px-3 py-1.5 hover:bg-blue-600 hover:text-white flex items-center justify-between"
                 >
                   <span>Encaisser un Écolage</span>
-                  <kbd className="text-[10px] text-slate-400 font-mono">Ctrl+E</kbd>
+                  <kbd className="text-[0.625rem] text-slate-400 font-mono">Ctrl+E</kbd>
                 </button>
               </div>
 
@@ -163,12 +163,12 @@ export const DesktopMenuBar: React.FC<DesktopMenuBarProps> = ({
         >
           <Search className="w-3.5 h-3.5" />
           <span>Rechercher</span>
-          <kbd className="text-[10px] text-slate-500 font-mono">Ctrl+K</kbd>
+          <kbd className="text-[0.625rem] text-slate-500 font-mono">Ctrl+K</kbd>
         </button>
       </div>
 
       {/* Right System Info & Quick Icons */}
-      <div className="flex items-center space-x-3 text-[11px] text-slate-400">
+      <div className="flex items-center space-x-3 text-[0.6875rem] text-slate-400">
         <div className="flex items-center space-x-1.5 px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300">
           <span className="w-2 h-2 rounded-full bg-emerald-400" />
           <span>Base Locale Active</span>

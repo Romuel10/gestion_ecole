@@ -1,3 +1,6 @@
+import { DateInput } from '../common/DateInput';
+import { reportInvalidDates } from '../../services/dateInputValidation';
+import { formatDate, formatDateTime } from '../../services/dateFormat';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Building2,
@@ -45,6 +48,7 @@ import {
   SchoolCloudCapacity,
   SyncMonitor,
 } from '../../services/cloudSync';
+import { DisplaySettings } from './DisplaySettings';
 import { Modal } from '../common/Modal';
 
 interface GeneralSettingsViewProps {
@@ -54,6 +58,7 @@ interface GeneralSettingsViewProps {
 }
 
 type SettingsTab =
+  | 'DISPLAY'
   | 'SCHOOL'
   | 'ACADEMIC'
   | 'CLOSURE'
@@ -926,6 +931,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
   };
 
   const saveYear = () => {
+    if (reportInvalidDates()) return;
     if (!yearDraft) return;
     if (!yearDraft.label.trim() || !yearDraft.startDate || !yearDraft.endDate) {
       onShowToast('Le libellé et les dates de l’année scolaire sont obligatoires.', 'error');
@@ -1010,6 +1016,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
   };
 
   const saveTerm = () => {
+    if (reportInvalidDates()) return;
     if (!termDraft) return;
     const year = db.schoolYears.find((item) => item.id === termDraft.schoolYearId);
     if (!year) return;
@@ -1146,6 +1153,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
   };
 
   const tabs = [
+    { id: 'DISPLAY' as const, label: 'Affichage', icon: FileCog },
     { id: 'SCHOOL' as const, label: 'Établissement', icon: Building2 },
     { id: 'ACADEMIC' as const, label: 'Années et périodes', icon: CalendarRange },
     { id: 'CLOSURE' as const, label: 'Clôture annuelle', icon: Archive },
@@ -1179,7 +1187,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
               key={tab.id}
               type="button"
               onClick={() => setActiveTab(tab.id)}
-              className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-md text-left text-[11.5px] transition ${
+              className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-md text-left text-[0.71875rem] transition ${
                 activeTab === tab.id
                   ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 font-semibold'
                   : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -1193,6 +1201,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
       </aside>
 
       <div className="min-w-0">
+        {activeTab === 'DISPLAY' && <DisplaySettings />}
         {activeTab === 'SCHOOL' && (
           <form onSubmit={handleSaveSchool} className="page-panel">
             <div className="page-panel__header">
@@ -1253,12 +1262,12 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
               <div className="md:col-span-2 border-t border-slate-200 dark:border-slate-800 pt-4">
                 <div className="grid grid-cols-1 lg:grid-cols-[180px_1fr] gap-5">
                   <div>
-                    <div className="text-[10.5px] font-semibold mb-2">Logo de l’établissement</div>
+                    <div className="text-[0.65625rem] font-semibold mb-2">Logo de l’établissement</div>
                     <div className="h-28 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 flex items-center justify-center overflow-hidden">
                       {schoolConfig.logoUrl ? (
                         <img src={schoolConfig.logoUrl} alt="Logo établissement" className="max-h-24 max-w-[150px] object-contain" />
                       ) : (
-                        <span className="text-[10px] text-slate-400">Aucun logo</span>
+                        <span className="text-[0.625rem] text-slate-400">Aucun logo</span>
                       )}
                     </div>
                     <div className="mt-2 flex gap-2">
@@ -1333,7 +1342,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
                           className="settings-input resize-y leading-relaxed"
                         />
                       </Field>
-                      <div className="mt-1.5 text-[10px] text-slate-500">
+                      <div className="mt-1.5 text-[0.625rem] text-slate-500">
                         Variables : {'{NOM_ET_PRENOMS}'}, {'{MATRICULE}'}, {'{DATE_NAISSANCE}'}, {'{LIEU_NAISSANCE}'}, {'{CLASSE}'}, {'{ANNEE_SCOLAIRE}'}, {'{DIRECTEUR}'}, {'{FONCTION}'}, {'{ETABLISSEMENT}'}, {'{VILLE}'}.
                       </div>
                     </div>
@@ -1342,10 +1351,10 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
               </div>
 
               <div className="md:col-span-2 border-t border-slate-200 dark:border-slate-800 pt-4">
-                <div className="text-[11px] font-semibold text-slate-800 dark:text-slate-200">Périodes d’écolage</div>
+                <div className="text-[0.6875rem] font-semibold text-slate-800 dark:text-slate-200">Périodes d’écolage</div>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {db.schoolConfig.schoolMonths.map((month) => (
-                    <span key={month} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[11px]">
+                    <span key={month} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[0.6875rem]">
                       {month}
                       <button type="button" onClick={() => saveMonths(db.schoolConfig.schoolMonths.filter((item) => item !== month))} className="text-slate-400 hover:text-rose-600">
                         <X className="w-3 h-3" />
@@ -1462,7 +1471,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
                     className="settings-input resize-y"
                   />
                 </Field>
-                <div className="mt-2 text-[10px] text-slate-500">
+                <div className="mt-2 text-[0.625rem] text-slate-500">
                   Variables : {'{NOM_ET_PRENOMS}'}, {'{MATRICULE}'}, {'{DATE_NAISSANCE}'},
                   {'{LIEU_NAISSANCE}'}, {'{CLASSE}'}, {'{ANNEE_SCOLAIRE}'},
                   {'{DIRECTEUR}'}, {'{FONCTION}'}, {'{ETABLISSEMENT}'}, {'{VILLE}'}.
@@ -1518,13 +1527,13 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   <div className="border border-slate-200 dark:border-slate-700 p-4">
-                    <div className="text-[10px] uppercase tracking-wide font-bold text-slate-500">
+                    <div className="text-[0.625rem] uppercase tracking-wide font-bold text-slate-500">
                       Année suivante
                     </div>
                     <div className="mt-1 text-sm font-semibold">
                       {closurePreview.nextYear?.label || 'Non configurée'}
                     </div>
-                    <p className="mt-2 text-[10.5px] text-slate-500">
+                    <p className="mt-2 text-[0.65625rem] text-slate-500">
                       Les admis seront placés dans leur classe suivante configurée. Les redoublants
                       resteront dans leur classe actuelle. Les dossiers seront créés avec le statut
                       « En attente ».
@@ -1532,10 +1541,10 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
                   </div>
 
                   <div className="border border-slate-200 dark:border-slate-700 p-4">
-                    <div className="text-[10px] uppercase tracking-wide font-bold text-slate-500">
+                    <div className="text-[0.625rem] uppercase tracking-wide font-bold text-slate-500">
                       Contrôle avant clôture
                     </div>
-                    <div className="mt-2 space-y-2 text-[11px]">
+                    <div className="mt-2 space-y-2 text-[0.6875rem]">
                       <div className="flex justify-between gap-3">
                         <span>Périodes configurées</span>
                         <strong>{closurePreview.year.terms.length}</strong>
@@ -1553,7 +1562,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
                 </div>
 
                 <label className="block">
-                  <span className="block mb-1.5 text-[10.5px] font-semibold text-slate-600 dark:text-slate-300">
+                  <span className="block mb-1.5 text-[0.65625rem] font-semibold text-slate-600 dark:text-slate-300">
                     Note de clôture
                   </span>
                   <textarea
@@ -1573,7 +1582,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
                       onChange={(event) => setAllowClosureWithReview(event.target.checked)}
                       className="mt-0.5"
                     />
-                    <span className="text-[10.5px] text-amber-900 dark:text-amber-200">
+                    <span className="text-[0.65625rem] text-amber-900 dark:text-amber-200">
                       Autoriser la clôture malgré {closurePreview.counts.review} dossier(s)
                       « À examiner ». Ces élèves ne seront pas préparés automatiquement pour
                       l’année suivante.
@@ -1636,10 +1645,10 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
                       className="mt-0.5"
                     />
                     <span>
-                      <span className="block text-[11.5px] font-semibold">
+                      <span className="block text-[0.71875rem] font-semibold">
                         Exiger toutes les périodes
                       </span>
-                      <span className="block mt-1 text-[10.5px] text-slate-500">
+                      <span className="block mt-1 text-[0.65625rem] text-slate-500">
                         Une période manquante laisse l’élève « À examiner ».
                       </span>
                     </span>
@@ -1658,10 +1667,10 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
                       className="mt-0.5"
                     />
                     <span>
-                      <span className="block text-[11.5px] font-semibold">
+                      <span className="block text-[0.71875rem] font-semibold">
                         Exiger toutes les matières de chaque période
                       </span>
-                      <span className="block mt-1 text-[10.5px] text-slate-500">
+                      <span className="block mt-1 text-[0.65625rem] text-slate-500">
                         Évite une décision définitive sur une période partiellement saisie.
                       </span>
                     </span>
@@ -1669,7 +1678,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
                 </div>
 
                 <div>
-                  <div className="mb-2 text-[11px] font-semibold">Pondération des notes</div>
+                  <div className="mb-2 text-[0.6875rem] font-semibold">Pondération des notes</div>
                   <div className="grid grid-cols-2 gap-3">
                     <Field label="Contrôles continus">
                       <input
@@ -1702,7 +1711,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
                       />
                     </Field>
                   </div>
-                  <div className="mt-2 text-[10px] text-slate-500">
+                  <div className="mt-2 text-[0.625rem] text-slate-500">
                     Exemple 1 / 2 : les contrôles comptent pour 1 part et l’examen pour 2 parts.
                   </div>
                 </div>
@@ -1828,7 +1837,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
                 </table>
               </div>
 
-              <div className="text-[10.5px] text-slate-500">
+              <div className="text-[0.65625rem] text-slate-500">
                 Les règles sont évaluées automatiquement sur la moyenne annuelle pondérée.
                 Une règle peut aussi imposer un maximum d’absences non justifiées ou une note
                 minimale de conduite.
@@ -1861,13 +1870,13 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
                         <div className="flex items-center gap-2">
                           <h3 className="m-0 text-sm font-semibold">{year.label}</h3>
                           {year.id === db.currentSchoolYearId && (
-                            <span className="px-2 py-0.5 rounded-full bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 text-[9px] font-bold uppercase tracking-wide">
+                            <span className="px-2 py-0.5 rounded-full bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 text-[0.5625rem] font-bold uppercase tracking-wide">
                               Active
                             </span>
                           )}
                         </div>
-                        <div className="mt-1 text-[10.5px] text-slate-500">
-                          {year.startDate} au {year.endDate}
+                        <div className="mt-1 text-[0.65625rem] text-slate-500">
+                          {formatDate(year.startDate)} au {formatDate(year.endDate)}
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
@@ -1925,11 +1934,11 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
                               <tr key={term.id}>
                                 <td className="font-semibold">{term.label}</td>
                                 <td className="font-mono text-slate-500">{term.code}</td>
-                                <td>{term.startDate}</td>
-                                <td>{term.endDate}</td>
+                                <td>{formatDate(term.startDate)}</td>
+                                <td>{formatDate(term.endDate)}</td>
                                 <td>{term.weight}</td>
                                 <td>
-                                  <button type="button" onClick={() => toggleTermLock(year.id, term.id)} className={`px-2 py-1 rounded text-[10px] font-semibold ${term.isLocked ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300' : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'}`}>
+                                  <button type="button" onClick={() => toggleTermLock(year.id, term.id)} className={`px-2 py-1 rounded text-[0.625rem] font-semibold ${term.isLocked ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300' : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'}`}>
                                     {term.isLocked ? 'Verrouillée' : 'Ouverte'}
                                   </button>
                                 </td>
@@ -2090,12 +2099,12 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
             </div>
             <div className="p-5">
               <div className="mb-5 p-4 rounded-md bg-slate-100 dark:bg-slate-800">
-                <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold">Prochain matricule</div>
+                <div className="text-[0.625rem] uppercase tracking-wide text-slate-500 font-semibold">Prochain matricule</div>
                 <div className="mt-1 font-mono text-xl font-semibold">{matriculePreview}</div>
               </div>
 
               <div className="mb-5">
-                <div className="text-[10.5px] font-semibold mb-2">Choisir un format</div>
+                <div className="text-[0.65625rem] font-semibold mb-2">Choisir un format</div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                   <button type="button" onClick={() => setMatriculePreset('CLASSIC')} className="matricule-preset">
                     <strong>Classique</strong>
@@ -2166,7 +2175,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
                   />
                 </Field>
                 <div className="space-y-2 pt-5">
-                  <label className="flex items-center gap-2 text-[11px]">
+                  <label className="flex items-center gap-2 text-[0.6875rem]">
                     <input
                       type="checkbox"
                       checked={matriculeConfig.includeYear}
@@ -2174,7 +2183,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
                     />
                     Inclure l’année scolaire
                   </label>
-                  <label className="flex items-center gap-2 text-[11px]">
+                  <label className="flex items-center gap-2 text-[0.6875rem]">
                     <input
                       type="checkbox"
                       checked={matriculeConfig.resetEveryYear}
@@ -2186,7 +2195,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
               </div>
 
               <details className="mt-5 border-t border-slate-200 dark:border-slate-800 pt-4">
-                <summary className="cursor-pointer text-[10.5px] font-semibold text-slate-600 dark:text-slate-300">
+                <summary className="cursor-pointer text-[0.65625rem] font-semibold text-slate-600 dark:text-slate-300">
                   Réglage avancé
                 </summary>
                 <div className="mt-3">
@@ -2197,7 +2206,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
                       className="settings-input font-mono"
                     />
                   </Field>
-                  <p className="mt-2 text-[10px] text-slate-500">
+                  <p className="mt-2 text-[0.625rem] text-slate-500">
                     Variables : {'{PREFIX}'}, {'{YYYY}'}, {'{YY}'}, {'{LEVEL}'}, {'{NUM3}'}, {'{NUM4}'}, {'{NUM5}'}.
                   </p>
                 </div>
@@ -2280,10 +2289,10 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
 
                   {!cloudSchoolId ? (
                     <div className="border border-slate-200 dark:border-slate-700 p-4">
-                      <div className="text-[11px] font-semibold">
+                      <div className="text-[0.6875rem] font-semibold">
                         Créer cet établissement dans Sekoly Cloud
                       </div>
-                      <p className="mt-1 text-[10.5px] text-slate-500">
+                      <p className="mt-1 text-[0.65625rem] text-slate-500">
                         Le compte connecté deviendra administrateur de l’établissement. Les autres écoles
                         resteront totalement isolées par les règles RLS.
                       </p>
@@ -2301,13 +2310,13 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
                     <>
                       <div className="border border-slate-200 dark:border-slate-700 p-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                         <div>
-                          <div className="text-[11px] font-semibold">Synchroniser la structure</div>
-                          <p className="mt-1 text-[10.5px] text-slate-500">
+                          <div className="text-[0.6875rem] font-semibold">Synchroniser la structure</div>
+                          <p className="mt-1 text-[0.65625rem] text-slate-500">
                             Envoie la structure vers Supabase puis récupère immédiatement les
                             présences et notes saisies dans Sekoly Enseignant.
                           </p>
                           {cloudStats && (
-                            <div className="mt-2 text-[10px] text-slate-500">
+                            <div className="mt-2 text-[0.625rem] text-slate-500">
                               Dernière synchronisation : {cloudStats.students} élèves · {cloudStats.teachers}{' '}
                               enseignants · {cloudStats.assignments} affectations ·{' '}
                               {cloudStats.attendanceAdded ?? 0} présence(s) reçue(s) ·{' '}
@@ -2342,8 +2351,8 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
                       <div className="border border-slate-200 dark:border-slate-700 p-4">
                         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                           <div>
-                            <div className="text-[11px] font-semibold">Capacité & sauvegardes Cloud</div>
-                            <p className="mt-1 text-[10.5px] text-slate-500">
+                            <div className="text-[0.6875rem] font-semibold">Capacité & sauvegardes Cloud</div>
+                            <p className="mt-1 text-[0.65625rem] text-slate-500">
                               Contrôle les quotas de cet établissement et conserve automatiquement une sauvegarde Cloud quotidienne quand Sekoly Admin est utilisé.
                             </p>
                           </div>
@@ -2371,7 +2380,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
 
                         {cloudCapacity && (
                           <>
-                            <div className="mt-4 grid grid-cols-2 lg:grid-cols-5 gap-2 text-[10px]">
+                            <div className="mt-4 grid grid-cols-2 lg:grid-cols-5 gap-2 text-[0.625rem]">
                               <div className="cloud-info-cell">
                                 <span>Plan</span>
                                 <strong>{cloudCapacity.limits.plan_code}</strong>
@@ -2403,12 +2412,10 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
                               </div>
                             </div>
 
-                            <div className="mt-3 text-[10px] text-slate-500">
+                            <div className="mt-3 text-[0.625rem] text-slate-500">
                               Sauvegarde automatique :{' '}
                               {cloudCapacity.latestBackup
-                                ? `dernière le ${new Date(
-                                    cloudCapacity.latestBackup.created_at
-                                  ).toLocaleString('fr-FR')} · ${formatBytes(
+                                ? `dernière le ${formatDateTime(cloudCapacity.latestBackup.created_at)} · ${formatBytes(
                                     cloudCapacity.latestBackup.size_bytes || 0
                                   )}`
                                 : 'aucune sauvegarde créée pour le moment'}.
@@ -2432,7 +2439,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
                               <tbody>
                                 {schoolBackups.slice(0, 5).map((backup) => (
                                   <tr key={backup.id}>
-                                    <td>{new Date(backup.created_at).toLocaleString('fr-FR')}</td>
+                                    <td>{formatDateTime(backup.created_at)}</td>
                                     <td>{backup.backup_type === 'AUTOMATIC' ? 'Automatique' : 'Manuelle'}</td>
                                     <td>{backup.status}</td>
                                     <td>{formatBytes(backup.size_bytes || 0)}</td>
@@ -2459,8 +2466,8 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
                       <div className="border border-slate-200 dark:border-slate-700 p-4">
                         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                           <div>
-                            <div className="text-[11px] font-semibold">Diagnostic du pilote</div>
-                            <p className="mt-1 text-[10.5px] text-slate-500">
+                            <div className="text-[0.6875rem] font-semibold">Diagnostic du pilote</div>
+                            <p className="mt-1 text-[0.65625rem] text-slate-500">
                               Vérifie automatiquement que les données Cloud, les affectations et au moins un accès enseignant sont prêts.
                             </p>
                           </div>
@@ -2476,7 +2483,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
                         </div>
 
                         {pilotStatus && (
-                          <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-2 text-[10px]">
+                          <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-2 text-[0.625rem]">
                             <div className="cloud-info-cell">
                               <span>Données Cloud</span>
                               <strong>{pilotStatus.dataReady ? 'Prêtes' : 'Incomplètes'}</strong>
@@ -2516,8 +2523,8 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
                       <div className="border border-slate-200 dark:border-slate-700 p-4">
                         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                           <div>
-                            <div className="text-[11px] font-semibold">Test pilote de bout en bout</div>
-                            <p className="mt-1 text-[10.5px] text-slate-500">
+                            <div className="text-[0.6875rem] font-semibold">Test pilote de bout en bout</div>
+                            <p className="mt-1 text-[0.65625rem] text-slate-500">
                               Contrôle sans modifier les données qu’un enseignant mobile possède tout le nécessaire
                               pour faire l’appel et saisir des notes.
                             </p>
@@ -2536,7 +2543,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
                         {pilotSmokeTest && (
                           <div className="mt-4">
                             <div
-                              className={`p-3 border text-[10.5px] ${
+                              className={`p-3 border text-[0.65625rem] ${
                                 pilotSmokeTest.ready
                                   ? 'border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-200'
                                   : 'border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950/20 dark:text-amber-200'
@@ -2553,7 +2560,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
                               {pilotSmokeTest.checks.map((check) => (
                                 <div
                                   key={check.key}
-                                  className="border border-slate-200 dark:border-slate-700 p-3 text-[10px]"
+                                  className="border border-slate-200 dark:border-slate-700 p-3 text-[0.625rem]"
                                 >
                                   <div className="flex items-center justify-between gap-3">
                                     <strong>{check.label}</strong>
@@ -2574,8 +2581,8 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
                               ))}
                             </div>
 
-                            <div className="mt-3 text-[10px] text-slate-500">
-                              Dernier contrôle : {new Date(pilotSmokeTest.checkedAt).toLocaleString('fr-FR')} ·{' '}
+                            <div className="mt-3 text-[0.625rem] text-slate-500">
+                              Dernier contrôle : {formatDateTime(pilotSmokeTest.checkedAt)} ·{' '}
                               {pilotSmokeTest.stats.attendanceSessions} séance(s) d’appel Cloud ·{' '}
                               {pilotSmokeTest.stats.assessments} évaluation(s) Cloud.
                             </div>
@@ -2670,10 +2677,10 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
 
                   {pilotAccess && (
                     <div className="border border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/20 p-4">
-                      <div className="text-[11px] font-semibold text-emerald-900 dark:text-emerald-200">
+                      <div className="text-[0.6875rem] font-semibold text-emerald-900 dark:text-emerald-200">
                         Accès pilote créé — à transmettre une seule fois
                       </div>
-                      <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3 text-[10.5px]">
+                      <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3 text-[0.65625rem]">
                         <div>
                           <span className="block text-slate-500">Enseignant</span>
                           <strong>{pilotAccess.teacherName}</strong>
@@ -2707,7 +2714,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
                           Masquer
                         </button>
                       </div>
-                      <p className="mt-2 text-[10px] text-slate-500">
+                      <p className="mt-2 text-[0.625rem] text-slate-500">
                         L’application exigera un nouveau mot de passe lors de la première connexion.
                       </p>
                     </div>
@@ -2835,7 +2842,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
             </div>
 
             <div>
-              <div className="mb-2 text-[11px] font-semibold">Matières de la classe</div>
+              <div className="mb-2 text-[0.6875rem] font-semibold">Matières de la classe</div>
               <div className="border border-slate-200 dark:border-slate-700 rounded-md overflow-hidden">
                 <table className="erp-table">
                   <thead>
@@ -2933,10 +2940,10 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
             </Field>
             <div />
             <Field label="Date de début">
-              <input type="date" value={yearDraft.startDate} onChange={(e) => setYearDraft({ ...yearDraft, startDate: e.target.value })} className="settings-input" />
+              <DateInput type="date" value={yearDraft.startDate} onChange={(e) => setYearDraft({ ...yearDraft, startDate: e.target.value })} className="settings-input" />
             </Field>
             <Field label="Date de fin">
-              <input type="date" value={yearDraft.endDate} onChange={(e) => setYearDraft({ ...yearDraft, endDate: e.target.value })} className="settings-input" />
+              <DateInput type="date" value={yearDraft.endDate} onChange={(e) => setYearDraft({ ...yearDraft, endDate: e.target.value })} className="settings-input" />
             </Field>
           </div>
         )}
@@ -2964,10 +2971,10 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
               <input value={termDraft.code} onChange={(e) => setTermDraft({ ...termDraft, code: e.target.value })} className="settings-input font-mono" />
             </Field>
             <Field label="Date de début">
-              <input type="date" value={termDraft.startDate} onChange={(e) => setTermDraft({ ...termDraft, startDate: e.target.value })} className="settings-input" />
+              <DateInput type="date" value={termDraft.startDate} onChange={(e) => setTermDraft({ ...termDraft, startDate: e.target.value })} className="settings-input" />
             </Field>
             <Field label="Date de fin">
-              <input type="date" value={termDraft.endDate} onChange={(e) => setTermDraft({ ...termDraft, endDate: e.target.value })} className="settings-input" />
+              <DateInput type="date" value={termDraft.endDate} onChange={(e) => setTermDraft({ ...termDraft, endDate: e.target.value })} className="settings-input" />
             </Field>
             <Field label="Poids dans la moyenne annuelle">
               <input type="number" min="0.1" step="0.1" value={termDraft.weight} onChange={(e) => setTermDraft({ ...termDraft, weight: Number(e.target.value) })} className="settings-input" />
@@ -2981,7 +2988,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
 
 const Field: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
   <label className="block">
-    <span className="block mb-1.5 text-[10.5px] font-semibold text-slate-600 dark:text-slate-300">{label}</span>
+    <span className="block mb-1.5 text-[0.65625rem] font-semibold text-slate-600 dark:text-slate-300">{label}</span>
     {children}
   </label>
 );
@@ -2994,8 +3001,8 @@ const ActionCard: React.FC<{
 }> = ({ icon, title, description, action }) => (
   <div className="border border-slate-200 dark:border-slate-700 rounded-md p-4">
     <div className="text-slate-500">{icon}</div>
-    <div className="mt-3 text-[11.5px] font-semibold">{title}</div>
-    <p className="mt-1 min-h-10 text-[10.5px] text-slate-500">{description}</p>
+    <div className="mt-3 text-[0.71875rem] font-semibold">{title}</div>
+    <p className="mt-1 min-h-10 text-[0.65625rem] text-slate-500">{description}</p>
     <div className="mt-3">{action}</div>
   </div>
 );

@@ -1,3 +1,4 @@
+import { localDateIso } from '../../services/dateFormat';
 import React, { useEffect, useState } from 'react';
 import {
   FileSpreadsheet,
@@ -201,7 +202,7 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
         examGrade,
         subjectAverage,
         teacherComment: entry.comment,
-        updatedAt: new Date().toISOString().slice(0, 10),
+        updatedAt: localDateIso(),
       };
 
       if (existingIndex >= 0) {
@@ -413,7 +414,7 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
         classId: destinationClass.id,
         schoolYearId: nextSchoolYear.id,
         status: 'EN_ATTENTE' as const,
-        enrollmentDate: new Date().toISOString().slice(0, 10),
+        enrollmentDate: localDateIso(),
         councilDecision: undefined,
       });
       existingMatricules.add(decision.student.matricule);
@@ -456,7 +457,7 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
     return (
       <div className="page-panel p-8 text-center">
         <div className="text-sm font-semibold">Configuration académique requise</div>
-        <p className="mt-2 text-[11px] text-slate-500">
+        <p className="mt-2 text-[0.6875rem] text-slate-500">
           Ajoutez d’abord vos matières et vos classes dans Paramètres. Vous pourrez ensuite
           importer les élèves et les notes depuis Excel.
         </p>
@@ -530,7 +531,7 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
               key={id}
               type="button"
               onClick={() => setActiveTab(id as typeof activeTab)}
-              className={`px-3 py-2 rounded-md text-[11px] font-semibold transition ${
+              className={`px-3 py-2 rounded-md text-[0.6875rem] font-semibold transition ${
                 activeTab === id
                   ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
                   : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -548,7 +549,7 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
           {/* Class Statistics Overview Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
             <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+              <span className="text-[0.6875rem] font-bold uppercase tracking-wider text-slate-400">
                 Moyenne de la Classe
               </span>
               <div className="mt-2 text-2xl font-extrabold text-blue-600 dark:text-blue-400">
@@ -557,7 +558,7 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
             </div>
 
             <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+              <span className="text-[0.6875rem] font-bold uppercase tracking-wider text-slate-400">
                 Meilleure Moyenne (Max)
               </span>
               <div className="mt-2 text-2xl font-extrabold text-emerald-600 dark:text-emerald-400">
@@ -566,7 +567,7 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
             </div>
 
             <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+              <span className="text-[0.6875rem] font-bold uppercase tracking-wider text-slate-400">
                 Moyenne la Plus Basse
               </span>
               <div className="mt-2 text-2xl font-extrabold text-slate-700 dark:text-slate-300">
@@ -575,7 +576,7 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
             </div>
 
             <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+              <span className="text-[0.6875rem] font-bold uppercase tracking-wider text-slate-400">
                 Taux d'Admission (≥ {db.schoolConfig.passingGrade || 10}/20)
               </span>
               <div className="mt-2 text-2xl font-extrabold text-purple-600 dark:text-purple-400">
@@ -617,7 +618,7 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead>
-                  <tr className="border-b border-slate-200 dark:border-slate-800 text-[11px] font-semibold text-slate-400 uppercase tracking-wider bg-slate-50/50 dark:bg-slate-800/40">
+                  <tr className="border-b border-slate-200 dark:border-slate-800 text-[0.6875rem] font-semibold text-slate-400 uppercase tracking-wider bg-slate-50/50 dark:bg-slate-800/40">
                     <th className="py-3 px-3">Rang</th>
                     <th className="py-3 px-3">Matricule</th>
                     <th className="py-3 px-3">Nom & Prénoms</th>
@@ -660,7 +661,7 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
                       </td>
                       <td className="py-3 px-3">
                         <span
-                          className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                          className={`inline-block px-2.5 py-0.5 rounded-full text-[0.625rem] font-bold ${
                             rc.generalAverage >= 14
                               ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
                               : rc.generalAverage >= 10
@@ -706,7 +707,7 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
               <div className="flex items-center space-x-3">
                 <BookOpen className="w-5 h-5 text-blue-600" />
                 <div>
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                  <label className="block text-[0.6875rem] font-bold uppercase tracking-wider text-slate-400">
                     Sélectionner la matière à noter
                   </label>
                   <select
@@ -741,7 +742,7 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead>
-                  <tr className="border-b border-slate-200 dark:border-slate-800 text-[11px] font-semibold text-slate-400 uppercase tracking-wider bg-slate-50/50 dark:bg-slate-800/40">
+                  <tr className="border-b border-slate-200 dark:border-slate-800 text-[0.6875rem] font-semibold text-slate-400 uppercase tracking-wider bg-slate-50/50 dark:bg-slate-800/40">
                     <th className="py-3 px-3">Matricule</th>
                     <th className="py-3 px-3">Nom & Prénoms</th>
                     <th className="py-3 px-3 text-center">Contrôle 1 (/20)</th>
@@ -908,7 +909,7 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
             </div>
 
             {!nextSchoolYear && (
-              <div className="px-4 py-2.5 border-b border-slate-200 dark:border-slate-800 bg-amber-50 dark:bg-amber-950/20 text-[10.5px] text-amber-800 dark:text-amber-300">
+              <div className="px-4 py-2.5 border-b border-slate-200 dark:border-slate-800 bg-amber-50 dark:bg-amber-950/20 text-[0.65625rem] text-amber-800 dark:text-amber-300">
                 Aucune année scolaire suivante n’est configurée. Les décisions sont calculées,
                 mais aucun dossier de passage ne sera créé tant que l’année suivante n’existe pas.
               </div>
@@ -962,7 +963,7 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
                           <span className="text-slate-400">—</span>
                         )}
                       </td>
-                      <td className="text-[10.5px] text-slate-500 max-w-[240px]">
+                      <td className="text-[0.65625rem] text-slate-500 max-w-[240px]">
                         {row.reasons.length > 0 ? row.reasons.join(' · ') : '—'}
                       </td>
                     </tr>
@@ -991,13 +992,13 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
                   {nextSchoolYear ? ` pour ${nextSchoolYear.label}` : ''}.
                 </p>
               </div>
-              <div className="text-[10.5px] text-slate-500">
+              <div className="text-[0.65625rem] text-slate-500">
                 {allAnnualDecisions.filter((item) => ['PROMOTE', 'REPEAT'].includes(item.outcome)).length} dossier(s)
               </div>
             </div>
 
             {projectedClassGroups.length === 0 ? (
-              <div className="p-8 text-center text-[11px] text-slate-500">
+              <div className="p-8 text-center text-[0.6875rem] text-slate-500">
                 Aucune répartition disponible. Vérifiez les règles de décision et les classes suivantes.
               </div>
             ) : (
@@ -1005,8 +1006,8 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
                 {projectedClassGroups.map((group) => (
                   <div key={group.schoolClass.id}>
                     <div className="flex items-center justify-between px-4 py-2.5 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
-                      <div className="text-[11px] font-semibold">{group.schoolClass.name}</div>
-                      <div className="text-[10px] text-slate-500">
+                      <div className="text-[0.6875rem] font-semibold">{group.schoolClass.name}</div>
+                      <div className="text-[0.625rem] text-slate-500">
                         {group.students.length} / {group.schoolClass.capacity}
                       </div>
                     </div>
@@ -1075,11 +1076,11 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
             <div className="flex items-center justify-between border-b pb-2">
               <div>
                 <div className="font-extrabold text-sm uppercase">{db.schoolConfig.name}</div>
-                <div className="text-[11px] text-slate-600">
+                <div className="text-[0.6875rem] text-slate-600">
                   Registre d'Assiduité Journalière • Classe : <strong>{targetClass.name}</strong>
                 </div>
               </div>
-              <div className="text-right text-[11px] text-slate-600">
+              <div className="text-right text-[0.6875rem] text-slate-600">
                 <div>Année Scolaire : <strong>{db.schoolYears.find((y) => y.id === db.currentSchoolYearId)?.label}</strong></div>
                 <div>Mois de : ________________________</div>
               </div>
@@ -1110,20 +1111,20 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
                 {studentsInClass.map((s, idx) => (
                   <tr key={s.id} className="h-7">
                     <td className="p-1 text-center text-slate-500">{idx + 1}</td>
-                    <td className="p-1 font-mono text-[10px] text-slate-600">{s.matricule}</td>
+                    <td className="p-1 font-mono text-[0.625rem] text-slate-600">{s.matricule}</td>
                     <td className="p-1 font-bold truncate max-w-[180px]">
                       {s.lastName} {s.firstName}
                     </td>
                     {Array.from({ length: 12 }).map((_, i) => (
                       <td key={i} className="border-l text-center p-1" />
                     ))}
-                    <td className="p-1 border-l text-[10px] text-slate-400" />
+                    <td className="p-1 border-l text-[0.625rem] text-slate-400" />
                   </tr>
                 ))}
               </tbody>
             </table>
 
-            <div className="pt-2 flex items-center justify-between text-[10px] text-slate-500 border-t">
+            <div className="pt-2 flex items-center justify-between text-[0.625rem] text-slate-500 border-t">
               <div>Légende : P (Présent) • A (Absent injustifié) • J (Justifié) • R (Retard)</div>
               <div>Visa du Professeur Principal / Surveillant : ____________________</div>
             </div>
@@ -1182,7 +1183,7 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
               <div className="text-xs font-bold text-blue-900">
                 {db.schoolConfig.name.toUpperCase()}
               </div>
-              <div className="text-[10px] text-slate-500">
+              <div className="text-[0.625rem] text-slate-500">
                 Bulletin de Notes — {
                   db.schoolYears
                     .find((year) => year.id === inspectSummary.schoolYearId)
@@ -1251,7 +1252,7 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
                 <div className="text-xs font-bold text-emerald-800">
                   MENTION : {inspectSummary.honorMention}
                 </div>
-                <div className="text-[11px] text-slate-600 mt-1">
+                <div className="text-[0.6875rem] text-slate-600 mt-1">
                   Absences : {inspectSummary.absencesJustified + inspectSummary.absencesUnjustified} j
                 </div>
               </div>
