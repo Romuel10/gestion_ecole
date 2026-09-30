@@ -37,6 +37,9 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
         with:
@@ -53,6 +56,10 @@ jobs:
       - name: Build Windows installers
         run: cargo tauri build --bundles nsis,msi
 
+      - name: Test Windows startup and single instance
+        shell: pwsh
+        run: ./scripts/test-windows-startup.ps1
+
       - name: Upload installers
         uses: actions/upload-artifact@v4
         with:
@@ -60,3 +67,54 @@ jobs:
           path: |
             src-tauri/target/release/bundle/nsis/*.exe
             src-tauri/target/release/bundle/msi/*.msi
+
+  publish-release:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build-windows
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - name: Checkout validated revision
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Require successful CI for this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          run_id=$(gh run list --workflow ci.yml --commit "$GITHUB_SHA" --event push --json databaseId --jq '.[0].databaseId')
+          test -n "$run_id" && test "$run_id" != null
+          gh run watch "$run_id" --exit-status --interval 10
+
+      - name: Download tested Windows installers
+        uses: actions/download-artifact@v4
+        with:
+          name: sekoly-windows-installers
+          path: release-assets
+
+      - name: Publish versioned Windows release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          version=$(node -p "require('./package.json').version")
+          tag="v$version"
+          current=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')
+          if [ "$current" != "$GITHUB_SHA" ]; then
+            echo "A newer revision exists; skipping publication of this revision."
+            exit 0
+          fi
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "Release $tag already exists; leaving it unchanged."
+            exit 0
+          fi
+          mapfile -d '' installers < <(find release-assets -type f \( -name '*.exe' -o -name '*.msi' \) -print0)
+          test "${#installers[@]}" -eq 2
+          sha256sum "${installers[@]}" > release-assets/SHA256SUMS.txt
+          gh release create "$tag" "${installers[@]}" release-assets/SHA256SUMS.txt \
+            --target "$GITHUB_SHA" --title "Sekoly $version — Windows" \
+            --notes-file "docs/RELEASE_$version.md"

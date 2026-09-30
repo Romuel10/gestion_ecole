@@ -94,7 +94,7 @@ export class StorageService {
       return normalized;
     } catch (error) {
       console.error('Failed to hydrate SQLite database', error);
-      return null;
+      throw new Error('Impossible de lire la base locale. Fermez puis relancez Sekoly, ou vérifiez l’accès au dossier de données. Vos données ne sont pas réinitialisées.', { cause: error });
     }
   }
 

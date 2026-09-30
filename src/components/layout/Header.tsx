@@ -16,6 +16,7 @@ interface HeaderProps {
   onUpdateDb: (updated: DatabaseSchema) => void;
   currentTab: NavTab;
   isDark: boolean;
+  sidebarExpanded: boolean;
   onToggleTheme: () => void;
   onToggleSidebar: () => void;
   onOpenCommandPalette: () => void;
@@ -39,6 +40,7 @@ export const Header: React.FC<HeaderProps> = ({
   onUpdateDb,
   currentTab,
   isDark,
+  sidebarExpanded,
   onToggleTheme,
   onToggleSidebar,
   onOpenCommandPalette,
@@ -86,7 +88,7 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header className="app-header">
       <div className="app-header__left">
-        <button type="button" onClick={onToggleSidebar} className="icon-button lg:hidden" aria-label="Navigation">
+        <button type="button" onClick={onToggleSidebar} className="icon-button lg:hidden" aria-label="Navigation" aria-expanded={sidebarExpanded} aria-controls="primary-navigation">
           <Menu className="w-4 h-4" />
         </button>
         <div>
@@ -125,7 +127,7 @@ export const Header: React.FC<HeaderProps> = ({
           </label>
         </div>
 
-        <button type="button" onClick={onOpenCommandPalette} className="header-search">
+        <button type="button" onClick={onOpenCommandPalette} className="header-search" aria-label="Rechercher">
           <Search className="w-4 h-4" />
           <span className="hidden xl:inline">Rechercher</span>
           <kbd className="hidden xl:inline">Ctrl K</kbd>
@@ -135,7 +137,7 @@ export const Header: React.FC<HeaderProps> = ({
           <UserRoundPlus className="w-4 h-4" />
           <span>Inscription</span>
         </button>
-        <button type="button" onClick={() => onQuickAction('NEW_PAYMENT')} className="button button--primary">
+        <button type="button" onClick={() => onQuickAction('NEW_PAYMENT')} className="button button--primary" aria-label="Encaisser">
           <CircleDollarSign className="w-4 h-4" />
           <span className="hidden sm:inline">Encaisser</span>
         </button>

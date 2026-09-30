@@ -74,6 +74,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   return (
     <aside
       className={`app-sidebar ${isCollapsed ? 'app-sidebar--collapsed' : ''}`}
+      id="primary-navigation"
       aria-label="Navigation principale"
     >
       <div className="app-sidebar__brand">
@@ -88,7 +89,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 ? "Gestion d'établissement"
                 : db.schoolConfig.name}
             </div>
-            <div className="app-sidebar__location">Logiciel local · Madagascar</div>
+            <div className="app-sidebar__location">Gestion scolaire · Madagascar</div>
           </div>
         )}
       </div>
@@ -106,7 +107,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   type="button"
                   onClick={() => onSelectTab(item.id)}
                   className={`app-sidebar__item ${active ? 'is-active' : ''}`}
-                  title={isCollapsed ? item.label : undefined}
+                  title={item.label}
+                  aria-label={item.label}
+                  aria-current={active ? 'page' : undefined}
                 >
                   <Icon className="w-[17px] h-[17px] shrink-0" />
                   {!isCollapsed && (
@@ -130,6 +133,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           onClick={onToggleCollapse}
           className="app-sidebar__collapse"
           title={isCollapsed ? 'Déployer la navigation' : 'Réduire la navigation'}
+          aria-label={isCollapsed ? 'Déployer la navigation' : 'Réduire la navigation'}
+          aria-expanded={!isCollapsed}
         >
           {isCollapsed ? (
             <PanelLeftOpen className="w-4 h-4" />
