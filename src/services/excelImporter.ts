@@ -130,7 +130,7 @@ export class ExcelImportService {
         'RAKOTO',
         'Aina',
         'F',
-        '15/03/2012',
+        '15-03-2012',
         'Antananarivo',
         db.classes[0]?.code || '6EME_A',
         'Malgache',
@@ -171,7 +171,7 @@ export class ExcelImportService {
       ['3. Sexe accepté : M ou F.'],
       ['4. Classe : utilisez le code ou le nom exact affiché dans la feuille "Classes disponibles".'],
       ['5. Matricule peut rester vide : Sekoly le génèrera automatiquement.'],
-      ['6. Date de naissance : JJ/MM/AAAA ou AAAA-MM-JJ.'],
+      ['6. Date de naissance : JJ-MM-AAAA (ex. 15-03-2012). Les anciens formats restent acceptés.'],
       ['7. Les lignes invalides seront affichées avant import et ne seront pas enregistrées.'],
     ]);
     XLSX.utils.book_append_sheet(workbook, instructions, 'Instructions');
