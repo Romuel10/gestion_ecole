@@ -49,6 +49,7 @@ const normalizedIdentity = (value?: string) =>
 interface RegistrationViewProps {
   db: DatabaseSchema;
   onUpdateDb: (updated: DatabaseSchema) => void;
+  onConfigureSchool: () => void;
   onShowToast: (message: string, type?: 'success' | 'error' | 'info') => void;
 }
 
@@ -56,6 +57,7 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
   db,
   onUpdateDb,
   onShowToast,
+  onConfigureSchool,
 }) => {
   const [activeTab, setActiveTab] = useState<
     'NEW_ADMISSION' | 'RE_REGISTRATION' | 'ONLINE' | 'LOG'
@@ -67,7 +69,7 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
     lastName: '',
     firstName: '',
     gender: 'M' as 'M' | 'F',
-    birthDate: '2008-01-15',
+    birthDate: '',
     birthPlace: 'Antananarivo',
     nationality: 'Malgache',
     address: '',
@@ -217,8 +219,8 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
     let updatedTransactions = [...db.cashTransactions];
     let newPaymentObj: TuitionPayment | null = null;
 
-    if (formData.payFeeNow) {
-      const regFee = selectedClass.registrationFee || 100000;
+    if (formData.payFeeNow && (selectedClass.registrationFee ?? 0) > 0) {
+      const regFee = selectedClass?.registrationFee ?? 0;
       const discount = Math.max(0, Number(formData.discount || 0));
       if (discount > regFee) {
         onShowToast('La remise ne peut pas dépasser le droit d’inscription.', 'error');
@@ -426,7 +428,7 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
       lastName: '',
       firstName: '',
       gender: 'M',
-      birthDate: '2008-01-15',
+      birthDate: '',
       birthPlace: 'Antananarivo',
       nationality: 'Malgache',
       address: '',
@@ -504,7 +506,7 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
       return;
     }
 
-    const reRegFee = targetClass.reRegistrationFee || 80000;
+    const reRegFee = targetClass.reRegistrationFee ?? 0;
     if (reRegFee <= 0) {
       onShowToast('Le droit de réinscription doit être supérieur à 0.', 'error');
       return;
@@ -780,6 +782,14 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
 
   const classMap = new Map(db.classes.map((c) => [c.id, c.name]));
 
+  if (db.classes.length === 0) return (
+    <section className="page-panel p-6 space-y-3">
+      <h2 className="text-lg font-semibold">Préparez votre première inscription</h2>
+      <p>Ajoutez d’abord les classes de l’établissement dans Paramètres → Classes, puis définissez leurs capacités et leurs frais.</p>
+      <button type="button" className="button button--primary" onClick={onConfigureSchool}>Ouvrir les paramètres</button>
+    </section>
+  );
+
   return (
     <div className="space-y-6">
       <div className="page-panel p-2 flex flex-wrap items-center gap-1">
@@ -845,10 +855,10 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    <label htmlFor="admission-field-1" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                       Nom de famille (Fianakaviana) *
                     </label>
-                    <input
+                    <input id="admission-field-1"
                       type="text"
                       required
                       placeholder="Ex: RAKOTOMALALA"
@@ -859,10 +869,10 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    <label htmlFor="admission-field-2" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                       Prénoms (Fanampin'anarana) *
                     </label>
-                    <input
+                    <input id="admission-field-2"
                       type="text"
                       required
                       placeholder="Ex: Andry Sitraka"
@@ -873,10 +883,10 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    <label htmlFor="admission-field-3" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                       Sexe *
                     </label>
-                    <select
+                    <select id="admission-field-3"
                       value={formData.gender}
                       onChange={(e) => setFormData({ ...formData, gender: e.target.value as 'M' | 'F' })}
                       className="w-full text-xs px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -887,10 +897,10 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    <label htmlFor="admission-field-4" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                       Date de Naissance *
                     </label>
-                    <input
+                    <input id="admission-field-4"
                       type="date"
                       required
                       value={formData.birthDate}
@@ -900,10 +910,10 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    <label htmlFor="admission-field-5" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                       Lieu de Naissance *
                     </label>
-                    <input
+                    <input id="admission-field-5"
                       type="text"
                       required
                       placeholder="Ex: Maternité Befelatanana, Antananarivo"
@@ -914,10 +924,10 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    <label htmlFor="admission-field-6" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                       Nationalité
                     </label>
-                    <input
+                    <input id="admission-field-6"
                       type="text"
                       value={formData.nationality}
                       onChange={(e) => setFormData({ ...formData, nationality: e.target.value })}
@@ -928,10 +938,10 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
                   <div className="sm:col-span-2">
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    <label htmlFor="admission-field-7" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                       Adresse Résidentielle & Lot *
                     </label>
-                    <input
+                    <input id="admission-field-7"
                       type="text"
                       placeholder="Ex: Lot IV B 25, Ankadifotsy"
                       value={formData.address}
@@ -941,10 +951,10 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    <label htmlFor="admission-field-8" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                       Fokontany / Ville
                     </label>
-                    <input
+                    <input id="admission-field-8"
                       type="text"
                       placeholder="Ex: Mahamasina, Antananarivo"
                       value={formData.city}
@@ -956,10 +966,10 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-3 border-t border-slate-100 dark:border-slate-800">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    <label htmlFor="admission-field-9" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                       N° acte de naissance
                     </label>
-                    <input
+                    <input id="admission-field-9"
                       type="text"
                       value={formData.birthCertificateNumber}
                       onChange={(e) =>
@@ -970,10 +980,10 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    <label htmlFor="admission-field-10" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                       Date de l'acte
                     </label>
-                    <input
+                    <input id="admission-field-10"
                       type="date"
                       value={formData.birthCertificateDate}
                       onChange={(e) =>
@@ -983,10 +993,10 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    <label htmlFor="admission-field-11" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                       Lieu de délivrance
                     </label>
-                    <input
+                    <input id="admission-field-11"
                       type="text"
                       value={formData.birthCertificatePlace}
                       onChange={(e) =>
@@ -1008,10 +1018,10 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    <label htmlFor="admission-field-12" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                       Nom complet du Père
                     </label>
-                    <input
+                    <input id="admission-field-12"
                       type="text"
                       placeholder="Ex: RAKOTOMALALA Henri"
                       value={formData.fatherName}
@@ -1021,10 +1031,10 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    <label htmlFor="admission-field-13" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                       Téléphone Père (Mobile / MVola)
                     </label>
-                    <input
+                    <input id="admission-field-13"
                       type="text"
                       placeholder="+261 34 00 000 00"
                       value={formData.fatherPhone}
@@ -1034,10 +1044,10 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    <label htmlFor="admission-field-14" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                       Nom complet de la Mère
                     </label>
-                    <input
+                    <input id="admission-field-14"
                       type="text"
                       placeholder="Ex: RAZANAMPARANY Hanta"
                       value={formData.motherName}
@@ -1047,10 +1057,10 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    <label htmlFor="admission-field-15" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                       Téléphone Mère (Mobile / OM)
                     </label>
-                    <input
+                    <input id="admission-field-15"
                       type="text"
                       placeholder="+261 33 00 000 00"
                       value={formData.motherPhone}
@@ -1207,10 +1217,10 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-slate-100 dark:border-slate-800">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    <label htmlFor="admission-field-16" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                       Contact d'Urgence Prioritaire
                     </label>
-                    <input
+                    <input id="admission-field-16"
                       type="text"
                       placeholder="Ex: Mme RAZANAMPARANY Hanta (Mère)"
                       value={formData.emergencyContact}
@@ -1220,10 +1230,10 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    <label htmlFor="admission-field-17" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                       Téléphone d'Urgence Direct
                     </label>
-                    <input
+                    <input id="admission-field-17"
                       type="text"
                       placeholder="+261 34 00 000 00"
                       value={formData.emergencyPhone}
@@ -1245,10 +1255,10 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  <label htmlFor="admission-field-18" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                     Classe d'affectation *
                   </label>
-                  <select
+                  <select id="admission-field-18"
                     value={formData.classId}
                     onChange={(e) => setFormData({ ...formData, classId: e.target.value })}
                     className="w-full text-xs px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-bold"
@@ -1276,10 +1286,10 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  <label htmlFor="admission-field-19" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                     Établissement d'origine (Passage / Transfert)
                   </label>
-                  <input
+                  <input id="admission-field-19"
                     type="text"
                     placeholder="Ex: Collège Saint-Joseph Antsirabe"
                     value={formData.previousSchool}
@@ -1302,7 +1312,7 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
                       Encaisser les droits immédiatement
                     </span>
                     <span className="text-[11px] text-slate-400">
-                      Montant fixé : {CalculationService.formatAriary(selectedClass.registrationFee || 100000)}
+                      Montant fixé : {CalculationService.formatAriary(selectedClass?.registrationFee ?? 0)}
                     </span>
                   </div>
                   <input
@@ -1316,10 +1326,10 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
                 {formData.payFeeNow && (
                   <div className="space-y-3 pt-1">
                     <div>
-                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      <label htmlFor="admission-field-20" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                         Remise / réduction (Ariary)
                       </label>
-                      <input
+                      <input id="admission-field-20"
                         type="number"
                         min="0"
                         step="500"
@@ -1332,7 +1342,7 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
                           Net à encaisser : {CalculationService.formatAriary(
                             Math.max(
                               0,
-                              (selectedClass.registrationFee || 100000) - Number(formData.discount || 0)
+                              (selectedClass?.registrationFee ?? 0) - Number(formData.discount || 0)
                             )
                           )}
                         </div>
@@ -1340,10 +1350,10 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      <label htmlFor="admission-field-21" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                         Mode de Règlement *
                       </label>
-                      <select
+                      <select id="admission-field-21"
                         value={formData.paymentMethod}
                         onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value as PaymentMethod })}
                         className="w-full text-xs px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500"
@@ -1358,10 +1368,10 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      <label htmlFor="admission-field-22" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                         Référence / N° Transaction
                       </label>
-                      <input
+                      <input id="admission-field-22"
                         type="text"
                         placeholder="Ex: TXN-MV-993812 / N° Chèque"
                         value={formData.referenceNumber}
@@ -1459,10 +1469,10 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  <label htmlFor="admission-field-23" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                     Nouvelle Classe de Passage *
                   </label>
-                  <select
+                  <select id="admission-field-23"
                     value={targetClassId}
                     onChange={(e) => setTargetClassId(e.target.value)}
                     className="w-full text-xs px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold"
@@ -1476,10 +1486,10 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  <label htmlFor="admission-field-24" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                     Mode de Règlement *
                   </label>
-                  <select
+                  <select id="admission-field-24"
                     value={reRegPayMethod}
                     onChange={(e) => setReRegPayMethod(e.target.value as PaymentMethod)}
                     className="w-full text-xs px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -1494,10 +1504,10 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  <label htmlFor="admission-field-25" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                     Référence de Paiement
                   </label>
-                  <input
+                  <input id="admission-field-25"
                     type="text"
                     placeholder="Ex: Réf MVola / Chèque"
                     value={reRegReference}

@@ -1137,7 +1137,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
   };
 
   const resetDefaults = () => {
-    if (!window.confirm('Réinitialiser toutes les données avec le jeu de démonstration ?')) return;
+    if (!window.confirm('Supprimer toutes les données locales et revenir à une installation vide ? Exportez une sauvegarde avant de continuer.')) return;
     const reset = StorageService.resetToDefault();
     onUpdateDb(reset);
     setSchoolConfig(reset.schoolConfig);

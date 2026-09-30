@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
+import { useDialog } from '../../hooks/useDialog';
 import { Search, X, ArrowRight } from 'lucide-react';
 import { DatabaseSchema } from '../../types/school';
 import { NavTab } from './Sidebar';
@@ -16,6 +18,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   db,
   onNavigate,
 }) => {
+  const dialogRef = useDialog(isOpen, onClose);
   const [query, setQuery] = useState('');
   const [highlightedIndex, setHighlightedIndex] = useState(0);
   const q0 = query.trim().toLowerCase();
@@ -80,11 +83,11 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   };
 
   useEffect(() => {
+    if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
         if (isOpen) onClose();
-        else setQuery('');
       }
       if (e.key === 'Escape' && isOpen) {
         onClose();
@@ -138,7 +141,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       ? 'w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs bg-blue-50 dark:bg-blue-950/40 ring-1 ring-blue-300 dark:ring-blue-700 transition text-left group'
       : 'w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs hover:bg-slate-100 dark:hover:bg-slate-800/80 transition text-left group';
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-16 sm:pt-24 px-4 overflow-y-auto">
       {/* Backdrop */}
       <div
@@ -147,13 +150,14 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       />
 
       {/* Palette Box */}
-      <div className="relative w-full max-w-2xl bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden z-10 animate-in fade-in zoom-in-95 duration-100">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Recherche globale" tabIndex={-1} className="relative w-full max-w-2xl bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden z-10 animate-in fade-in zoom-in-95 duration-100">
         {/* Search Input Bar */}
         <div className="flex items-center px-4 py-3 border-b border-slate-200 dark:border-slate-800">
           <Search className="w-5 h-5 text-slate-400 mr-3 flex-shrink-0" />
           <input
             type="text"
-            autoFocus
+            aria-label="Rechercher dans l’établissement"
+            data-dialog-autofocus
             value={query}
             onChange={(e) => handleQueryChange(e.target.value)}
             placeholder="Rechercher élève par nom/matricule, enseignant, classe, reçu..."
@@ -161,6 +165,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
           />
           {query && (
             <button
+              aria-label="Effacer la recherche"
               onClick={() => handleQueryChange('')}
               className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
             >
@@ -355,6 +360,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
           </kbd>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

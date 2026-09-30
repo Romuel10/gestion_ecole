@@ -37,3 +37,9 @@ dist-ssr
 apps/teacher-mobile/.expo/
 apps/teacher-mobile/dist/
 apps/teacher-mobile/.eas/
+
+# Release validation outputs
+test-results/
+playwright-report/
+src-tauri/target/
+src-tauri/icons/

@@ -43,7 +43,6 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
           </button>
           <button
             onClick={onConfirm}
-            autoFocus
             className={`px-4 py-2 text-xs font-semibold rounded-xl text-white shadow-md transition active:scale-95 ${
               destructive
                 ? 'bg-rose-600 hover:bg-rose-700 shadow-rose-600/20'

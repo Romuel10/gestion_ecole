@@ -31,6 +31,7 @@ interface FinancesManagerViewProps {
   onUpdateDb: (updated: DatabaseSchema) => void;
   onShowToast: (msg: string, type?: 'success' | 'error' | 'info') => void;
   initialAction?: 'NEW_PAYMENT';
+  onInitialActionHandled?: () => void;
   initialPaymentId?: string;
 }
 
@@ -39,6 +40,7 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
   onUpdateDb,
   onShowToast,
   initialAction,
+  onInitialActionHandled,
   initialPaymentId,
 }) => {
   const [activeTab, setActiveTab] = useState<'TUITION_GRID' | 'PAYMENTS_HISTORY' | 'PAYROLL' | 'TREASURY' | 'CASH_CLOSING'>('TUITION_GRID');
@@ -188,8 +190,9 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
   useEffect(() => {
     if (initialAction === 'NEW_PAYMENT') {
       setIsNewPaymentModalOpen(true);
+      onInitialActionHandled?.();
     }
-  }, [initialAction]);
+  }, [initialAction, onInitialActionHandled]);
 
   useEffect(() => {
     if (
@@ -584,16 +587,16 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
       {activeTab === 'TUITION_GRID' && (
         <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
-            <div className="flex items-center space-x-3">
-              <Calendar className="w-5 h-5 text-blue-600" />
-              <div>
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">
+            <div className="flex items-center gap-3 min-w-0">
+              <Calendar className="w-5 h-5 text-blue-600 shrink-0" />
+              <div className="min-w-0 flex-1">
+                <label htmlFor="finance-field-1" className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">
                   Sélectionner la classe à pointer
                 </label>
-                <select
+                <select id="finance-field-1"
                   value={selectedClassId}
                   onChange={(e) => setSelectedClassId(e.target.value)}
-                  className="text-sm font-extrabold px-3 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-sans"
+                  className="w-full max-w-full text-sm font-extrabold px-3 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-sans"
                 >
                   {db.classes.map((cls) => (
                     <option key={cls.id} value={cls.id}>
@@ -1192,8 +1195,8 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
       >
         <form onSubmit={handleSubmitTuition} className="space-y-4 text-xs">
           <div>
-            <label className="block font-semibold mb-1">Sélectionner l'Élève *</label>
-            <select
+            <label htmlFor="finance-field-2" className="block font-semibold mb-1">Sélectionner l'Élève *</label>
+            <select id="finance-field-2"
               value={tuitionForm.studentId}
               onChange={(e) => handleStudentSelectInModal(e.target.value)}
               className="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-bold"
@@ -1210,8 +1213,8 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block font-semibold mb-1">Type de Frais</label>
-              <select
+              <label htmlFor="finance-field-3" className="block font-semibold mb-1">Type de Frais</label>
+              <select id="finance-field-3"
                 value={tuitionForm.feeType}
                 onChange={(e) =>
                   setTuitionForm({
@@ -1230,8 +1233,8 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
             </div>
 
             <div>
-              <label className="block font-semibold mb-1">Mois Concerné</label>
-              <select
+              <label htmlFor="finance-field-4" className="block font-semibold mb-1">Mois Concerné</label>
+              <select id="finance-field-4"
                 value={tuitionForm.monthTarget}
                 onChange={(e) => setTuitionForm({ ...tuitionForm, monthTarget: e.target.value })}
                 className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-medium"
@@ -1245,8 +1248,8 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
             </div>
 
             <div>
-              <label className="block font-semibold mb-1">Montant brut / demandé (Ariary) *</label>
-              <input
+              <label htmlFor="finance-field-5" className="block font-semibold mb-1">Montant brut / demandé (Ariary) *</label>
+              <input id="finance-field-5"
                 type="number"
                 min="0"
                 step="500"
@@ -1258,8 +1261,8 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
             </div>
 
             <div>
-              <label className="block font-semibold mb-1">Remise / réduction (Ariary)</label>
-              <input
+              <label htmlFor="finance-field-6" className="block font-semibold mb-1">Remise / réduction (Ariary)</label>
+              <input id="finance-field-6"
                 type="number"
                 min="0"
                 step="500"
@@ -1270,8 +1273,8 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
             </div>
 
             <div>
-              <label className="block font-semibold mb-1">Mode de Règlement *</label>
-              <select
+              <label htmlFor="finance-field-7" className="block font-semibold mb-1">Mode de Règlement *</label>
+              <select id="finance-field-7"
                 value={tuitionForm.paymentMethod}
                 onChange={(e) => setTuitionForm({ ...tuitionForm, paymentMethod: e.target.value as PaymentMethod })}
                 className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
@@ -1286,8 +1289,8 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
             </div>
 
             <div>
-              <label className="block font-semibold mb-1">Payeur (Nom du déposant)</label>
-              <input
+              <label htmlFor="finance-field-8" className="block font-semibold mb-1">Payeur (Nom du déposant)</label>
+              <input id="finance-field-8"
                 type="text"
                 value={tuitionForm.payerName}
                 onChange={(e) => setTuitionForm({ ...tuitionForm, payerName: e.target.value })}
@@ -1297,8 +1300,8 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
             </div>
 
             <div>
-              <label className="block font-semibold mb-1">Réf / N° Transaction</label>
-              <input
+              <label htmlFor="finance-field-9" className="block font-semibold mb-1">Réf / N° Transaction</label>
+              <input id="finance-field-9"
                 type="text"
                 value={tuitionForm.referenceNumber}
                 onChange={(e) => setTuitionForm({ ...tuitionForm, referenceNumber: e.target.value })}
@@ -1371,8 +1374,8 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
       >
         <form onSubmit={handleSubmitSalary} className="space-y-4 text-xs">
           <div>
-            <label className="block font-semibold mb-1">Sélectionner l'Enseignant *</label>
-            <select
+            <label htmlFor="finance-field-10" className="block font-semibold mb-1">Sélectionner l'Enseignant *</label>
+            <select id="finance-field-10"
               value={salaryForm.teacherId}
               onChange={(e) => setSalaryForm({ ...salaryForm, teacherId: e.target.value })}
               className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-bold"
@@ -1391,8 +1394,8 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block font-semibold mb-1">Mois de rémunération</label>
-              <input
+              <label htmlFor="finance-field-11" className="block font-semibold mb-1">Mois de rémunération</label>
+              <input id="finance-field-11"
                 type="text"
                 value={salaryForm.month}
                 onChange={(e) => setSalaryForm({ ...salaryForm, month: e.target.value })}
@@ -1401,8 +1404,8 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
             </div>
 
             <div>
-              <label className="block font-semibold mb-1">Heures effectuées (si Vacataire)</label>
-              <input
+              <label htmlFor="finance-field-12" className="block font-semibold mb-1">Heures effectuées (si Vacataire)</label>
+              <input id="finance-field-12"
                 type="number"
                 min="0"
                 value={salaryForm.hoursWorked}
@@ -1412,8 +1415,8 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
             </div>
 
             <div>
-              <label className="block font-semibold mb-1">Avances / Acomptes déduits</label>
-              <input
+              <label htmlFor="finance-field-13" className="block font-semibold mb-1">Avances / Acomptes déduits</label>
+              <input id="finance-field-13"
                 type="number"
                 min="0"
                 value={salaryForm.advances}
@@ -1423,8 +1426,8 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
             </div>
 
             <div>
-              <label className="block font-semibold mb-1">Primes / Indemnités</label>
-              <input
+              <label htmlFor="finance-field-14" className="block font-semibold mb-1">Primes / Indemnités</label>
+              <input id="finance-field-14"
                 type="number"
                 min="0"
                 value={salaryForm.bonuses}
@@ -1434,8 +1437,8 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
             </div>
 
             <div>
-              <label className="block font-semibold mb-1">Mode de Règlement</label>
-              <select
+              <label htmlFor="finance-field-15" className="block font-semibold mb-1">Mode de Règlement</label>
+              <select id="finance-field-15"
                 value={salaryForm.paymentMethod}
                 onChange={(e) => setSalaryForm({ ...salaryForm, paymentMethod: e.target.value as PaymentMethod })}
                 className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
@@ -1449,8 +1452,8 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
             </div>
 
             <div>
-              <label className="block font-semibold mb-1">Réf Virement / Transaction</label>
-              <input
+              <label htmlFor="finance-field-16" className="block font-semibold mb-1">Réf Virement / Transaction</label>
+              <input id="finance-field-16"
                 type="text"
                 value={salaryForm.referenceNumber}
                 onChange={(e) => setSalaryForm({ ...salaryForm, referenceNumber: e.target.value })}
@@ -1481,8 +1484,8 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
         <form onSubmit={handleSubmitTransaction} className="space-y-4 text-xs">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block font-semibold mb-1">Type d'opération</label>
-              <select
+              <label htmlFor="finance-field-17" className="block font-semibold mb-1">Type d'opération</label>
+              <select id="finance-field-17"
                 value={txForm.type}
                 onChange={(e) =>
                   setTxForm({
@@ -1498,8 +1501,8 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
             </div>
 
             <div>
-              <label className="block font-semibold mb-1">Montant en Ariary *</label>
-              <input
+              <label htmlFor="finance-field-18" className="block font-semibold mb-1">Montant en Ariary *</label>
+              <input id="finance-field-18"
                 type="number"
                 min="0"
                 required
@@ -1511,8 +1514,8 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
           </div>
 
           <div>
-            <label className="block font-semibold mb-1">Catégorie Comptable</label>
-            <select
+            <label htmlFor="finance-field-19" className="block font-semibold mb-1">Catégorie Comptable</label>
+            <select id="finance-field-19"
               value={txForm.category}
               onChange={(e) => setTxForm({ ...txForm, category: e.target.value })}
               className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
@@ -1539,8 +1542,8 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
           </div>
 
           <div>
-            <label className="block font-semibold mb-1">Bénéficiaire / Tiers</label>
-            <input
+            <label htmlFor="finance-field-20" className="block font-semibold mb-1">Bénéficiaire / Tiers</label>
+            <input id="finance-field-20"
               type="text"
               required
               value={txForm.beneficiaryOrPayer}
@@ -1551,8 +1554,8 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
           </div>
 
           <div>
-            <label className="block font-semibold mb-1">Description / Motif</label>
-            <textarea
+            <label htmlFor="finance-field-21" className="block font-semibold mb-1">Description / Motif</label>
+            <textarea id="finance-field-21"
               rows={2}
               value={txForm.description}
               onChange={(e) => setTxForm({ ...txForm, description: e.target.value })}

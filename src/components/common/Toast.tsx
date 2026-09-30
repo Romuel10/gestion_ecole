@@ -14,7 +14,7 @@ interface ToastProps {
 
 export const ToastContainer: React.FC<ToastProps> = ({ toasts, onRemove }) => {
   return (
-    <div className="fixed bottom-4 right-4 z-50 flex flex-col space-y-2 max-w-sm w-full pointer-events-none">
+    <div className="fixed bottom-4 right-4 z-50 flex flex-col space-y-2 max-w-sm w-[calc(100%-2rem)] pointer-events-none">
       {toasts.map((toast) => (
         <ToastItem key={toast.id} toast={toast} onRemove={onRemove} />
       ))}
@@ -48,6 +48,7 @@ const ToastItem: React.FC<{ toast: ToastMessage; onRemove: (id: string) => void 
 
   return (
     <div
+      role={toast.type === 'error' ? 'alert' : 'status'}
       className={`pointer-events-auto flex items-center justify-between p-3.5 rounded-xl border backdrop-blur-md shadow-xl text-xs font-medium animate-in slide-in-from-bottom-5 duration-150 ${styles[toast.type]}`}
     >
       <div className="flex items-center space-x-2.5">
@@ -55,6 +56,7 @@ const ToastItem: React.FC<{ toast: ToastMessage; onRemove: (id: string) => void 
         <span>{toast.text}</span>
       </div>
       <button
+        aria-label="Fermer la notification"
         onClick={() => onRemove(toast.id)}
         className="ml-3 p-1 rounded-md text-white/70 hover:text-white hover:bg-white/10"
       >

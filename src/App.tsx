@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { DatabaseSchema } from './types/school';
 import { StorageService } from './services/storage';
 import { Sidebar, NavTab } from './components/layout/Sidebar';
@@ -6,32 +6,46 @@ import { Header } from './components/layout/Header';
 import { CommandPalette } from './components/layout/CommandPalette';
 import { ToastContainer, ToastMessage } from './components/common/Toast';
 import { DashboardHome } from './components/dashboard/DashboardHome';
-import { RegistrationView } from './components/admissions/RegistrationView';
-import { StudentListView } from './components/students/StudentListView';
-import { GradesAndReportCardsView } from './components/academics/GradesAndReportCardsView';
-import { FinancesManagerView } from './components/finances/FinancesManagerView';
-import { TimetableView } from './components/schedule/TimetableView';
-import { AttendanceManagerView } from './components/attendance/AttendanceManagerView';
-import { TeachersManagerView } from './components/teachers/TeachersManagerView';
-import { GeneralSettingsView } from './components/settings/GeneralSettingsView';
 import { CloudSyncService } from './services/cloudSync';
+import { StartupScreen } from './components/startup/StartupScreen';
+import { ViewErrorBoundary } from './components/common/ViewErrorBoundary';
+
+const RegistrationView = lazy(() => import('./components/admissions/RegistrationView').then((module) => ({ default: module.RegistrationView })));
+const StudentListView = lazy(() => import('./components/students/StudentListView').then((module) => ({ default: module.StudentListView })));
+const GradesAndReportCardsView = lazy(() => import('./components/academics/GradesAndReportCardsView').then((module) => ({ default: module.GradesAndReportCardsView })));
+const FinancesManagerView = lazy(() => import('./components/finances/FinancesManagerView').then((module) => ({ default: module.FinancesManagerView })));
+const TimetableView = lazy(() => import('./components/schedule/TimetableView').then((module) => ({ default: module.TimetableView })));
+const AttendanceManagerView = lazy(() => import('./components/attendance/AttendanceManagerView').then((module) => ({ default: module.AttendanceManagerView })));
+const TeachersManagerView = lazy(() => import('./components/teachers/TeachersManagerView').then((module) => ({ default: module.TeachersManagerView })));
+const GeneralSettingsView = lazy(() => import('./components/settings/GeneralSettingsView').then((module) => ({ default: module.GeneralSettingsView })));
 
 export function App() {
   const [db, setDb] = useState<DatabaseSchema>(() => StorageService.loadDatabase());
   const [currentTab, setCurrentTab] = useState<NavTab>('dashboard');
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => window.matchMedia('(max-width: 900px)').matches);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [selectedEntityId, setSelectedEntityId] = useState<string | undefined>();
+  const [navigationRevision, setNavigationRevision] = useState(0);
   const [pendingFinanceAction, setPendingFinanceAction] = useState<'NEW_PAYMENT' | null>(null);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const dbRef = useRef(db);
+  const [databaseReady, setDatabaseReady] = useState(false);
+  const [startupError, setStartupError] = useState('');
+  const [showStartup, setShowStartup] = useState(true);
+  const showToast = useCallback((text: string, type: 'success' | 'error' | 'info' = 'info') => {
+    setToasts((current) => [...current, { id: crypto.randomUUID(), text, type }]);
+  }, []);
+  const removeToast = useCallback((id: string) => {
+    setToasts((current) => current.filter((toast) => toast.id !== id));
+  }, []);
 
   useEffect(() => {
     dbRef.current = db;
   }, [db]);
 
   const [isDark, setIsDark] = useState<boolean>(() => {
-    const stored = localStorage.getItem('SEKOLY_THEME');
+    let stored: string | null = null;
+    try { stored = localStorage.getItem('SEKOLY_THEME'); } catch { /* Browser storage may be unavailable. */ }
     if (stored === 'dark') return true;
     if (stored === 'light') return false;
     return window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -41,7 +55,14 @@ export function App() {
     let mounted = true;
 
     StorageService.hydrateDesktopDatabase().then((desktopDb) => {
-      if (mounted && desktopDb) setDb(desktopDb);
+      if (!mounted) return;
+      if (desktopDb) {
+        dbRef.current = desktopDb;
+        setDb(desktopDb);
+      }
+      setDatabaseReady(true);
+    }).catch((error: unknown) => {
+      if (mounted) setStartupError(error instanceof Error ? error.message : 'Chargement impossible.');
     });
 
     return () => {
@@ -51,10 +72,11 @@ export function App() {
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', isDark);
-    localStorage.setItem('SEKOLY_THEME', isDark ? 'dark' : 'light');
+    try { localStorage.setItem('SEKOLY_THEME', isDark ? 'dark' : 'light'); } catch { /* The current theme still works for this session. */ }
   }, [isDark]);
 
   useEffect(() => {
+    if (!databaseReady) return;
     let cancelled = false;
     let running = false;
 
@@ -125,24 +147,19 @@ export function App() {
       window.clearInterval(timer);
       window.removeEventListener('online', resumeAfterReconnect);
     };
-  }, []);
-
-
-
-  const showToast = (text: string, type: 'success' | 'error' | 'info' = 'info') => {
-    setToasts((current) => [
-      ...current,
-      { id: `toast-${Date.now()}-${Math.random()}`, text, type },
-    ]);
-  };
+  }, [databaseReady, showToast]);
 
   const handleNavigate = (tab: NavTab, entityId?: string) => {
+    if (window.matchMedia('(max-width: 900px)').matches) setIsSidebarCollapsed(true);
     setCurrentTab(tab);
     setSelectedEntityId(entityId);
+    if (entityId) setNavigationRevision((revision) => revision + 1);
     if (tab !== 'finances') setPendingFinanceAction(null);
   };
 
   const handleQuickAction = (action: 'NEW_STUDENT' | 'NEW_PAYMENT' | 'NEW_GRADE') => {
+    setSelectedEntityId(undefined);
+    if (window.matchMedia('(max-width: 900px)').matches) setIsSidebarCollapsed(true);
     if (action === 'NEW_STUDENT') {
       setPendingFinanceAction(null);
       setCurrentTab('admissions');
@@ -157,7 +174,11 @@ export function App() {
 
   useEffect(() => {
     const handleShortcut = (event: KeyboardEvent) => {
-      if (!(event.ctrlKey || event.metaKey)) return;
+      if (!databaseReady || showStartup || event.defaultPrevented || !(event.ctrlKey || event.metaKey)) return;
+      // Never navigate away from a form or a dialog through a global shortcut.
+      const inDialog = document.querySelector('[role="dialog"][aria-modal="true"]');
+      const editing = event.target instanceof HTMLElement && Boolean(event.target.closest('input, textarea, select, [contenteditable="true"]'));
+      if (inDialog || (editing && event.key.toLowerCase() !== 'k')) return;
       const key = event.key.toLowerCase();
 
       if (key === 'k') {
@@ -176,17 +197,15 @@ export function App() {
 
     window.addEventListener('keydown', handleShortcut);
     return () => window.removeEventListener('keydown', handleShortcut);
-  }, []);
+  }, [databaseReady, showStartup]);
 
-  useEffect(() => {
-    if (currentTab === 'finances' && pendingFinanceAction) {
-      const timer = window.setTimeout(() => setPendingFinanceAction(null), 0);
-      return () => window.clearTimeout(timer);
-    }
-  }, [currentTab, pendingFinanceAction]);
+  if (showStartup) {
+    return <StartupScreen ready={databaseReady} error={startupError} onFinish={() => setShowStartup(false)} />;
+  }
 
   return (
     <div className="app-shell">
+      {!isSidebarCollapsed && <button className="sidebar-backdrop" aria-label="Fermer la navigation" onClick={() => setIsSidebarCollapsed(true)} />}
       <Sidebar
         currentTab={currentTab}
         onSelectTab={(tab) => handleNavigate(tab)}
@@ -202,25 +221,28 @@ export function App() {
           currentTab={currentTab}
           isDark={isDark}
           onToggleTheme={() => setIsDark((value) => !value)}
+          sidebarExpanded={!isSidebarCollapsed}
           onToggleSidebar={() => setIsSidebarCollapsed((value) => !value)}
           onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
           onQuickAction={handleQuickAction}
         />
 
-        <main className="app-main">
+        <main className="app-main" id="main-content" key={`${currentTab}-${db.currentSchoolYearId}-${navigationRevision}`}>
           <div className="app-content">
+            <ViewErrorBoundary key={`${currentTab}-${db.currentSchoolYearId}-${navigationRevision}`}>
+            <Suspense fallback={<div className="page-panel p-6" role="status">Ouverture du module…</div>}>
             {currentTab === 'dashboard' && (
               <DashboardHome db={db} onNavigate={handleNavigate} />
             )}
             {currentTab === 'admissions' && (
-              <RegistrationView db={db} onUpdateDb={setDb} onShowToast={showToast} />
+              <RegistrationView db={db} onUpdateDb={setDb} onShowToast={showToast} onConfigureSchool={() => handleNavigate('settings')} />
             )}
             {currentTab === 'students' && (
               <StudentListView
                 db={db}
                 onUpdateDb={setDb}
                 onShowToast={showToast}
-                onOpenNewAdmission={() => setCurrentTab('admissions')}
+                onOpenNewAdmission={() => handleNavigate('admissions')}
                 initialSelectedStudentId={selectedEntityId}
               />
             )}
@@ -238,6 +260,7 @@ export function App() {
                 onUpdateDb={setDb}
                 onShowToast={showToast}
                 initialAction={pendingFinanceAction || undefined}
+                onInitialActionHandled={() => setPendingFinanceAction(null)}
                 initialPaymentId={selectedEntityId}
               />
             )}
@@ -258,6 +281,8 @@ export function App() {
             {currentTab === 'settings' && (
               <GeneralSettingsView db={db} onUpdateDb={setDb} onShowToast={showToast} />
             )}
+            </Suspense>
+            </ViewErrorBoundary>
           </div>
         </main>
       </div>
@@ -271,7 +296,7 @@ export function App() {
 
       <ToastContainer
         toasts={toasts}
-        onRemove={(id) => setToasts((current) => current.filter((toast) => toast.id !== id))}
+        onRemove={removeToast}
       />
     </div>
   );

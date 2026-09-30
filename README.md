@@ -4,6 +4,10 @@
 
 L'application reste utilisable en mode web pour le développement, mais la version destinée aux établissements est une application de bureau **Tauri + SQLite**. Aucun serveur, compte cloud ou abonnement n'est nécessaire.
 
+## Version 1.1.0
+
+Nouveau démarrage animé, identité Sekoly renouvelée, fenêtre Windows unique et corrections des interfaces. Voir [les notes de version et contrôles](docs/RELEASE_1.1.0.md). Les installateurs validés sont disponibles dans [Releases](https://github.com/Romuel10/gestion_ecole/releases).
+
 ## Principes
 
 - fonctionnement local et hors ligne ;

@@ -1,19 +1,23 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
   <title id="title">Sekoly</title>
-  <desc id="desc">Identité institutionnelle malgache pour un logiciel de gestion scolaire</desc>
+  <desc id="desc">Un livre ouvert sous les rayons d’un ravenala, aux couleurs de Madagascar.</desc>
   <defs>
-    <linearGradient id="navy" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#102f3a"/>
-      <stop offset="1" stop-color="#1b5360"/>
-    </linearGradient>
+    <linearGradient id="jade" x2="1" y2="1"><stop stop-color="#205b5c"/><stop offset="1" stop-color="#102f36"/></linearGradient>
+    <linearGradient id="paper" x2="0" y2="1"><stop stop-color="#ffffff"/><stop offset="1" stop-color="#dbe9e5"/></linearGradient>
   </defs>
-  <rect width="512" height="512" rx="88" fill="#f8faf8"/>
-  <circle cx="256" cy="256" r="194" fill="#fff" stroke="#173f49" stroke-width="18"/>
-  <path d="M99 256a157 157 0 0 1 157-157" fill="none" stroke="#c43a3a" stroke-width="24" stroke-linecap="round"/>
-  <path d="M256 99a157 157 0 0 1 157 157" fill="none" stroke="#f2f2ec" stroke-width="24" stroke-linecap="round"/>
-  <path d="M413 256a157 157 0 0 1-157 157 157 157 0 0 1-157-157" fill="none" stroke="#2f7a54" stroke-width="24" stroke-linecap="round"/>
-  <path d="M256 150c-18 22-28 46-28 74 0 15 4 29 11 42-21-11-42-18-64-18-18 0-35 5-51 14 24 2 47 11 66 27-18 1-35 7-50 17 31 2 59 14 82 35 8 7 15 16 21 25 5 8 8 17 10 26h7c2-9 5-18 10-26 6-9 13-18 21-25 23-21 51-33 82-35-15-10-32-16-50-17 19-16 42-25 66-27-16-9-33-14-51-14-22 0-43 7-64 18 7-13 11-27 11-42 0-28-10-52-29-74z" fill="url(#navy)"/>
-  <path d="M156 327c38-18 73-19 100-3v56c-29-15-63-14-100 4v-57zm200 0c-38-18-73-19-100-3v56c29-15 63-14 100 4v-57z" fill="#fff" stroke="#173f49" stroke-width="9" stroke-linejoin="round"/>
-  <path d="M256 324v57" stroke="#173f49" stroke-width="9"/>
-  <circle cx="256" cy="199" r="16" fill="#c43a3a"/>
+  <rect width="512" height="512" rx="112" fill="url(#jade)"/>
+  <rect x="24" y="24" width="464" height="464" rx="91" fill="none" stroke="#b3ccc1" stroke-opacity=".22" stroke-width="2"/>
+  <g fill="none" stroke="#d2b875" stroke-width="13" stroke-linecap="round">
+    <path d="M256 230V107M227 233l-39-111M201 247l-70-87M285 233l39-111M311 247l70-87"/>
+  </g>
+  <circle cx="256" cy="89" r="9" fill="#d2b875"/>
+  <path d="M108 263c57-18 104-11 148 16 44-27 91-34 148-16v118c-55-15-105-12-148 13-43-25-93-28-148-13z" fill="#0a242b"/>
+  <path d="M115 251c51-15 96-10 134 15v111c-38-24-83-29-134-14z" fill="url(#paper)"/>
+  <path d="M397 251c-51-15-96-10-134 15v111c38-24 83-29 134-14z" fill="url(#paper)"/>
+  <g fill="none" stroke="#658b84" stroke-width="5" stroke-linecap="round">
+    <path d="M141 283c29-5 54-2 81 9m-81 18c29-5 54-2 81 9m68-27c27-11 52-14 81-9m-81 36c27-11 52-14 81-9"/>
+  </g>
+  <path d="M218 432h25" stroke="#fff" stroke-width="8"/>
+  <path d="M243 432h26" stroke="#d35951" stroke-width="8"/>
+  <path d="M269 432h25" stroke="#5caa7c" stroke-width="8"/>
 </svg>

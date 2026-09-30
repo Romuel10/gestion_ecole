@@ -3,7 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Sekoly — Gestion locale d'établissement scolaire</title>
+    <title>Sekoly — Gestion d’établissement scolaire</title>
+    <meta name="theme-color" content="#102f36" />
     <link rel="icon" type="image/svg+xml" href="/sekoly-app.svg" />
   </head>
   <body class="overflow-hidden">
@@ -12,7 +13,8 @@
       // Applique le thème mémorisé (ou la préférence système) AVANT le premier rendu,
       // pour éviter un écran noir ou un flash au chargement en mode jour.
       (function () {
-        var stored = localStorage.getItem('SEKOLY_THEME');
+        var stored = null;
+        try { stored = localStorage.getItem('SEKOLY_THEME'); } catch (error) {}
         var dark = stored === 'dark' || (!stored && window.matchMedia('(prefers-color-scheme: dark)').matches);
         if (dark) document.documentElement.classList.add('dark');
       })();

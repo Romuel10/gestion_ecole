@@ -1,4 +1,6 @@
-import React, { useEffect } from 'react';
+import React, { useId } from 'react';
+import { createPortal } from 'react-dom';
+import { useDialog } from '../../hooks/useDialog';
 import { X } from 'lucide-react';
 
 interface ModalProps {
@@ -20,19 +22,9 @@ export const Modal: React.FC<ModalProps> = ({
   maxWidth = '2xl',
   actions,
 }) => {
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    if (isOpen) {
-      document.body.style.overflow = 'hidden';
-      window.addEventListener('keydown', handleKeyDown);
-    }
-    return () => {
-      document.body.style.overflow = 'unset';
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [isOpen, onClose]);
+  const titleId = useId();
+  const subtitleId = useId();
+  const dialogRef = useDialog(isOpen, onClose);
 
   if (!isOpen) return null;
 
@@ -47,8 +39,8 @@ export const Modal: React.FC<ModalProps> = ({
     '7xl': 'max-w-7xl',
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
+  return createPortal(
+    <div className="app-dialog-host fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
       {/* Backdrop */}
       <div
         className="fixed inset-0 bg-slate-950/45 transition-opacity"
@@ -57,21 +49,29 @@ export const Modal: React.FC<ModalProps> = ({
 
       {/* Modal Dialog Box */}
       <div
-        className={`relative w-full ${maxWidthClasses[maxWidth]} bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 flex flex-col max-h-[92vh] overflow-hidden z-10 animate-in fade-in zoom-in-95 duration-150`}
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={subtitle ? subtitleId : undefined}
+        tabIndex={-1}
+        className={`app-dialog relative w-full ${maxWidthClasses[maxWidth]} bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 flex flex-col max-h-[92dvh] overflow-hidden z-10 animate-in fade-in zoom-in-95 duration-150`}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
           <div>
-            <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
+            <h3 id={titleId} className="text-sm font-semibold text-slate-900 dark:text-white">
               {title}
             </h3>
             {subtitle && (
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              <p id={subtitleId} className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                 {subtitle}
               </p>
             )}
           </div>
           <button
+            type="button"
+            aria-label="Fermer"
             onClick={onClose}
             className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
           >
@@ -80,17 +80,18 @@ export const Modal: React.FC<ModalProps> = ({
         </div>
 
         {/* Content Body */}
-        <div className="p-6 overflow-y-auto space-y-4 text-slate-800 dark:text-slate-200">
+        <div className="app-dialog__content p-6 overflow-y-auto space-y-4 text-slate-800 dark:text-slate-200">
           {children}
         </div>
 
         {/* Footer Actions */}
         {actions && (
-          <div className="flex items-center justify-end space-x-3 px-5 py-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">
+          <div className="flex flex-wrap gap-3 items-center justify-end px-5 py-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">
             {actions}
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
