@@ -10,6 +10,51 @@ import {
 } from '../types/school';
 import { CalculationService } from './calculations';
 
+export type PdfLogoPosition = 'LEFT' | 'CENTER' | 'RIGHT';
+
+export interface PdfLogoPlacement {
+  position: PdfLogoPosition;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface PdfInstitutionHeaderLayout {
+  institutionNameY: number;
+  regionalLineY: number;
+  contactLineY: number;
+  separatorY: number;
+  documentTitleY: number;
+  contentStartY: number;
+  institutionMaxWidth: number;
+}
+
+export function computeInstitutionHeaderLayout(
+  pageWidth: number,
+  logo: PdfLogoPlacement | null
+): PdfInstitutionHeaderLayout {
+  const centeredLogo = logo?.position === 'CENTER';
+  const institutionNameY = centeredLogo && logo ? logo.y + logo.height + 5 : 12;
+  const regionalLineY = institutionNameY + 4.5;
+  const contactLineY = institutionNameY + 8.5;
+  const separatorY = contactLineY + 4.5;
+  const documentTitleY = separatorY + 8;
+  const contentStartY = documentTitleY + 5;
+  const sideReserve = logo && logo.position !== 'CENTER' ? logo.width + 5 : 0;
+  const institutionMaxWidth = Math.max(48, pageWidth - 28 - sideReserve * 2);
+
+  return {
+    institutionNameY,
+    regionalLineY,
+    contactLineY,
+    separatorY,
+    documentTitleY,
+    contentStartY,
+    institutionMaxWidth,
+  };
+}
+
 export class PdfGeneratorService {
   private static readonly BRAND = {
     ink: [31, 41, 55] as [number, number, number],
@@ -19,13 +64,23 @@ export class PdfGeneratorService {
     accent: [36, 63, 90] as [number, number, number],
   };
 
-  private static addSchoolLogo(doc: jsPDF, db: DatabaseSchema, y = 8, maxHeight = 14): void {
+  private static addSchoolLogo(
+    doc: jsPDF,
+    db: DatabaseSchema,
+    y = 8,
+    maxHeight = 14
+  ): PdfLogoPlacement | null {
     const cfg = db.schoolConfig;
-    if (!cfg.logoUrl) return;
+    if (!cfg.logoUrl) return null;
 
     try {
       const properties = doc.getImageProperties(cfg.logoUrl);
-      const requestedWidth = Math.min(32, Math.max(10, cfg.documentLogoWidthMm || 18));
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const position = cfg.documentLogoPosition || 'LEFT';
+      const configuredWidth = Math.min(40, Math.max(8, cfg.documentLogoWidthMm || 18));
+      // Keep enough horizontal room for the institution name on narrow receipts.
+      const requestedWidth =
+        position === 'CENTER' ? configuredWidth : Math.min(configuredWidth, pageWidth * 0.2);
       const ratio = properties.width / properties.height || 1;
       let width = requestedWidth;
       let height = width / ratio;
@@ -34,8 +89,6 @@ export class PdfGeneratorService {
         width = height * ratio;
       }
 
-      const position = cfg.documentLogoPosition || 'LEFT';
-      const pageWidth = doc.internal.pageSize.getWidth();
       const x =
         position === 'CENTER'
           ? (pageWidth - width) / 2
@@ -43,10 +96,14 @@ export class PdfGeneratorService {
           ? pageWidth - 14 - width
           : 14;
 
-      const format = cfg.logoUrl.startsWith('data:image/png') ? 'PNG' : 'JPEG';
+      const mime = cfg.logoUrl.match(/^data:image\/(png|jpe?g)(?:;|,)/i)?.[1]?.toLowerCase();
+      if (!mime) return null;
+      const format = mime === 'png' ? 'PNG' : 'JPEG';
       doc.addImage(cfg.logoUrl, format, x, y, width, height, undefined, 'FAST');
+      return { position, x, y, width, height };
     } catch {
       // Un logo invalide ne doit jamais empêcher la génération d'un document.
+      return null;
     }
   }
 
@@ -63,12 +120,16 @@ export class PdfGeneratorService {
     const right = pageWidth - 14;
     const center = pageWidth / 2;
 
-    this.addSchoolLogo(doc, db, 8, 15);
+    const logo = this.addSchoolLogo(doc, db, 8, 15);
+    const layout = computeInstitutionHeaderLayout(pageWidth, logo);
 
     doc.setTextColor(...ink);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10.5);
-    doc.text(cfg.name.toUpperCase(), center, 12, { align: 'center' });
+    doc.text(cfg.name.toUpperCase(), center, layout.institutionNameY, {
+      align: 'center',
+      maxWidth: layout.institutionMaxWidth,
+    });
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(6.8);
@@ -76,36 +137,41 @@ export class PdfGeneratorService {
     doc.text(
       [cfg.dren, cfg.cisco].filter(Boolean).join(' • '),
       center,
-      16.5,
-      { align: 'center' }
+      layout.regionalLineY,
+      { align: 'center', maxWidth: layout.institutionMaxWidth }
     );
     doc.text(
       [cfg.address, cfg.city, cfg.phone ? `Tél. ${cfg.phone}` : '']
         .filter(Boolean)
         .join(' • '),
       center,
-      20.5,
-      { align: 'center', maxWidth: 150 }
+      layout.contactLineY,
+      { align: 'center', maxWidth: layout.institutionMaxWidth }
     );
 
     doc.setDrawColor(...line);
     doc.setLineWidth(0.25);
-    doc.line(left, 25, right, 25);
+    doc.line(left, layout.separatorY, right, layout.separatorY);
 
     doc.setTextColor(...accent);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(12.5);
-    doc.text(documentTitle.toUpperCase(), left, 33);
+    doc.text(documentTitle.toUpperCase(), left, layout.documentTitleY, {
+      maxWidth: metaLine ? Math.max(60, pageWidth - 105) : pageWidth - 28,
+    });
 
     if (metaLine) {
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(7.5);
       doc.setTextColor(...muted);
-      doc.text(metaLine, right, 33, { align: 'right' });
+      doc.text(metaLine, right, layout.documentTitleY, {
+        align: 'right',
+        maxWidth: Math.min(70, pageWidth * 0.35),
+      });
     }
 
     doc.setTextColor(...ink);
-    return 38;
+    return layout.contentStartY;
   }
 
   private static drawDocumentFooter(doc: jsPDF, db: DatabaseSchema, note?: string): void {
