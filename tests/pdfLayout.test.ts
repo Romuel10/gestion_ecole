@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   computeInstitutionHeaderLayout,
   type PdfLogoPlacement,
-} from '../src/services/pdfGenerator.ts';
+} from '../src/services/pdfLayout.ts';
 
 test('logo PDF centré : le texte institutionnel commence sous le logo', () => {
   const logo: PdfLogoPlacement = {
