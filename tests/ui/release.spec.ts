@@ -299,6 +299,7 @@ test('dates JJ-MM-AAAA dans les dossiers, certificats, Excel et paramètres', as
   const raw = (await readFile((await pdf.path())!)).toString('latin1');
   expect(raw).toContain('23-10-2015');
   expect(raw).not.toContain('2015-10-23');
+  expect(raw).toContain('/Subtype /Image');
   const excelDownload = page.waitForEvent('download');
   await page.getByRole('button', { name: /Exporter Excel/ }).click();
   const book = XLSX.read(await readFile((await (await excelDownload).path())!));
