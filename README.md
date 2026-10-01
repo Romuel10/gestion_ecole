@@ -4,9 +4,9 @@
 
 L'application reste utilisable en mode web pour le développement, mais la version destinée aux établissements est une application de bureau **Tauri + SQLite**. Aucun serveur, compte cloud ou abonnement n'est nécessaire.
 
-## Version 1.1.1
+## Version 1.1.2
 
-Dates affichées et saisies au format **JJ-MM-AAAA** et taille des textes personnalisable dans **Paramètres → Affichage** (100 à 150 %, mémorisée sur chaque appareil). Voir [les notes de version et contrôles](docs/RELEASE_1.1.1.md). Les installateurs validés sont disponibles dans [Releases](https://github.com/Romuel10/gestion_ecole/releases).
+Correctif pré-publication des en-têtes PDF : logo centré sans chevauchement, largeur sécurisée sur les reçus étroits, formats PNG/JPG contrôlés. Les dates **JJ-MM-AAAA** et la taille des textes personnalisable restent incluses. Voir [les notes de version et contrôles](docs/RELEASE_1.1.2.md). Les installateurs validés sont disponibles dans [Releases](https://github.com/Romuel10/gestion_ecole/releases).
 
 ## Principes
 

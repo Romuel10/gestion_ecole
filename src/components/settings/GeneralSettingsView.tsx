@@ -600,7 +600,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
   const handleLogoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith('image/')) {
+    if (!['image/png', 'image/jpeg'].includes(file.type)) {
       onShowToast('Sélectionnez une image PNG ou JPG.', 'error');
       event.target.value = '';
       return;
