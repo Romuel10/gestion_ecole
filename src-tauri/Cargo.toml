@@ -1,6 +1,6 @@
 [package]
 name = "sekoly"
-version = "1.1.1"
+version = "1.1.2"
 description = "Sekoly - logiciel local de gestion d'établissement scolaire"
 authors = ["Sekoly"]
 edition = "2021"
