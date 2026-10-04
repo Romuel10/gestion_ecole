@@ -34,6 +34,10 @@ L’audit porte sur la version 1.1.1, révision `82598217b0d0126aff7084bf13182f8
 
 ## Reproduction des contrôles
 
+La fonction publique version **20** et la migration ont été appliquées au projet Sekoly le 4 octobre 2026. Le code récupéré après déploiement correspond exactement à cette correction. L’unique ancien jeton actif a été révoqué ; aucun jeton actif sans vérificateur ne subsiste. Les contrôles réels retournent : bootstrap `200`, portail invalide `404`, dépôt avec capacité invalide `401`, émission administrative sans session `401`. La page GitHub Pages correspond au frontend corrigé via `romuel-app-store#11`. Aucun dossier fictif n’a été ajouté à la production.
+
+Les 46 tests Node et les 25 scénarios Playwright passent en CI. Le test Rust de sauvegarde passe également. Les constructions finales Windows/Android et le démarrage Windows restent soumis aux checks de la PR avant publication.
+
 ```bash
 npm ci
 npm audit --audit-level=high

@@ -44,6 +44,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: "./src-tauri -> target"
+          cache-on-failure: true
 
       - name: Install Tauri CLI
         uses: taiki-e/install-action@v2
@@ -80,7 +81,7 @@ jobs:
         run: cargo test --locked
 
       - name: Build Windows installers
-        run: cargo tauri build --locked --bundles nsis,msi
+        run: cargo tauri build --bundles nsis,msi -- --locked
 
       - name: Test Windows startup and single instance
         shell: pwsh
