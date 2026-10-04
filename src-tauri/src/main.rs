@@ -103,10 +103,15 @@ fn write_backup(parent: &std::path::Path, json: &str, prefix: &str) -> Result<St
     let timestamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)
         .map_err(|error| error.to_string())?.as_nanos();
     let file_path = parent.join(format!("{prefix}_{timestamp}.json"));
-    let mut file = fs::OpenOptions::new().write(true).create_new(true).open(&file_path)
+    let temporary_path = parent.join(format!("{prefix}_{timestamp}.json.tmp"));
+    let mut file = fs::OpenOptions::new().write(true).create_new(true).open(&temporary_path)
         .map_err(|error| format!("Sauvegarde impossible: {error}"))?;
-    file.write_all(json.as_bytes()).and_then(|_| file.sync_all())
-        .map_err(|error| format!("Sauvegarde impossible: {error}"))?;
+    let result = file.write_all(json.as_bytes()).and_then(|_| file.sync_all());
+    drop(file);
+    if let Err(error) = result.and_then(|_| fs::rename(&temporary_path, &file_path)) {
+        let _ = fs::remove_file(&temporary_path);
+        return Err(format!("Sauvegarde impossible: {error}"));
+    }
     Ok(file_path.to_string_lossy().to_string())
 }
 
