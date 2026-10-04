@@ -382,7 +382,7 @@ function familyFrontendUrl(
 function jsonResponse(body: unknown, status = 200) {
   return Response.json(body, {
     status,
-    headers: { ...cors, "Content-Type": "application/json; charset=utf-8" },
+    headers: { ...cors, "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" },
   });
 }
 
@@ -476,15 +476,16 @@ async function familyFromToken(admin: any, token: string) {
   return { tokenRow, family, links: links ?? [], guardians, primaryGuardian };
 }
 
-async function issuePortalToken(admin: any, schoolId: string, familyId: string) {
+async function issuePortalToken(admin: any, schoolId: string, familyId: string, authorizedBy: string) {
   const token = randomPortalToken();
   const tokenHash = await hashPortalToken(token);
   const { error } = await admin.from("sekoly_family_portal_tokens").insert({
     school_id: schoolId,
     family_id: familyId,
+    authorized_by: authorizedBy,
     token_hash: tokenHash,
     label: "Portail famille",
-    expires_at: new Date(Date.now() + 400 * 24 * 60 * 60 * 1000).toISOString(),
+    expires_at: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
   });
   if (error) throw error;
   return token;
@@ -1216,6 +1217,50 @@ Deno.serve(async (req) => {
     const admin = createClient(supabaseUrl, secret, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
+
+    if (req.method === "POST" && url.searchParams.get("action") === "authorize-family") {
+      const bearer = req.headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1];
+      if (!bearer) return jsonResponse({ error: "Connexion administrative requise." }, 401);
+      const { data: identity, error: authError } = await admin.auth.getUser(bearer);
+      if (authError || !identity?.user) return jsonResponse({ error: "Session administrative invalide." }, 401);
+      const body = await req.json();
+      const schoolId = clean(body.schoolId, 64);
+      if (body.identityVerified !== true) return jsonResponse({ error: "Vérifiez l’identité du responsable avant de créer son lien." }, 400);
+      const { data: membership, error: membershipError } = await admin.from("sekoly_memberships").select("role")
+        .eq("school_id", schoolId).eq("user_id", identity.user.id).eq("status", "ACTIVE").maybeSingle();
+      if (membershipError) throw membershipError;
+      if (!membership || !["SCHOOL_ADMIN", "DIRECTOR", "SECRETARY"].includes(membership.role)) return jsonResponse({ error: "Droit d’administration requis." }, 403);
+      const { data: requestFamily, error: requestError } = await admin.from("sekoly_enrollment_families").select("id,family_profile_id")
+        .eq("school_id", schoolId).eq("id", clean(body.enrollmentFamilyId, 64)).maybeSingle();
+      if (requestError) throw requestError;
+      if (!requestFamily) return jsonResponse({ error: "Demande introuvable." }, 404);
+      let familyId = requestFamily.family_profile_id;
+      if (!familyId) {
+        const { data: applications, error } = await admin.from("sekoly_enrollment_applications").select("final_student_id")
+          .eq("school_id", schoolId).eq("family_id", requestFamily.id).eq("status", "APPROVED");
+        if (error) throw error;
+        const studentIds = (applications ?? []).map((item: any) => item.final_student_id).filter(Boolean);
+        if (!studentIds.length) return jsonResponse({ error: "Finalisez un dossier et synchronisez ses responsables avant de créer le lien." }, 409);
+        const { data: links, error: linksError } = await admin.from("sekoly_family_students").select("family_id")
+          .eq("school_id", schoolId).in("student_id", studentIds);
+        if (linksError) throw linksError;
+        const familyIds = [...new Set((links ?? []).map((item: any) => item.family_id))];
+        if (familyIds.length !== 1) return jsonResponse({ error: "Rattachement familial ambigu ou absent : vérifiez les responsables du dossier." }, 409);
+        familyId = familyIds[0];
+      }
+      const { data: verifiedFamily, error: familyError } = await admin.from("sekoly_families").select("id,family_code")
+        .eq("school_id", schoolId).eq("id", familyId).eq("status", "ACTIVE").maybeSingle();
+      if (familyError) throw familyError;
+      if (!verifiedFamily) return jsonResponse({ error: "Famille active introuvable." }, 409);
+      const { error: linkError } = await admin.from("sekoly_enrollment_families").update({ family_profile_id: familyId })
+        .eq("school_id", schoolId).eq("id", requestFamily.id);
+      if (linkError) throw linkError;
+      const { error: documentError } = await admin.from("sekoly_enrollment_documents").update({ family_id: familyId })
+        .eq("school_id", schoolId).eq("enrollment_family_id", requestFamily.id);
+      if (documentError) throw documentError;
+      const token = await issuePortalToken(admin, schoolId, familyId, identity.user.id);
+      return jsonResponse({ portalUrl: familyFrontendUrl(supabaseUrl, { portal: token }), familyCode: verifiedFamily.family_code });
+    }
 
     if (
       url.searchParams.get("action") === "portal-bootstrap" &&

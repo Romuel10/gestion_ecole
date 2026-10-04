@@ -1,25 +1,38 @@
-# Sekoly 1.1.2 — contrôle pré-publication PDF et interfaces
+# Sekoly 1.1.2 — corrections de l’audit pré-publication
+
+Une demande publique ne rattache plus une personne à une famille existante à partir de son nom, téléphone ou CIN. La validation des écritures locales et la synchronisation protègent désormais les données enregistrées pendant les opérations asynchrones.
 
 ## Correctifs
 
-- Corrige le cas où un **logo centré** pouvait se superposer au nom de l’établissement dans les PDF.
-- Réserve automatiquement l’espace vertical nécessaire au logo avant d’écrire les informations de l’établissement.
-- Protège les petits formats, notamment les reçus, en limitant la largeur latérale du logo selon la largeur réelle de la page.
-- Aligne la plage de largeur du moteur PDF avec le réglage de l’interface et conserve les proportions du logo.
-- N’accepte à l’import que les formats explicitement pris en charge pour les documents : **PNG** et **JPG/JPEG**.
-- Ajoute un test de géométrie de l’en-tête PDF et un scénario Playwright générant réellement un certificat avec un logo PNG centré.
+- Portail familial : dépôt anonyme isolé, accès aux pièces limité à la demande pendant deux heures, lien portail émis uniquement par un administrateur actif après vérification. Révocation des anciens liens dont l’origine ne prouve pas cette vérification.
+- SQLite : écritures sérialisées et attendues, erreur lisible, aucune confirmation de succès avant l’enregistrement. Un cache navigateur saturé ne bloque plus SQLite. Les formulaires de paramètres conservent leur saisie en cas d’échec.
+- Restauration : version, tableaux, identifiants, références et dates validés ; aperçu et confirmation ; copie de secours obligatoire avant remplacement ou réinitialisation.
+- Mobile enseignant : cache et opérations hors ligne séparés par compte et établissement, déconnexion verrouillée même hors réseau, contrôles d’adhésion avant reprise, anciennes opérations sans propriétaire conservées mais non rejouées automatiquement.
+- Notes Cloud : normalisation sur 20, coefficients respectés, retrait des notes supprimées ou remises à vide, maintien des modifications locales concurrentes et des contrôles supplémentaires lors de la saisie manuelle.
+- Présences Cloud : corrections et suppressions réconciliées même sans nouvel ajout. Curseur de lecture validé après enregistrement local réussi.
+- PostgreSQL : adhésion enseignante active obligatoire ; verrous de période, année et évaluation appliqués aux écritures directes et changements de barème.
+- PDF : espace réservé sous un logo centré et largeur adaptée aux reçus étroits ; import des logos PNG/JPG contrôlé.
+- Caisse : solde physique calculé uniquement à partir des opérations en espèces.
+- Emploi du temps : durée demandée exacte, notamment trois heures, sans arrondissement à quatre heures.
+- Import Excel : rejet des dates inexistantes, conservation des dates bissextiles valides.
+- Sauvegardes : copie locale complète les jours d’utilisation, sept copies quotidiennes sur Windows, alertes et reprise des erreurs Cloud. L’écran précise que la sauvegarde Cloud ne couvre pas la comptabilité locale.
+- Livraison : fichiers de verrouillage npm mobile et Cargo, contrôles de dépendances en CI, correctifs temporaires vérifiés et testés pour deux dépendances Expo en attente de publication amont.
+- WebView : CSP autorisant les scripts locaux et les connexions IPC/Supabase prévues.
 
-## Contrôles attendus avant fusion
+Le détail des preuves et limites est dans [AUDIT_CORRECTIONS.md](AUDIT_CORRECTIONS.md).
 
-- `npm audit --omit=dev --audit-level=high`
-- `npm run build`
-- `npm run lint`
-- `npm test`
-- `npm run test:ui`
-- Construction Windows Tauri des installateurs NSIS et MSI.
-- Démarrage réel du binaire Windows et contrôle de l’instance unique.
-- CI mobile enseignant et construction APK existantes.
+## Validation avant publication
 
-## Publication
+Les contrôles GitHub de la PR doivent tous réussir : build TypeScript/Vite, lint, audit npm, tests métier et PostgreSQL, tests Playwright du bundle de production, typecheck et contrôle de sécurité mobile, construction APK avec JavaScript embarqué, tests Rust, installateurs Windows et démarrage avec instance unique.
 
-Cette version doit remplacer la 1.1.1 pour toute nouvelle diffusion publique. La branche de pré-publication reste séparée de `main` jusqu’à validation des contrôles GitHub.
+La protection Supabase contre les mots de passe compromis (A17) exige un plan Pro ; le projet est actuellement sur l’offre gratuite. Aucun changement d’offre n’est effectué. Les correctifs temporaires Expo expirent le **4 novembre 2026** et doivent être remplacés par les versions amont corrigées dès leur disponibilité.
+
+## Déploiement du portail et des droits
+
+1. Mettre à jour la page publiée `sekoly/enrollment/index.html` dans `romuel-app-store` ; elle reste compatible avec l’ancien résultat de l’API pendant la transition.
+2. Appliquer `20261004171940_prepublication_integrity_guards.sql`. Cette migration révoque tous les anciens jetons familiaux encore actifs.
+3. Déployer `sekoly-public-enrollment` depuis cette branche. La route publique reste sans JWT de passerelle ; l’action administrative vérifie elle-même le JWT et l’adhésion active.
+4. Depuis Admissions, ouvrir une demande, vérifier le responsable puis créer son lien familial. Pour un dépôt anonyme, finaliser d’abord le dossier et synchroniser son rattachement familial.
+5. Contrôler le bootstrap public et le refus des accès invalides. Les nouveaux installateurs et APK doivent provenir de la révision validée.
+
+La fusion dans `main` déclenche la publication Windows automatique. Ne pas fusionner cette PR avant la décision de diffusion. La correction de la faille du portail déjà exposé peut être appliquée séparément.

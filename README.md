@@ -6,7 +6,7 @@ L'application reste utilisable en mode web pour le développement, mais la versi
 
 ## Version 1.1.2
 
-Correctif pré-publication des en-têtes PDF : logo centré sans chevauchement, largeur sécurisée sur les reçus étroits, formats PNG/JPG contrôlés. Les dates **JJ-MM-AAAA** et la taille des textes personnalisable restent incluses. Voir [les notes de version et contrôles](docs/RELEASE_1.1.2.md). Les installateurs validés sont disponibles dans [Releases](https://github.com/Romuel10/gestion_ecole/releases).
+Corrections pré-publication du portail familial, de la persistance SQLite, de la restauration, des comptes mobiles, de la synchronisation des notes et présences, des sauvegardes et des calculs métier. Les en-têtes PDF sont corrigés, les dates **JJ-MM-AAAA** et la taille des textes personnalisable restent incluses. Voir [les notes de version](docs/RELEASE_1.1.2.md) et [le suivi des 17 constats](docs/AUDIT_CORRECTIONS.md). La 1.1.2 reste en validation avant publication des installateurs dans [Releases](https://github.com/Romuel10/gestion_ecole/releases).
 
 ## Principes
 

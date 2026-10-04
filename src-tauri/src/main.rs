@@ -113,6 +113,18 @@ fn write_backup(parent: &std::path::Path, json: &str, prefix: &str) -> Result<St
 #[tauri::command]
 fn create_daily_backup(app: AppHandle, json: String) -> Result<String, String> {
     let parent = database_file(&app)?.parent().ok_or("Dossier de données introuvable")?.join("backups");
+    fs::create_dir_all(&parent).map_err(|error| error.to_string())?;
+    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_err(|error| error.to_string())?.as_nanos();
+    for entry in fs::read_dir(&parent).map_err(|error| error.to_string())?.filter_map(Result::ok) {
+        let file = entry.file_name();
+        if let Some(name) = file.to_str().and_then(|name| name.strip_prefix("SEKOLY_DAILY_")).and_then(|name| name.strip_suffix(".json")) {
+            if let Ok(timestamp) = name.parse::<u128>() {
+                if timestamp / 86_400_000_000_000 == now / 86_400_000_000_000 {
+                    return Ok(entry.path().to_string_lossy().to_string());
+                }
+            }
+        }
+    }
     let path = write_backup(&parent, &json, "SEKOLY_DAILY")?;
     let mut files: Vec<_> = fs::read_dir(&parent).map_err(|error| error.to_string())?
         .filter_map(Result::ok).map(|entry| entry.path())

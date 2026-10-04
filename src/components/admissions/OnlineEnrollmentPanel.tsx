@@ -64,6 +64,7 @@ export const OnlineEnrollmentPanel: React.FC<OnlineEnrollmentPanelProps> = ({
   const [formBuilderOpen, setFormBuilderOpen] = useState(false);
   const [detailApplication, setDetailApplication] =
     useState<EnrollmentQueueItem | null>(null);
+  const [familyPortalLink, setFamilyPortalLink] = useState<{ familyId: string; url: string } | null>(null);
 
   const load = useCallback(async () => {
     if (!CloudSyncService.isConnected() || !CloudSyncService.getSchoolId()) {
@@ -184,6 +185,15 @@ export const OnlineEnrollmentPanel: React.FC<OnlineEnrollmentPanelProps> = ({
         'error'
       );
     }
+  };
+
+  const authorizeFamily = async (familyId: string) => {
+    if (!window.confirm('Avez-vous vérifié l’identité et l’autorité du responsable, par contact direct ou contrôle de ses pièces ? Ce lien donne accès aux dossiers de sa famille.')) return;
+    try {
+      const result = await CloudSyncService.authorizeFamilyPortal(familyId);
+      setFamilyPortalLink({ familyId, url: result.portalUrl });
+      onShowToast('Lien familial créé. Remettez-le uniquement au responsable vérifié.', 'success');
+    } catch (error) { onShowToast(error instanceof Error ? error.message : 'Création du lien impossible.', 'error'); }
   };
 
   const verifyChecklist = async (
@@ -687,6 +697,8 @@ export const OnlineEnrollmentPanel: React.FC<OnlineEnrollmentPanelProps> = ({
         isOpen={Boolean(detailApplication)}
         onClose={() => setDetailApplication(null)}
         onOpenDocument={(documentId) => void openDocument(documentId)}
+        onAuthorizeFamily={(familyId) => void authorizeFamily(familyId)}
+        portalUrl={familyPortalLink?.familyId === detailApplication?.family_id ? familyPortalLink?.url : undefined}
       />
 
       <Modal

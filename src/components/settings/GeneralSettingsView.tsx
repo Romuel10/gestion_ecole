@@ -189,9 +189,10 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
 
   const updateDatabase = async (updated: DatabaseSchema, message: string) => {
     const savedDb = await StorageService.saveDatabaseOrNotify(updated, db, onShowToast);
-    if (!savedDb) return;
+    if (!savedDb) return false;
     onUpdateDb(savedDb);
     onShowToast(message, 'success');
+    return true;
   };
 
   const closurePreview = (() => {
@@ -767,7 +768,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
     });
   };
 
-  const saveClass = () => {
+  const saveClass = async () => {
     if (!classDraft) return;
     if (!classDraft.name.trim() || !classDraft.code.trim()) {
       onShowToast('Le nom et le code de la classe sont obligatoires.', 'error');
@@ -800,7 +801,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
       ? db.classes.map((item) => (item.id === editingClassId ? normalized : item))
       : [...db.classes, normalized];
 
-    updateDatabase({ ...db, classes }, editingClassId ? 'Classe modifiée.' : 'Classe ajoutée.');
+    if (!await updateDatabase({ ...db, classes }, editingClassId ? 'Classe modifiée.' : 'Classe ajoutée.')) return;
     setClassDraft(null);
     setEditingClassId(null);
   };
@@ -867,7 +868,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
     });
   };
 
-  const saveSubject = () => {
+  const saveSubject = async () => {
     if (!subjectDraft) return;
     if (!subjectDraft.name.trim() || !subjectDraft.code.trim()) {
       onShowToast('Le nom et le code de la matière sont obligatoires.', 'error');
@@ -894,7 +895,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
       ? db.subjects.map((subject) => (subject.id === editingSubjectId ? normalized : subject))
       : [...db.subjects, normalized];
 
-    updateDatabase({ ...db, subjects }, editingSubjectId ? 'Matière modifiée.' : 'Matière ajoutée.');
+    if (!await updateDatabase({ ...db, subjects }, editingSubjectId ? 'Matière modifiée.' : 'Matière ajoutée.')) return;
     setSubjectDraft(null);
     setEditingSubjectId(null);
   };
@@ -934,7 +935,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
     });
   };
 
-  const saveYear = () => {
+  const saveYear = async () => {
     if (reportInvalidDates()) return;
     if (!yearDraft) return;
     if (!yearDraft.label.trim() || !yearDraft.startDate || !yearDraft.endDate) {
@@ -952,10 +953,10 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
         )
       : [...db.schoolYears, yearDraft];
 
-    updateDatabase(
+    if (!await updateDatabase(
       { ...db, schoolYears },
       editingYearId ? 'Année scolaire modifiée.' : 'Année scolaire ajoutée.'
-    );
+    )) return;
     setYearDraft(null);
     setEditingYearId(null);
   };
@@ -1019,7 +1020,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
     });
   };
 
-  const saveTerm = () => {
+  const saveTerm = async () => {
     if (reportInvalidDates()) return;
     if (!termDraft) return;
     const year = db.schoolYears.find((item) => item.id === termDraft.schoolYearId);
@@ -1064,7 +1065,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
       db.currentSchoolYearId === year.id && year.terms.length === 0 ? code : db.currentTermCode;
 
     const previousCode = year.terms.find((term) => term.id === editingTermId)?.code;
-    updateDatabase(
+    if (!await updateDatabase(
       {
         ...db,
         schoolYears,
@@ -1076,7 +1077,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
             : currentTermCode,
       },
       editingTermId ? 'Période académique modifiée.' : 'Période académique ajoutée.'
-    );
+    )) return;
     setTermDraft(null);
     setEditingTermId(null);
   };
@@ -2767,7 +2768,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
               <ActionCard
                 icon={<RotateCcw className="w-5 h-5" />}
                 title="Réinitialiser"
-                description="Restaure le jeu de données de démonstration fourni avec l’application."
+                description="Crée une copie de secours puis remet l’installation à vide."
                 action={<button type="button" onClick={resetDefaults} className="button button--secondary text-rose-700 dark:text-rose-300">Réinitialiser</button>}
               />
             </div>

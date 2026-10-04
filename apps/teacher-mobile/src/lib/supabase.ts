@@ -42,6 +42,8 @@ export async function acceptAuthDeepLink(url: string) {
   if (code) {
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
     if (error) throw error;
+    if (data.session) offlineStore.unlockSession();
+    offlineStore.setOwner(data.session?.user.id ?? null);
     return { session: data.session, type: parsed.searchParams.get('type') };
   }
 
@@ -58,6 +60,8 @@ export async function acceptAuthDeepLink(url: string) {
       refresh_token: refreshToken,
     });
     if (error) throw error;
+    if (data.session) offlineStore.unlockSession();
+    offlineStore.setOwner(data.session?.user.id ?? null);
     return { session: data.session, type };
   }
 

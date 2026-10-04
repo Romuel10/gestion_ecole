@@ -7,6 +7,13 @@ create unique index sekoly_submission_token_hash_idx
   on public.sekoly_enrollment_families(submission_token_hash)
   where submission_token_hash is not null;
 
+-- Previous portal tokens were issued from a public name/phone match. Their
+-- origin cannot prove ownership: rotate them after verification by school staff.
+alter table public.sekoly_family_portal_tokens add column authorized_by uuid references auth.users(id) on delete cascade;
+create index sekoly_portal_authorized_by_idx on public.sekoly_family_portal_tokens(authorized_by) where authorized_by is not null;
+update public.sekoly_family_portal_tokens set revoked_at=now() where revoked_at is null;
+alter table public.sekoly_family_portal_tokens add constraint sekoly_portal_verified_issuer check (revoked_at is not null or authorized_by is not null);
+
 alter table public.sekoly_enrollment_documents
   alter column family_id drop not null,
   add column enrollment_family_id uuid,

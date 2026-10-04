@@ -54,6 +54,21 @@ test('la lecture d’une sauvegarde complète ne remplace aucune donnée avant c
   assert.equal(StorageService.getCurrentDatabase().tuitionPayments.length,0);
 });
 
+test('reprise sur une installation neuve : notes, présences et comptabilité complète conservées', async () => {
+  const original=schoolFixture();
+  original.grades=[{id:'grade-restore',studentId:'student-test',classId:'class-test',subjectId:'math-test',schoolYearId:'year-test',termCode:'T1',evaluations:[16],subjectAverage:16}];
+  original.attendanceRecords=[{id:'attendance-restore',studentId:'student-test',classId:'class-test',schoolYearId:'year-test',date:'2026-10-04',status:'ABSENT'}];
+  original.tuitionPayments=[{id:'payment-restore',studentId:'student-test',classId:'class-test',schoolYearId:'year-test',amount:50000,paymentDate:'2026-10-04'}];
+  original.salaryPayments=[{id:'salary-restore',teacherId:'teacher-test',schoolYearId:'year-test',netSalary:30000,paymentDate:'2026-10-04'}];
+  original.cashTransactions=[{id:'cash-restore',schoolYearId:'year-test',amount:5000,date:'2026-10-04'}];
+  original.cashDayClosures=[{id:'closure-restore',schoolYearId:'year-test',date:'2026-10-04',openingBalance:10000,expectedBalance:15000,countedBalance:15000,difference:0,transactionCount:1}];
+  const {StorageService}=createHarness().load('src/services/storage.ts');
+  const imported=await StorageService.importBackupJSON({text:async()=>JSON.stringify(original)});
+  await StorageService.createRecoveryBackup();await StorageService.saveDatabase(imported);
+  const restored=StorageService.getCurrentDatabase();
+  for(const table of ['students','teachers','grades','attendanceRecords','tuitionPayments','salaryPayments','cashTransactions','cashDayClosures']) assert.deepEqual(restored[table],original[table]);
+});
+
 test('fusion d’une réponse Cloud retardée : paiement et modification locale d’une note sont préservés', () => {
   const base=schoolFixture();const current=structuredClone(base);current.tuitionPayments=[{id:'payment',amount:50000}];
   const identity={id:'grade',studentId:'student-test',classId:'class-test',subjectId:'math-test',schoolYearId:'year-test',termCode:'T1',evaluations:[10],subjectAverage:10};

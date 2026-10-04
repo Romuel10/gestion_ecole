@@ -13,6 +13,8 @@ interface EnrollmentApplicationDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   onOpenDocument: (documentId: string) => void;
+  onAuthorizeFamily: (enrollmentFamilyId: string) => void;
+  portalUrl?: string;
 }
 
 const asRecord = (value: unknown): Record<string, unknown> =>
@@ -234,6 +236,8 @@ export const EnrollmentApplicationDetailModal: React.FC<EnrollmentApplicationDet
   isOpen,
   onClose,
   onOpenDocument,
+  onAuthorizeFamily,
+  portalUrl,
 }) => {
   if (!application) return null;
 
@@ -366,11 +370,20 @@ export const EnrollmentApplicationDetailModal: React.FC<EnrollmentApplicationDet
       subtitle={`${application.child_last_name} ${application.child_first_name} · ${application.familyProfileCode || application.family?.reference_code || 'Sans référence'}`}
       maxWidth="5xl"
       actions={
+        <>
+        <button type="button" className="button button--secondary" onClick={() => onAuthorizeFamily(application.family_id)}>
+          Créer le lien famille après vérification
+        </button>
         <button type="button" className="button button--secondary" onClick={onClose}>
           Fermer
         </button>
+        </>
       }
     >
+      {portalUrl && <div className="p-3 rounded-xl border border-emerald-300">
+        <label className="text-xs font-semibold">Lien à remettre uniquement au responsable dont l’identité a été vérifiée</label>
+        <input aria-label="Lien du portail familial" type="text" readOnly value={portalUrl} onFocus={event => event.target.select()} className="form-input w-full mt-2" />
+      </div>}
       <div className="flex flex-wrap items-center gap-2 p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40">
         <span className="text-[0.625rem] font-bold uppercase tracking-wide text-slate-500">
           Formulaire version{' '}

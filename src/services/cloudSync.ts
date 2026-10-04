@@ -1703,6 +1703,15 @@ export class CloudSyncService {
     }
   }
 
+  static async authorizeFamilyPortal(enrollmentFamilyId: string) {
+    const schoolId = this.getSchoolId();
+    if (!schoolId) throw new Error('Établissement Cloud non lié.');
+    const response = await authRequest('/functions/v1/sekoly-public-enrollment?action=authorize-family', {
+      method: 'POST', body: JSON.stringify({ schoolId, enrollmentFamilyId, identityVerified: true }),
+    });
+    return parseResponse<{ portalUrl: string; familyCode: string }>(response);
+  }
+
   static async provisionTeacherPilot(db: DatabaseSchema, teacherId: string) {
     const schoolId = this.getSchoolId();
     if (!schoolId) throw new Error('Établissement Cloud non lié.');

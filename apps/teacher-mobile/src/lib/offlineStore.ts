@@ -30,7 +30,7 @@ if (!queueColumns.some(column => column.name === 'school_id')) db.execSync('ALTE
 // replay them under the account that happens to sign in next.
 let ownerId: string | null = null;
 let schoolId: string | null = null;
-const globalKeys = new Set(['device-id-v1', 'text-scale', 'theme-mode']);
+const globalKeys = new Set(['device-id-v1', 'text-scale', 'theme-mode', 'session-lock-v1']);
 const cacheKey = (key: string) => globalKeys.has(key) ? key : ownerId ? `user:${ownerId}:${key}` : null;
 
 export type QueuedMutation = {
@@ -55,11 +55,15 @@ const uuid = () =>
 
 export const offlineStore = {
   setOwner(userId: string | null, activeSchoolId: string | null = null) {
+    if (userId && this.isSessionLocked()) { ownerId = null; schoolId = null; return; }
     if (ownerId !== userId) schoolId = null;
     ownerId = userId;
     if (activeSchoolId) schoolId = activeSchoolId;
   },
   currentOwner() { return ownerId; },
+  isSessionLocked() { return this.getCache<boolean>('session-lock-v1') === true; },
+  lockSession() { this.setCache('session-lock-v1', true); ownerId = null; schoolId = null; },
+  unlockSession() { this.setCache('session-lock-v1', false); },
   isOwner(userId: string, activeSchoolId?: string) { return ownerId === userId && (!activeSchoolId || schoolId === activeSchoolId); },
   revokeAccess(expectedOwner?: string) {
     if (expectedOwner && ownerId !== expectedOwner) return;

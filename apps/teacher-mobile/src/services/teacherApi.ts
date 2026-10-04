@@ -170,6 +170,7 @@ export const teacherApi = {
       password,
     });
     if (error) throw error;
+    offlineStore.unlockSession();
     offlineStore.setOwner(data.session?.user.id ?? null);
     return data.session;
   },
@@ -198,7 +199,7 @@ export const teacherApi = {
   },
 
   async signOut() {
-    offlineStore.setOwner(null);
+    offlineStore.lockSession();
     onlineMembershipValidated = false;
     await supabase.auth.signOut();
   },
@@ -213,6 +214,7 @@ export const teacherApi = {
   },
 
   async getSession() {
+    if (offlineStore.isSessionLocked()) { offlineStore.setOwner(null); return null; }
     const { data } = await supabase.auth.getSession();
     offlineStore.setOwner(data.session?.user.id ?? null);
     return data.session;

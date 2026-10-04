@@ -1248,7 +1248,12 @@ function AppContent() {
         queueCount={queueCount}
         syncing={syncing}
         onSync={sync}
-        onLogout={() => void teacherApi.signOut()}
+        onLogout={() => {
+          accountGeneration.current += 1; activeUserId.current = null;
+          setContext(null); setAssignments([]); setTimetable([]); setSelectedAssignment(null);
+          setQueueCount(0); setNeedsPassword(false); setTab('HOME');
+          void teacherApi.signOut().catch(error => console.warn('Déconnexion Cloud :', error));
+        }}
       />
 
       {offlineStore.legacyQueueCount() > 0 && <Text style={styles.helper} accessibilityRole="alert">

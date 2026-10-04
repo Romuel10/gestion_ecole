@@ -35,7 +35,7 @@ function createHarness(globals = {}, overrides = {}) {
     vm.runInNewContext(code, {
       exports: module.exports, module, require: customRequire, console: { log() {}, warn() {}, error() {} },
       Date, Math, Set, Map, JSON, Number, String, URL, Request, Response, Headers, File, FormData,
-      TextEncoder, TextDecoder, structuredClone, crypto: globalThis.crypto, setTimeout, clearTimeout,
+      TextEncoder, TextDecoder, structuredClone, crypto: globalThis.crypto, btoa, atob, setTimeout, clearTimeout,
       localStorage, window: {}, ...globals,
     }, { filename });
     return module.exports;

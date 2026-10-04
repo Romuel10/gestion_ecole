@@ -100,6 +100,83 @@ test('SQLite inaccessible : erreur explicite sans écraser les données', async 
   await expect(page.locator('.app-shell')).toHaveCount(0);
 });
 
+test('échec d’écriture SQLite : le formulaire reste ouvert et peut être enregistré ensuite', async ({ page }) => {
+  await page.addInitScript((db) => {
+    (window as any).storedDb = db;
+    (window as any).diskFull = true;
+    (window as any).__TAURI__ = { core: { invoke: async (command: string, args: any) => {
+      if (command === 'load_database') return JSON.stringify((window as any).storedDb);
+      if (command === 'save_database') {
+        if ((window as any).diskFull) throw new Error('DISK_FULL');
+        (window as any).storedDb = JSON.parse(args.json);
+      }
+      if (command.includes('backup')) return 'fixture-backup.json';
+    } } };
+  }, fixture);
+  await boot(page);
+  await navigate(page, 'Paramètres');
+  await page.getByRole('button', { name: 'Classes', exact: true }).click();
+  await page.getByRole('button', { name: 'Ajouter une classe', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Ajouter une classe' });
+  await dialog.getByLabel('Nom', { exact: true }).fill('Classe test disque');
+  await dialog.getByRole('button', { name: 'Enregistrer', exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText('DISK_FULL');
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByLabel('Nom', { exact: true })).toHaveValue('Classe test disque');
+  expect(await page.evaluate(() => (window as any).storedDb.classes.length)).toBe(fixture.classes.length);
+  await expect(page.getByRole('status').filter({ hasText: 'Classe ajoutée.' })).toHaveCount(0);
+  await page.evaluate(() => { (window as any).diskFull = false; });
+  await dialog.getByRole('button', { name: 'Enregistrer', exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  expect(await page.evaluate(() => (window as any).storedDb.classes.length)).toBe(fixture.classes.length + 1);
+});
+
+test('restauration : un fichier incomplet et une copie de secours impossible ne remplacent rien', async ({ page }) => {
+  await page.addInitScript((db) => {
+    (window as any).writes = 0;
+    (window as any).__TAURI__ = { core: { invoke: async (command: string) => {
+      if (command === 'load_database') return JSON.stringify(db);
+      if (command === 'save_database') (window as any).writes++;
+      if (command === 'create_recovery_backup') throw new Error('BACKUP_FULL');
+      if (command === 'create_daily_backup') return 'daily-fixture.json';
+    } } };
+  }, fixture);
+  await boot(page);
+  await navigate(page, 'Paramètres');
+  await page.getByRole('button', { name: 'Données', exact: true }).click();
+  const input = page.locator('input[type="file"][accept=".json"]');
+  await input.setInputFiles({ name: 'incomplet.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify({ schoolConfig: { name: 'Vide' } })) });
+  await expect(page.getByRole('alert')).toContainText('Sauvegarde invalide');
+  expect(await page.evaluate(() => (window as any).writes)).toBe(0);
+  page.on('dialog', dialog => dialog.accept());
+  await input.setInputFiles({ name: 'complet.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(fixture)) });
+  await expect(page.getByRole('alert').filter({ hasText: 'BACKUP_FULL' })).toBeVisible();
+  expect(await page.evaluate(() => (window as any).writes)).toBe(0);
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('SEKOLY_BROWSER_CACHE_V1')!).students.length)).toBe(fixture.students.length);
+});
+
+test('CSP desktop : le bundle reste utilisable et un script injecté est bloqué', async ({ page }) => {
+  const config = JSON.parse(await readFile('src-tauri/tauri.conf.json', 'utf8'));
+  const policy = Object.entries(config.app.security.csp).map(([name, value]) => `${name} ${value}`).join('; ');
+  await page.route('https://sekoly.test/', async route => route.fulfill({
+    body: await readFile('dist/index.html'), contentType: 'text/html', headers: { 'Content-Security-Policy': policy },
+  }));
+  await boot(page, true);
+  await navigate(page, 'Élèves');
+  const blocked = await page.evaluate(async () => {
+    return new Promise<boolean>(resolve => {
+      document.addEventListener('securitypolicyviolation', event => resolve(event.effectiveDirective === 'script-src-elem' && event.blockedURI === 'inline'), { once: true });
+      const script = document.createElement('script');
+      script.textContent = 'window.unexpectedScriptRan = true';
+      document.head.appendChild(script);
+    });
+  });
+  expect(blocked).toBe(true);
+  expect(await page.evaluate(() => (window as any).unexpectedScriptRan)).toBeUndefined();
+  await page.getByTitle('Consulter le dossier complet').first().click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+});
+
 test('clavier : recherche, focus contenu, retour au déclencheur, raccourcis protégés', async ({ page }) => {
   await boot(page, true);
   const search = page.getByRole('button', { name: 'Rechercher', exact: true });
