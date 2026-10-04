@@ -41,6 +41,8 @@ test('restauration : fichier incomplet, version future, date impossible et rÃ©fÃ
     (db:any)=>{delete db.tuitionPayments;},(db:any)=>{db.version='2.99.0';},
     (db:any)=>{db.students[0].birthDate='2015-02-31';},(db:any)=>{db.students[0].classId='absent';},
     (db:any)=>{db.students.push({...db.students[0]});},(db:any)=>{db.schoolYears[0].terms[0].endDate='2026-02-31';},
+    (db:any)=>{db.students[0].lastName={unexpected:'object'};},(db:any)=>{delete db.schoolYears[0].startDate;},
+    (db:any)=>{db.schoolConfig.schoolMonths=[{month:'September'}];},(db:any)=>{db.matriculeConfig.pattern={invalid:true};},
   ]) {const db=schoolFixture();mutate(db);assert.throws(()=>validateBackup(db),/invalide/);}
 });
 

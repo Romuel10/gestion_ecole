@@ -9,6 +9,16 @@ export function validateBackup(value: unknown): asserts value is Record<string, 
   for (const key of ['schoolConfig', 'matriculeConfig']) if (!isObject(data[key])) fail(`${key} absent.`);
   if (typeof data.schoolConfig.name !== 'string' || !data.schoolConfig.name.trim()) fail('nom d’établissement absent.');
   if (!Array.isArray(data.schoolConfig.schoolMonths)) fail('mois scolaires absents.');
+  if (data.schoolConfig.schoolMonths.some((month:any)=>typeof month!=='string'||!month.trim())) fail('mois scolaires invalides.');
+  const requiredText: Record<string,string[]> = {
+    schoolYears:['label'],subjects:['code','name'],classes:['code','name'],
+    students:['matricule','lastName'],teachers:['matricule','lastName'],guardians:['lastName'],
+  };
+  const text = (value: unknown, label: string, nonempty = false) => {
+    if (typeof value !== 'string' || (nonempty && !value.trim())) fail(`champ ${label} invalide.`);
+  };
+  for (const key of ['pattern','prefix','yearFormat','separator']) if (data.matriculeConfig[key] !== undefined) text(data.matriculeConfig[key],`matriculeConfig.${key}`);
+  for (const key of ['name','acronym','motto','address','city','phone','email','directorName','directorTitle','currency','reminderTemplate','badgeThemeColor']) if (data.schoolConfig[key] !== undefined) text(data.schoolConfig[key],`schoolConfig.${key}`);
   if (typeof data.currentSchoolYearId !== 'string' || typeof data.currentTermCode !== 'string') fail('période courante absente.');
   for (const key of coreArrays) if (!Array.isArray(data[key])) fail(`tableau ${key} absent.`);
   for (const key of ['guardians', 'studentGuardianLinks']) if (data[key] !== undefined && !Array.isArray(data[key])) fail(`${key} doit être un tableau.`);
@@ -18,6 +28,8 @@ export function validateBackup(value: unknown): asserts value is Record<string, 
     for (const row of data[key] ?? []) {
       if (!isObject(row) || typeof row.id !== 'string' || !row.id || set.has(row.id)) fail(`identifiant invalide ou dupliqué dans ${key}.`);
       set.add(row.id);
+      for (const field of requiredText[key] ?? []) text(row[field],`${key}.${field}`,true);
+      for (const field of ['firstName','room','receiptNumber','voucherNumber','payerName','cashierName','beneficiaryOrPayer','description']) if (row[field] !== undefined) text(row[field],`${key}.${field}`);
       for (const field of ['birthDate', 'enrollmentDate', 'paymentDate', 'date', 'startDate', 'endDate', 'hireDate']) {
         const date = row[field];
         if (date !== undefined && date !== '') {
@@ -36,9 +48,14 @@ export function validateBackup(value: unknown): asserts value is Record<string, 
   const validDate = (date: unknown) => typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date) && Number.isFinite(Date.parse(date+'T12:00:00Z')) && new Date(date+'T12:00:00Z').toISOString().slice(0,10) === date;
   const finite = (value: unknown, label: string) => { if (typeof value !== 'number' || !Number.isFinite(value)) fail(`montant ou nombre invalide : ${label}.`); };
   for (const year of data.schoolYears) {
+    if (!validDate(year.startDate) || !validDate(year.endDate) || year.startDate >= year.endDate) fail('calendrier d’année absent ou impossible.');
     if (!Array.isArray(year.terms) || year.terms.some((t:any)=>!isObject(t)||!t.id||!t.code)) fail('périodes scolaires invalides.');
     if (new Set(year.terms.map((term:any)=>term.id)).size !== year.terms.length || new Set(year.terms.map((term:any)=>term.code)).size !== year.terms.length) fail('périodes scolaires dupliquées.');
-    for (const term of year.terms) if (!validDate(term.startDate) || !validDate(term.endDate) || term.startDate > term.endDate) fail('calendrier de période impossible.');
+    for (const term of year.terms) {
+      text(term.label,'période.label',true);text(term.id,'période.id',true);text(term.code,'période.code',true);
+      if (!validDate(term.startDate) || !validDate(term.endDate) || term.startDate > term.endDate) fail('calendrier de période impossible.');
+      finite(term.weight,'poids de période');if(term.weight<=0 || typeof term.isLocked!=='boolean') fail('paramètres de période invalides.');
+    }
   }
   if (currentYear.terms.length && !currentYear.terms.some((t:any)=>t.code===data.currentTermCode)) fail('période courante inconnue.');
   for (const row of data.classes) {
@@ -56,6 +73,7 @@ export function validateBackup(value: unknown): asserts value is Record<string, 
     if (!Array.isArray(row.evaluations) || row.evaluations.some((n:any)=>typeof n!=='number'||!Number.isFinite(n)||n<0||n>20)) fail('notes de contrôle invalides.');
     if (row.examGrade!==undefined && (typeof row.examGrade!=='number'||!Number.isFinite(row.examGrade)||row.examGrade<0||row.examGrade>20)) fail('note d’examen invalide.');
     if (row.evaluationWeights !== undefined && (!Array.isArray(row.evaluationWeights) || row.evaluationWeights.length !== row.evaluations.length || row.evaluationWeights.some((weight:any)=>typeof weight!=='number'||!Number.isFinite(weight)||weight<=0))) fail('pondérations des notes invalides.');
+    if (row.cloudExamCoefficient !== undefined && (typeof row.cloudExamCoefficient!=='number'||!Number.isFinite(row.cloudExamCoefficient)||row.cloudExamCoefficient<=0)) fail('coefficient d’examen invalide.');
   }
   for (const row of data.tuitionPayments) {ref('students',row.studentId,'élève payé');ref('classes',row.classId,'classe du paiement');ref('schoolYears',row.schoolYearId,'année du paiement');finite(row.amount,'paiement');}
   for (const row of data.salaryPayments) {ref('teachers',row.teacherId,'enseignant payé');ref('schoolYears',row.schoolYearId,'année du salaire');finite(row.netSalary,'salaire');}
