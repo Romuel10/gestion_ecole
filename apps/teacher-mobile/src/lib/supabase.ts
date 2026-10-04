@@ -1,6 +1,7 @@
 import 'react-native-url-polyfill/auto';
 import 'expo-sqlite/localStorage/install';
 import { createClient } from '@supabase/supabase-js';
+import { offlineStore } from './offlineStore';
 
 const url = process.env.EXPO_PUBLIC_SUPABASE_URL ?? 'https://cmpbrouwcfoauwyeiyfj.supabase.co';
 const publishableKey =
@@ -25,6 +26,10 @@ export const supabase = createClient(url, publishableKey, {
       eventsPerSecond: 10,
     },
   },
+});
+
+supabase.auth.onAuthStateChange((_event, session) => {
+  offlineStore.setOwner(session?.user.id ?? null);
 });
 
 

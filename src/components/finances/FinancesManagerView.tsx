@@ -1,3 +1,4 @@
+import { calculateCashClosure } from '../../services/cashClosure';
 import { localDateIso } from '../../services/dateFormat';
 import { DateInput } from '../common/DateInput';
 import { reportInvalidDates } from '../../services/dateInputValidation';
@@ -112,37 +113,15 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
     paymentMethod: 'ESPECES' as PaymentMethod,
   });
 
-  const cashBeforeClosingDate = db.cashTransactions.filter(
-    (transaction) =>
-      transaction.schoolYearId === db.currentSchoolYearId &&
-      transaction.date < closingDate
-  );
-  const cashOnClosingDate = db.cashTransactions.filter(
-    (transaction) =>
-      transaction.schoolYearId === db.currentSchoolYearId &&
-      transaction.date === closingDate
-  );
-  const openingCashBalance = cashBeforeClosingDate.reduce(
-    (sum, transaction) =>
-      sum + (transaction.type === 'RECETTE' ? transaction.amount : -transaction.amount),
-    0
-  );
-  const dayCashIn = cashOnClosingDate
-    .filter((transaction) => transaction.type === 'RECETTE')
-    .reduce((sum, transaction) => sum + transaction.amount, 0);
-  const dayCashOut = cashOnClosingDate
-    .filter((transaction) => transaction.type === 'DEPENSE')
-    .reduce((sum, transaction) => sum + transaction.amount, 0);
-  const expectedClosingBalance = openingCashBalance + dayCashIn - dayCashOut;
-  const closingDifference =
-    countedBalance === '' ? 0 : Number(countedBalance) - expectedClosingBalance;
+  const { cashOnClosingDate, openingCashBalance, dayCashIn, dayCashOut, expectedClosingBalance, closingDifference } =
+    calculateCashClosure(db.cashTransactions, db.currentSchoolYearId, closingDate, Number(countedBalance || 0));
   const existingClosure = db.cashDayClosures.find(
     (closure) =>
       closure.schoolYearId === db.currentSchoolYearId &&
       closure.date === closingDate
   );
 
-  const handleSaveCashClosing = () => {
+  const handleSaveCashClosing = async () => {
     if (!closingDate) { onShowToast('Choisissez une date de clôture valide.', 'error'); return; }
     if (reportInvalidDates()) return;
     if (countedBalance === '' || Number.isNaN(Number(countedBalance))) {
@@ -171,8 +150,9 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
       ...db,
       cashDayClosures: closures,
     };
-    StorageService.saveDatabase(updatedDb);
-    onUpdateDb(updatedDb);
+    const savedDb = await StorageService.saveDatabaseOrNotify(updatedDb, db, onShowToast);
+    if (!savedDb) return;
+    onUpdateDb(savedDb);
     onShowToast(
       `Caisse du ${formatDate(closingDate)} clôturée. Écart : ${CalculationService.formatAriary(closure.difference)}.`,
       closure.difference === 0 ? 'success' : 'info'
@@ -267,7 +247,7 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
   };
 
   // Submit Tuition Payment
-  const handleSubmitTuition = (e: React.FormEvent) => {
+  const handleSubmitTuition = async (e: React.FormEvent) => {
     e.preventDefault();
     const stu = studentMap.get(tuitionForm.studentId);
     if (!stu) return;
@@ -344,8 +324,9 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
       cashTransactions: [newTx, ...db.cashTransactions],
     };
 
-    StorageService.saveDatabase(updatedDb);
-    onUpdateDb(updatedDb);
+    const savedDb = await StorageService.saveDatabaseOrNotify(updatedDb, db, onShowToast);
+    if (!savedDb) return;
+    onUpdateDb(savedDb);
     setIsNewPaymentModalOpen(false);
     onShowToast(`Paiement de ${CalculationService.formatAriary(netAmount)} enregistré ! Reçu N° ${receiptNum}`, 'success');
 
@@ -354,7 +335,7 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
   };
 
   // Submit Salary Payment
-  const handleSubmitSalary = (e: React.FormEvent) => {
+  const handleSubmitSalary = async (e: React.FormEvent) => {
     e.preventDefault();
     const teacher = teacherMap.get(salaryForm.teacherId);
     if (!teacher) return;
@@ -435,8 +416,9 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
       cashTransactions: [newTx, ...db.cashTransactions],
     };
 
-    StorageService.saveDatabase(updatedDb);
-    onUpdateDb(updatedDb);
+    const savedDb = await StorageService.saveDatabaseOrNotify(updatedDb, db, onShowToast);
+    if (!savedDb) return;
+    onUpdateDb(savedDb);
     setIsNewSalaryModalOpen(false);
     onShowToast(`Salaire de ${teacher.lastName} validé (${CalculationService.formatAriary(net)}) !`, 'success');
 
@@ -444,7 +426,7 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
   };
 
   // Submit Miscellaneous Transaction
-  const handleSubmitTransaction = (e: React.FormEvent) => {
+  const handleSubmitTransaction = async (e: React.FormEvent) => {
     e.preventDefault();
     const transactionAmount = Number(txForm.amount || 0);
     if (!Number.isFinite(transactionAmount) || transactionAmount <= 0) {
@@ -472,8 +454,9 @@ export const FinancesManagerView: React.FC<FinancesManagerViewProps> = ({
       cashTransactions: [newTx, ...db.cashTransactions],
     };
 
-    StorageService.saveDatabase(updatedDb);
-    onUpdateDb(updatedDb);
+    const savedDb = await StorageService.saveDatabaseOrNotify(updatedDb, db, onShowToast);
+    if (!savedDb) return;
+    onUpdateDb(savedDb);
     setIsNewExpenseModalOpen(false);
     onShowToast(`Écriture comptable de ${CalculationService.formatAriary(newTx.amount)} enregistrée !`, 'success');
   };

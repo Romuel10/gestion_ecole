@@ -1,10 +1,23 @@
 import { DatabaseSchema } from '../types/school';
 import { INITIAL_DATA } from '../data/initialData';
 import { DesktopStorageService } from './desktopStorage';
+import { mergeDatabaseChanges, mergeTeacherChanges } from './databaseMerge';
+import { validateBackup } from './backupValidation';
 
 const DB_KEY = 'SEKOLY_BROWSER_CACHE_V1';
 
 export class StorageService {
+  private static current: DatabaseSchema | null = null;
+  private static writes: Promise<unknown> = Promise.resolve();
+  private static dailyBackupDate = '';
+
+  private static cache(db: DatabaseSchema): void {
+    localStorage.setItem(DB_KEY, JSON.stringify(db));
+  }
+
+  static getCurrentDatabase(): DatabaseSchema {
+    return structuredClone(this.current ?? this.loadDatabase());
+  }
   private static normalizeDatabase(candidate: Partial<DatabaseSchema>): DatabaseSchema {
     if (!candidate || typeof candidate !== 'object' || !candidate.schoolConfig) {
       throw new Error('Schéma de base de données invalide.');
@@ -67,13 +80,16 @@ export class StorageService {
       const raw = localStorage.getItem(DB_KEY);
       if (!raw) {
         localStorage.setItem(DB_KEY, JSON.stringify(INITIAL_DATA));
-        return JSON.parse(JSON.stringify(INITIAL_DATA));
+        this.current = structuredClone(INITIAL_DATA);
+        return this.current;
       }
       const parsed = JSON.parse(raw) as Partial<DatabaseSchema>;
-      return this.normalizeDatabase(parsed);
+      this.current = this.normalizeDatabase(parsed);
+      return this.current;
     } catch (e) {
       console.error('Failed to load browser cache, fallback to initial data', e);
-      return JSON.parse(JSON.stringify(INITIAL_DATA));
+      this.current = structuredClone(INITIAL_DATA);
+      return this.current;
     }
   }
 
@@ -85,12 +101,14 @@ export class StorageService {
       if (!desktopDb) {
         const fresh = JSON.parse(JSON.stringify(INITIAL_DATA)) as DatabaseSchema;
         await DesktopStorageService.saveDatabase(fresh);
-        localStorage.setItem(DB_KEY, JSON.stringify(fresh));
+        this.current = fresh;
+        try { this.cache(fresh); } catch { /* SQLite is the durable source. */ }
         return fresh;
       }
 
       const normalized = this.normalizeDatabase(desktopDb);
-      localStorage.setItem(DB_KEY, JSON.stringify(normalized));
+      this.current = normalized;
+      try { this.cache(normalized); } catch { /* A full browser cache must not block SQLite. */ }
       return normalized;
     } catch (error) {
       console.error('Failed to hydrate SQLite database', error);
@@ -99,33 +117,67 @@ export class StorageService {
   }
 
   /**
-   * Saves the entire database to LocalStorage
+   * Serializes writes and publishes state only after durable storage succeeds.
    */
-  static saveDatabase(db: DatabaseSchema): boolean {
-    try {
-      db.lastUpdated = new Date().toISOString();
-      localStorage.setItem(DB_KEY, JSON.stringify(db));
-      void DesktopStorageService.saveDatabase(db).catch((error) => {
-        console.error('Failed to persist SQLite database', error);
-      });
-      return true;
-    } catch (e) {
-      console.error('Failed to save database to localStorage', e);
-      return false;
+  static saveDatabase(db: DatabaseSchema, base?: DatabaseSchema, teacherSync = false): Promise<DatabaseSchema> {
+    const proposed = structuredClone(db);
+    const original = base ? structuredClone(base) : null;
+    const write = this.writes.catch(() => undefined).then(async () => {
+      const next = original && this.current
+        ? (teacherSync ? mergeTeacherChanges : mergeDatabaseChanges)(this.current, original, proposed)
+        : proposed;
+      next.lastUpdated = new Date().toISOString();
+      if (DesktopStorageService.isDesktop()) {
+        await DesktopStorageService.saveDatabase(next);
+        try { this.cache(next); } catch (error) { console.warn('Cache navigateur indisponible.', error); }
+      } else {
+        this.cache(next);
+      }
+      this.current = structuredClone(next);
+      return next;
+    });
+    this.writes = write;
+    return write;
+  }
+
+  static async saveDatabaseOrNotify(db: DatabaseSchema, base: DatabaseSchema, notify: (message: string, type: 'error') => void, teacherSync = false): Promise<DatabaseSchema | null> {
+    try { return await this.saveDatabase(db, base, teacherSync); }
+    catch (error) {
+      notify(`Enregistrement impossible : ${error instanceof Error ? error.message : String(error)}. Réessayez avant de fermer.`, 'error');
+      return null;
     }
   }
 
   /**
    * Resets database to default Madagascar sample dataset
    */
-  static resetToDefault(): DatabaseSchema {
+  static async resetToDefault(): Promise<DatabaseSchema> {
     const fresh = JSON.parse(JSON.stringify(INITIAL_DATA)) as DatabaseSchema;
-    this.saveDatabase(fresh);
-    return fresh;
+    return this.saveDatabase(fresh);
   }
 
   static async getDesktopDatabasePath(): Promise<string | null> {
     return DesktopStorageService.getDatabasePath();
+  }
+
+  static async createRecoveryBackup(): Promise<string> {
+    await this.writes.catch(() => undefined);
+    const current = this.getCurrentDatabase();
+    if (DesktopStorageService.isDesktop()) return DesktopStorageService.createRecoveryBackup(current);
+    localStorage.setItem('SEKOLY_RECOVERY_BACKUP_V1', JSON.stringify(current));
+    return 'Copie de secours du navigateur';
+  }
+
+  static async ensureDailyLocalBackup(): Promise<string | null> {
+    const today = new Date().toISOString().slice(0, 10);
+    if (this.dailyBackupDate === today) return null;
+    await this.writes.catch(() => undefined);
+    const current = this.getCurrentDatabase();
+    const path = DesktopStorageService.isDesktop()
+      ? await DesktopStorageService.createDailyBackup(current)
+      : (localStorage.setItem('SEKOLY_DAILY_BACKUP_V1', JSON.stringify(current)), 'Copie quotidienne du navigateur');
+    this.dailyBackupDate = today;
+    return path;
   }
 
   /**
@@ -150,23 +202,10 @@ export class StorageService {
   /**
    * Imports a JSON backup file and replaces the current database
    */
-  static importBackupJSON(file: File): Promise<DatabaseSchema> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const content = e.target?.result as string;
-          const parsed = JSON.parse(content) as Partial<DatabaseSchema>;
-          const normalized = this.normalizeDatabase(parsed);
-          this.saveDatabase(normalized);
-          resolve(normalized);
-        } catch (err) {
-          reject(err);
-        }
-      };
-      reader.onerror = () => reject(new Error('Erreur de lecture du fichier.'));
-      reader.readAsText(file);
-    });
+  static async importBackupJSON(file: File): Promise<DatabaseSchema> {
+    const parsed = JSON.parse(await file.text()) as Partial<DatabaseSchema>;
+    validateBackup(parsed);
+    return this.normalizeDatabase(parsed);
   }
 
   /**

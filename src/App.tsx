@@ -77,8 +77,26 @@ export function App() {
 
   useEffect(() => {
     if (!databaseReady) return;
+    let backupError = '';
+    const backup = async () => {
+      try { await StorageService.ensureDailyLocalBackup(); backupError = ''; }
+      catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (message !== backupError) showToast(`Copie locale quotidienne impossible : ${message}. Exportez une sauvegarde complète.`, 'error');
+        backupError = message;
+      }
+    };
+    void backup();
+    const timer = window.setInterval(backup, 5 * 60 * 1000);
+    return () => window.clearInterval(timer);
+  }, [databaseReady, showToast]);
+
+  useEffect(() => {
+    if (!databaseReady) return;
     let cancelled = false;
     let running = false;
+    let lastSyncError = '';
+    let lastBackupError = '';
 
     const pull = async () => {
       if (
@@ -93,16 +111,18 @@ export function App() {
 
       running = true;
       try {
-        const result = await CloudSyncService.pullTeacherChanges(dbRef.current);
+        const base = StorageService.getCurrentDatabase();
+        const result = await CloudSyncService.pullTeacherChanges(base);
         if (
           !cancelled &&
           (result.attendanceAdded > 0 ||
             result.gradesChanged > 0 ||
             result.gradeConflicts > 0)
         ) {
-          StorageService.saveDatabase(result.db);
-          dbRef.current = result.db;
-          setDb(result.db);
+          const saved = await StorageService.saveDatabase(result.db, base, true);
+          dbRef.current = saved;
+          setDb(saved);
+          result.commitCursor?.();
           showToast(
             result.gradeConflicts > 0
               ? `Cloud : ${result.attendanceAdded} présence(s), ${result.gradesChanged} fiche(s) de notes mise(s) à jour, ${result.gradeConflicts} conflit(s) protégé(s).`
@@ -110,9 +130,18 @@ export function App() {
             result.gradeConflicts > 0 ? 'info' : 'success'
           );
         }
-        void CloudSyncService.ensureDailyBackup();
+        lastSyncError = '';
+        try { await CloudSyncService.ensureDailyBackup(); lastBackupError = ''; }
+        catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          if (message !== lastBackupError) showToast(`Sauvegarde Cloud scolaire impossible : ${message}. La copie JSON complète reste nécessaire pour la comptabilité.`, 'error');
+          lastBackupError = message;
+        }
       } catch (error) {
         console.warn('Sekoly Cloud sync:', error);
+        const message = error instanceof Error ? error.message : String(error);
+        if (!cancelled && message !== lastSyncError) showToast(`Synchronisation interrompue : ${message}`, 'error');
+        lastSyncError = message;
       } finally {
         running = false;
       }
@@ -219,6 +248,7 @@ export function App() {
           db={db}
           onUpdateDb={setDb}
           currentTab={currentTab}
+          onShowToast={showToast}
           isDark={isDark}
           onToggleTheme={() => setIsDark((value) => !value)}
           sidebarExpanded={!isSidebarCollapsed}

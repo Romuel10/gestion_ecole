@@ -237,12 +237,15 @@ export interface GradeEntry {
   termCode: TermType;
   schoolYearId: string;
   evaluations: number[];
+  evaluationWeights?: number[];
   examGrade?: number;
   subjectAverage: number;
   teacherComment?: string;
   updatedAt: string;
+  cloudIgnoredEvaluationIds?: string[];
   cloudEvaluationIds?: Array<string | null>;
   cloudExamAssessmentId?: string;
+  cloudExamCoefficient?: number;
   cloudIgnoredExamAssessmentIds?: string[];
   cloudSyncConflict?: string;
 }

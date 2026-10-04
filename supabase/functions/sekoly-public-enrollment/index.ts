@@ -497,6 +497,15 @@ async function findOrCreatePersistentFamily(
   forcedFamilyId?: string,
   forcedGuardianId?: string,
 ) {
+  if (!forcedFamilyId) throw new Error('Une preuve d’accès familial est requise.');
+  const { data: authorizedLinks, error: authorizedError } = await admin
+    .from("sekoly_family_guardians").select("guardian_id")
+    .eq("school_id", schoolId).eq("family_id", forcedFamilyId);
+  if (authorizedError) throw authorizedError;
+  const authorizedGuardianIds = (authorizedLinks ?? []).map((link: any) => link.guardian_id);
+  if (forcedGuardianId && !authorizedGuardianIds.includes(forcedGuardianId)) {
+    throw new Error('Responsable extérieur à cette famille.');
+  }
   const cinNumber = nullable(guardian.cinNumber, 80);
   const phonePrimary = clean(guardian.phonePrimary, 40);
   const lastName = clean(guardian.lastName, 120).toUpperCase();
@@ -512,25 +521,6 @@ async function findOrCreatePersistentFamily(
       .maybeSingle();
     if (error) throw error;
     guardianRow = data;
-  }
-  if (!guardianRow && cinNumber) {
-    const { data } = await admin
-      .from("sekoly_guardians")
-      .select("*")
-      .eq("school_id", schoolId)
-      .ilike("cin_number", cinNumber)
-      .maybeSingle();
-    guardianRow = data;
-  }
-  if (!guardianRow && phonePrimary) {
-    const { data } = await admin
-      .from("sekoly_guardians")
-      .select("*")
-      .eq("school_id", schoolId)
-      .eq("phone_primary", phonePrimary)
-      .ilike("last_name", lastName)
-      .limit(1);
-    guardianRow = data?.[0] ?? null;
   }
 
   const guardianValues = {
@@ -689,6 +679,7 @@ async function findOrCreatePersistentFamily(
           .from("sekoly_guardians")
           .select("*")
           .eq("school_id", schoolId)
+          .in("id", authorizedGuardianIds)
           .ilike("cin_number", secondaryCin)
           .maybeSingle();
         secondaryGuardian = data;
@@ -699,6 +690,7 @@ async function findOrCreatePersistentFamily(
           .from("sekoly_guardians")
           .select("*")
           .eq("school_id", schoolId)
+          .in("id", authorizedGuardianIds)
           .eq("phone_primary", secondaryPhone)
           .limit(1);
         secondaryGuardian = data?.[0] ?? null;
@@ -788,12 +780,36 @@ async function documentStorageUsage(admin: any, schoolId: string) {
   return total;
 }
 
+async function submissionFromToken(admin: any, token: string) {
+  if (!token || token.length < 24) return null;
+  const { data, error } = await admin.from("sekoly_enrollment_families")
+    .select("id,school_id")
+    .eq("submission_token_hash", await hashPortalToken(token))
+    .gt("submission_token_expires_at", new Date().toISOString())
+    .maybeSingle();
+  if (error) throw error;
+  return data ? { family: { id: null, school_id: data.school_id },
+    submissionFamilyId: data.id, links: [], guardians: [], primaryGuardian: null } : null;
+}
+
+async function enrollmentFamiliesForAccess(admin: any, access: any) {
+  let query = admin.from("sekoly_enrollment_families").select("id")
+    .eq("school_id", access.family.school_id);
+  query = access.submissionFamilyId ? query.eq("id", access.submissionFamilyId)
+    : query.eq("family_profile_id", access.family.id);
+  const { data, error } = await query;
+  if (error) throw error;
+  return data ?? [];
+}
+
 async function uploadEnrollmentDocument(
   admin: any,
   req: Request,
   familyToken: string,
+  submissionToken = "",
 ) {
-  const access = await familyFromToken(admin, familyToken);
+  const access: any = familyToken ? await familyFromToken(admin, familyToken)
+    : await submissionFromToken(admin, submissionToken);
   if (!access) {
     return jsonResponse({ error: "Lien famille invalide ou expiré." }, 401);
   }
@@ -872,7 +888,7 @@ async function uploadEnrollmentDocument(
       .eq("school_id", access.family.school_id)
       .maybeSingle();
     if (campaignFamilyError) throw campaignFamilyError;
-    if (!campaignFamily || campaignFamily.family_profile_id !== access.family.id) {
+    if (!campaignFamily || (access.submissionFamilyId ? campaignFamily.id !== access.submissionFamilyId : campaignFamily.family_profile_id !== access.family.id)) {
       return jsonResponse(
         { error: "Ce dossier ne correspond pas à votre famille." },
         403,
@@ -884,12 +900,7 @@ async function uploadEnrollmentDocument(
       (item: any) => item.code === documentCode,
     );
   } else {
-    const { data: campaignFamilies, error: campaignFamiliesError } = await admin
-      .from("sekoly_enrollment_families")
-      .select("id")
-      .eq("school_id", access.family.school_id)
-      .eq("family_profile_id", access.family.id);
-    if (campaignFamiliesError) throw campaignFamiliesError;
+    const campaignFamilies = await enrollmentFamiliesForAccess(admin, access);
 
     const familyIds = (campaignFamilies ?? []).map((item: any) => item.id);
     if (familyIds.length > 0) {
@@ -944,7 +955,7 @@ async function uploadEnrollmentDocument(
   const storagePath =
     access.family.school_id +
     "/" +
-    access.family.id +
+    (access.family.id ?? access.submissionFamilyId) +
     "/" +
     (targetApplication?.id || "family") +
     "/" +
@@ -977,6 +988,7 @@ async function uploadEnrollmentDocument(
     .insert({
       school_id: access.family.school_id,
       family_id: access.family.id,
+      enrollment_family_id: access.submissionFamilyId ?? null,
       application_id: targetApplication?.id ?? null,
       guardian_id: documentGuardianId,
       document_type: documentType,
@@ -999,12 +1011,7 @@ async function uploadEnrollmentDocument(
   if (documentConfig.scope === "CHILD" && targetApplication?.id) {
     targetApplicationIds = [targetApplication.id];
   } else {
-    const { data: campaignFamilies, error: campaignFamiliesError } = await admin
-      .from("sekoly_enrollment_families")
-      .select("id")
-      .eq("school_id", access.family.school_id)
-      .eq("family_profile_id", access.family.id);
-    if (campaignFamiliesError) throw campaignFamiliesError;
+    const campaignFamilies = await enrollmentFamiliesForAccess(admin, access);
 
     const familyIds = (campaignFamilies ?? []).map((item: any) => item.id);
     if (familyIds.length > 0) {
@@ -1355,6 +1362,7 @@ Deno.serve(async (req) => {
         admin,
         req,
         clean(url.searchParams.get("family"), 160),
+        clean(url.searchParams.get("submission"), 160),
       );
     }
 
@@ -1582,34 +1590,24 @@ Deno.serve(async (req) => {
     const suppliedFamilyToken = clean(body.familyToken, 160);
     if (suppliedFamilyToken) {
       const tokenAccess = await familyFromToken(admin, suppliedFamilyToken);
-      if (
-        tokenAccess &&
-        tokenAccess.family.school_id === context.campaign.school_id
-      ) {
-        persistent = await findOrCreatePersistentFamily(
-          admin,
-          context.campaign.school_id,
-          guardian,
-          tokenAccess.family.id,
-          tokenAccess.primaryGuardian?.id,
-        );
+      if (!tokenAccess || tokenAccess.family.school_id !== context.campaign.school_id) {
+        return jsonResponse({ error: "Accès familial invalide ou expiré." }, 401);
       }
+      persistent = await findOrCreatePersistentFamily(admin, context.campaign.school_id,
+        guardian, tokenAccess.family.id, tokenAccess.primaryGuardian?.id);
     }
-
-    if (!persistent) {
-      persistent = await findOrCreatePersistentFamily(
-        admin,
-        context.campaign.school_id,
-        guardian,
-      );
-    }
+    // Anonymous submissions never look up or mutate a persistent family.
+    const submissionToken = persistent ? null : randomPortalToken();
+    const submissionHash = submissionToken ? await hashPortalToken(submissionToken) : null;
 
     const { data: family, error: familyError } = await admin
       .from("sekoly_enrollment_families")
       .insert({
         school_id: context.campaign.school_id,
         campaign_id: context.campaign.id,
-        family_profile_id: persistent.family.id,
+        family_profile_id: persistent?.family.id ?? null,
+        submission_token_hash: submissionHash,
+        submission_token_expires_at: submissionHash ? new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString() : null,
         guardian_last_name: guardianLastName.toUpperCase(),
         guardian_first_name: guardianFirstName,
         relationship: ["FATHER", "MOTHER", "GUARDIAN", "OTHER"].includes(clean(guardian.relationship, 20))
@@ -1659,19 +1657,14 @@ Deno.serve(async (req) => {
       throw appError;
     }
 
-    const familyToken =
-      suppliedFamilyToken ||
-      (await issuePortalToken(
-        admin,
-        context.campaign.school_id,
-        persistent.family.id,
-      ));
-    const portalUrl = familyFrontendUrl(supabaseUrl, { portal: familyToken });
+    const familyToken = persistent ? suppliedFamilyToken : null;
+    const portalUrl = familyToken ? familyFrontendUrl(supabaseUrl, { portal: familyToken }) : null;
 
     return jsonResponse({
       ok: true,
       referenceCode: family.reference_code,
-      familyCode: persistent.family.family_code,
+      familyCode: persistent?.family.family_code ?? null,
+      submissionToken,
       familyToken,
       portalUrl,
       applications: applications ?? [],

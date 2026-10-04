@@ -140,7 +140,7 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
     return `REC-${activeSchoolYearStart}-${String(nextSequence).padStart(4, '0')}`;
   };
 
-  const handleNewAdmissionSubmit = (e: React.FormEvent) => {
+  const handleNewAdmissionSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (reportInvalidDates()) return;
     if (!formData.lastName.trim() || !formData.firstName.trim()) {
@@ -392,8 +392,9 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
       cashTransactions: updatedTransactions,
     };
 
-    StorageService.saveDatabase(updatedDb);
-    onUpdateDb(updatedDb);
+    const savedDb = await StorageService.saveDatabaseOrNotify(updatedDb, db, onShowToast);
+    if (!savedDb) return;
+    onUpdateDb(savedDb);
 
     onShowToast(`Élève ${newStudent.lastName} inscrit(e) avec succès ! Matricule : ${matricule}`, 'success');
 
@@ -477,7 +478,7 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
     });
   };
 
-  const handleReRegistrationSubmit = () => {
+  const handleReRegistrationSubmit = async () => {
     if (!selectedStudentForReReg) return;
     const targetClass = db.classes.find((c) => c.id === targetClassId) || db.classes[0];
     if (!targetClass) {
@@ -582,8 +583,9 @@ export const RegistrationView: React.FC<RegistrationViewProps> = ({
       cashTransactions: [newTransaction, ...db.cashTransactions],
     };
 
-    StorageService.saveDatabase(updatedDb);
-    onUpdateDb(updatedDb);
+    const savedDb = await StorageService.saveDatabaseOrNotify(updatedDb, db, onShowToast);
+    if (!savedDb) return;
+    onUpdateDb(savedDb);
 
     onShowToast(`Réinscription de ${selectedStudentForReReg.lastName} validée avec succès !`, 'success');
     PdfGeneratorService.generateTuitionReceiptPDF(newPayment, updatedDb);

@@ -14,6 +14,7 @@ import { NavTab } from './Sidebar';
 interface HeaderProps {
   db: DatabaseSchema;
   onUpdateDb: (updated: DatabaseSchema) => void;
+  onShowToast: (message: string, type: 'error') => void;
   currentTab: NavTab;
   isDark: boolean;
   sidebarExpanded: boolean;
@@ -38,6 +39,7 @@ const pageMeta: Record<NavTab, { title: string; description: string }> = {
 export const Header: React.FC<HeaderProps> = ({
   db,
   onUpdateDb,
+  onShowToast,
   currentTab,
   isDark,
   sidebarExpanded,
@@ -56,14 +58,15 @@ export const Header: React.FC<HeaderProps> = ({
   );
   const meta = pageMeta[currentTab];
 
-  const handleTermChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+  const handleTermChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newTerm = e.target.value as TermType;
     const updated = { ...db, currentTermCode: newTerm };
-    StorageService.saveDatabase(updated);
-    onUpdateDb(updated);
+    const savedDb = await StorageService.saveDatabaseOrNotify(updated, db, onShowToast);
+    if (!savedDb) return;
+    onUpdateDb(savedDb);
   };
 
-  const handleYearChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+  const handleYearChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newYearId = e.target.value;
     const selectedYear = db.schoolYears.find((year) => year.id === newYearId);
     if (!selectedYear) return;
@@ -81,8 +84,9 @@ export const Header: React.FC<HeaderProps> = ({
         isCurrent: year.id === newYearId,
       })),
     };
-    StorageService.saveDatabase(updated);
-    onUpdateDb(updated);
+    const savedDb = await StorageService.saveDatabaseOrNotify(updated, db, onShowToast);
+    if (!savedDb) return;
+    onUpdateDb(savedDb);
   };
 
   return (

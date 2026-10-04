@@ -49,11 +49,13 @@ jobs:
           java-version: "17"
 
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-fund
+
+      - name: Verify patched dependencies and audit
+        run: npm run security:check
 
       - name: Generate Sekoly Android icons
         run: |
-          npm install --no-save --no-audit --no-fund sharp
           node scripts/generate-icons.mjs
 
       - name: Generate Android project

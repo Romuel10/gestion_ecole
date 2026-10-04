@@ -38,7 +38,7 @@ jobs:
         run: npm ci
 
       - name: Audit production dependencies
-        run: npm audit --omit=dev --audit-level=high
+        run: npm audit --audit-level=high
 
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
@@ -53,8 +53,22 @@ jobs:
       - name: Generate Windows icons from Sekoly identity
         run: cargo tauri icon public/sekoly-app.svg
 
+      - name: Generate and validate Rust lockfile
+        working-directory: src-tauri
+        run: cargo generate-lockfile
+
+      - name: Upload Rust lockfile
+        uses: actions/upload-artifact@v4
+        with:
+          name: sekoly-rust-lockfile
+          path: src-tauri/Cargo.lock
+
+      - name: Test native backups
+        working-directory: src-tauri
+        run: cargo test --locked
+
       - name: Build Windows installers
-        run: cargo tauri build --bundles nsis,msi
+        run: cargo tauri build --locked --bundles nsis,msi
 
       - name: Test Windows startup and single instance
         shell: pwsh

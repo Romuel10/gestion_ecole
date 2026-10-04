@@ -2,6 +2,7 @@ import * as XLSX from 'xlsx';
 import { DatabaseSchema, GradeEntry, Student } from '../types/school';
 import { MatriculeService } from './matricule';
 import { CalculationService } from './calculations';
+import { parseDisplayDate } from './dateFormat';
 
 export interface ExcelImportIssue {
   row: number;
@@ -269,6 +270,17 @@ export class ExcelImportService {
       }
 
       const birthDate = excelDate(pick(row, ['Date naissance', 'Date de naissance']));
+      if (birthDate && !/^\d{4}-\d{2}-\d{2}$/.test(birthDate)) {
+        issues.push({ row: rowNumber, message: 'Date de naissance invalide : utilisez JJ-MM-AAAA ou une date Excel.' });
+        return;
+      }
+      if (birthDate) {
+        const [year, month, day] = birthDate.split('-');
+        if (!parseDisplayDate(`${day}-${month}-${year}`)) {
+          issues.push({ row: rowNumber, message: 'Date de naissance impossible dans le calendrier.' });
+          return;
+        }
+      }
       if (!birthDate) {
         warnings.push({ row: rowNumber, message: 'Date de naissance absente.' });
       }

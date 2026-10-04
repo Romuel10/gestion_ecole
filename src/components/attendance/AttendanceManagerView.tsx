@@ -91,7 +91,7 @@ export const AttendanceManagerView: React.FC<AttendanceManagerViewProps> = ({
     setDrafts(next);
   };
 
-  const saveAttendance = () => {
+  const saveAttendance = async () => {
     if (!selectedDate) { onShowToast('Choisissez une date d’appel valide.', 'error'); return; }
     if (reportInvalidDates()) return;
     const studentIds = new Set(students.map((student) => student.id));
@@ -124,8 +124,9 @@ export const AttendanceManagerView: React.FC<AttendanceManagerViewProps> = ({
       ...db,
       attendanceRecords: [...preserved, ...saved],
     };
-    StorageService.saveDatabase(updated);
-    onUpdateDb(updated);
+    const savedDb = await StorageService.saveDatabaseOrNotify(updated, db, onShowToast);
+    if (!savedDb) return;
+    onUpdateDb(savedDb);
     setDrafts({});
     onShowToast(`Appel enregistré pour ${students.length} élève(s).`, 'success');
   };

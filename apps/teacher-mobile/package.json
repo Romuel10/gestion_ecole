@@ -7,7 +7,9 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "postinstall": "node scripts/security-patches.cjs",
+    "security:check": "node scripts/security-patches.cjs --verify && node --test tests/security.test.cjs && node scripts/audit-dependencies.cjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.117.1",
@@ -20,6 +22,10 @@
   },
   "devDependencies": {
     "@types/react": "~19.2.4",
+    "sharp": "0.35.5",
     "typescript": "~6.0.2"
+  },
+  "overrides": {
+    "uuid": "11.1.1"
   }
 }

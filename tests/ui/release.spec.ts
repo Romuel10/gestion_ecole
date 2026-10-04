@@ -282,6 +282,9 @@ for (const width of [390, 800, 1366]) {
 test('dates JJ-MM-AAAA dans les dossiers, certificats, Excel et paramètres', async ({ page }) => {
   const db = structuredClone(fixture);
   db.students.forEach((student) => { student.birthDate = '2015-10-23'; });
+  db.schoolConfig.logoUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAFAAAAAoCAIAAADmAupWAAAA2ElEQVR4nO2auw7EMAgEj1P+/5edgiYnnfIys5aAaVIkBavFxhDbGONTie/qANRs/jCztXEI8Fyu6rCTdT0f87ecwy04O9v1J6H8LQfKvUMn+KTy+SuNbIXgm0VeIxtfw0+PNPQRiBX8LnpUMyh4Jm5Oc7myRAmetwgyuR2OIMocwuR2ODstODstODuI4KiOh+ic2uEg5s2BGuN2OI4Zi7i5B+vwu7jRKQ+e0k+jp2daiiGea7hsffJMLZ0T2Tnn0s7y/3VdlrLzk9IV7gGUc9iW7yJiyjm8A/R0QlvEIJLIAAAAAElFTkSuQmCC';
+  db.schoolConfig.documentLogoPosition = 'CENTER';
+  db.schoolConfig.documentLogoWidthMm = 18;
   await page.addInitScript((data) => localStorage.setItem('SEKOLY_BROWSER_CACHE_V1', JSON.stringify(data)), db);
   await boot(page);
   await navigate(page, 'Élèves');
@@ -296,6 +299,7 @@ test('dates JJ-MM-AAAA dans les dossiers, certificats, Excel et paramètres', as
   const raw = (await readFile((await pdf.path())!)).toString('latin1');
   expect(raw).toContain('23-10-2015');
   expect(raw).not.toContain('2015-10-23');
+  expect(raw).toContain('/Subtype /Image');
   const excelDownload = page.waitForEvent('download');
   await page.getByRole('button', { name: /Exporter Excel/ }).click();
   const book = XLSX.read(await readFile((await (await excelDownload).path())!));

@@ -1,3 +1,4 @@
+import { applyGradeDraft } from '../../services/gradeDraft';
 import { localDateIso } from '../../services/dateFormat';
 import React, { useEffect, useState } from 'react';
 import {
@@ -144,7 +145,7 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
     setInspectSummary(null);
   }, [db.currentSchoolYearId, db.currentTermCode, initialClassId]);
 
-  const handleSaveGradesMatrix = () => {
+  const handleSaveGradesMatrix = async () => {
     const activeYear = db.schoolYears.find((y) => y.id === db.currentSchoolYearId);
     const activeTerm = activeYear?.terms.find((t) => t.code === selectedTerm);
     if (activeTerm?.isLocked) {
@@ -170,40 +171,14 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
       const entry = matrixGrades[s.id];
       if (!entry) return;
 
-      const evaluations: number[] = [];
-      if (entry.dev1 !== '' && !isNaN(Number(entry.dev1))) evaluations.push(Number(entry.dev1));
-      if (entry.dev2 !== '' && !isNaN(Number(entry.dev2))) evaluations.push(Number(entry.dev2));
-
-      const examGrade = entry.exam !== '' && !isNaN(Number(entry.exam)) ? Number(entry.exam) : undefined;
-      const subjectAverage = CalculationService.computeSubjectAverage(
-        evaluations,
-        examGrade,
-        db.schoolConfig.continuousAssessmentWeight ?? 1,
-        db.schoolConfig.examWeight ?? 2
-      );
-
-      const existingIndex = updatedGrades.findIndex(
-        (g) =>
-          g.studentId === s.id &&
-          g.classId === selectedClassId &&
-          g.subjectId === selectedSubjectId &&
-          g.termCode === selectedTerm &&
-          g.schoolYearId === db.currentSchoolYearId
-      );
-
-      const gradeObj: GradeEntry = {
+      const existingIndex = updatedGrades.findIndex(g => g.studentId === s.id &&
+        g.classId === selectedClassId && g.subjectId === selectedSubjectId &&
+        g.termCode === selectedTerm && g.schoolYearId === db.currentSchoolYearId);
+      const gradeObj = applyGradeDraft(existingIndex >= 0 ? updatedGrades[existingIndex] : undefined, entry, {
         id: existingIndex >= 0 ? updatedGrades[existingIndex].id : `grd-${Date.now()}-${s.id}`,
-        studentId: s.id,
-        classId: selectedClassId,
-        subjectId: selectedSubjectId,
-        termCode: selectedTerm,
-        schoolYearId: db.currentSchoolYearId,
-        evaluations,
-        examGrade,
-        subjectAverage,
-        teacherComment: entry.comment,
-        updatedAt: localDateIso(),
-      };
+        studentId: s.id, classId: selectedClassId, subjectId: selectedSubjectId,
+        termCode: selectedTerm, schoolYearId: db.currentSchoolYearId,
+      }, db.schoolConfig.continuousAssessmentWeight ?? 1, db.schoolConfig.examWeight ?? 2);
 
       if (existingIndex >= 0) {
         updatedGrades[existingIndex] = gradeObj;
@@ -217,8 +192,9 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
       grades: updatedGrades,
     };
 
-    StorageService.saveDatabase(updatedDb);
-    onUpdateDb(updatedDb);
+    const savedDb = await StorageService.saveDatabaseOrNotify(updatedDb, db, onShowToast);
+    if (!savedDb) return;
+    onUpdateDb(savedDb);
     onShowToast('Notes et moyennes enregistrées avec succès !', 'success');
   };
 
@@ -249,7 +225,7 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
     }
   };
 
-  const confirmGradeImport = () => {
+  const confirmGradeImport = async () => {
     if (!gradeImportPreview || gradeImportPreview.issues.length > 0) return;
 
     const importedByKey = new Map(
@@ -271,8 +247,9 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
       ...db,
       grades: [...preserved, ...importedGrades],
     };
-    StorageService.saveDatabase(updatedDb);
-    onUpdateDb(updatedDb);
+    const savedDb = await StorageService.saveDatabaseOrNotify(updatedDb, db, onShowToast);
+    if (!savedDb) return;
+    onUpdateDb(savedDb);
     onShowToast(
       `${importedGrades.length} note(s) importée(s) ou mise(s) à jour.`,
       'success'
@@ -356,7 +333,7 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
     .filter((year) => year.startDate > (activeSchoolYear?.startDate || ''))
     .sort((a, b) => a.startDate.localeCompare(b.startDate))[0];
 
-  const handlePrepareNextYear = () => {
+  const handlePrepareNextYear = async () => {
     if (!nextSchoolYear) {
       onShowToast(
         'Créez d’abord l’année scolaire suivante dans Paramètres.',
@@ -440,8 +417,9 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
       ...db,
       students: [...preparedStudents, ...updatedStudents],
     };
-    StorageService.saveDatabase(updatedDb);
-    onUpdateDb(updatedDb);
+    const savedDb = await StorageService.saveDatabaseOrNotify(updatedDb, db, onShowToast);
+    if (!savedDb) return;
+    onUpdateDb(savedDb);
 
     const details = [
       `${preparedStudents.length} dossier(s) préparé(s) pour ${nextSchoolYear.label}`,
@@ -755,11 +733,13 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {studentsInClass.map((student) => {
                     const row = matrixGrades[student.id] || { dev1: '', dev2: '', exam: '', comment: '' };
-                    const evals: number[] = [];
-                    if (row.dev1 !== '' && !isNaN(Number(row.dev1))) evals.push(Number(row.dev1));
-                    if (row.dev2 !== '' && !isNaN(Number(row.dev2))) evals.push(Number(row.dev2));
-                    const exam = row.exam !== '' && !isNaN(Number(row.exam)) ? Number(row.exam) : undefined;
-                    const liveAvg = CalculationService.computeSubjectAverage(evals, exam);
+                    const existing = db.grades.find(g => g.studentId === student.id &&
+                      g.subjectId === selectedSubjectId && g.classId === selectedClassId &&
+                      g.termCode === selectedTerm && g.schoolYearId === db.currentSchoolYearId);
+                    const liveAvg = applyGradeDraft(existing, row, {
+                      id: existing?.id ?? 'preview', studentId: student.id, classId: selectedClassId,
+                      subjectId: selectedSubjectId, termCode: selectedTerm, schoolYearId: db.currentSchoolYearId,
+                    }, db.schoolConfig.continuousAssessmentWeight ?? 1, db.schoolConfig.examWeight ?? 2).subjectAverage;
 
                     return (
                       <tr key={student.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">

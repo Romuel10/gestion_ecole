@@ -184,7 +184,7 @@ export const TimetableView: React.FC<TimetableViewProps> = ({
     setIsSlotModalOpen(true);
   };
 
-  const handleSaveSlot = (e: React.FormEvent) => {
+  const handleSaveSlot = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!db.classes.some((cls) => cls.id === slotForm.classId)) {
@@ -245,24 +245,26 @@ export const TimetableView: React.FC<TimetableViewProps> = ({
       timetableSlots: updatedSlots,
     };
 
-    StorageService.saveDatabase(updatedDb);
-    onUpdateDb(updatedDb);
+    const savedDb = await StorageService.saveDatabaseOrNotify(updatedDb, db, onShowToast);
+    if (!savedDb) return;
+    onUpdateDb(savedDb);
     setIsSlotModalOpen(false);
     onShowToast('Créneau de cours enregistré avec succès !', 'success');
   };
 
-  const handleDeleteSlot = (id: string) => {
+  const handleDeleteSlot = async (id: string) => {
     const updatedSlots = db.timetableSlots.filter((s) => s.id !== id);
     const updatedDb: DatabaseSchema = {
       ...db,
       timetableSlots: updatedSlots,
     };
-    StorageService.saveDatabase(updatedDb);
-    onUpdateDb(updatedDb);
+    const savedDb = await StorageService.saveDatabaseOrNotify(updatedDb, db, onShowToast);
+    if (!savedDb) return;
+    onUpdateDb(savedDb);
     onShowToast('Créneau supprimé du planning.', 'info');
   };
 
-  const handleGenerateAutomatically = () => {
+  const handleGenerateAutomatically = async () => {
     const result = TimetableGeneratorService.generate(db);
 
     if (result.slots.length === 0) {
@@ -284,8 +286,9 @@ export const TimetableView: React.FC<TimetableViewProps> = ({
       ...db,
       timetableSlots: result.slots,
     };
-    StorageService.saveDatabase(updatedDb);
-    onUpdateDb(updatedDb);
+    const savedDb = await StorageService.saveDatabaseOrNotify(updatedDb, db, onShowToast);
+    if (!savedDb) return;
+    onUpdateDb(savedDb);
 
     if (result.unassigned.length > 0) {
       onShowToast(

@@ -108,7 +108,7 @@ export const TeachersManagerView: React.FC<TeachersManagerViewProps> = ({
     setIsModalOpen(true);
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.lastName || !formData.firstName) {
       onShowToast('Nom et prénom obligatoires', 'error');
@@ -147,7 +147,6 @@ export const TeachersManagerView: React.FC<TeachersManagerViewProps> = ({
           ? ({ ...t, ...formData, matricule: normalizedMatricule, email: normalizedEmail } as Teacher)
           : t
       );
-      onShowToast(`Enseignant ${formData.lastName} modifié avec succès.`, 'success');
     } else {
       const newTeacher: Teacher = {
         id: `tea-${Date.now()}`,
@@ -169,7 +168,6 @@ export const TeachersManagerView: React.FC<TeachersManagerViewProps> = ({
         cinNumber: formData.cinNumber || '',
       };
       updatedTeachers.push(newTeacher);
-      onShowToast(`Enseignant ${newTeacher.lastName} ajouté au corps professoral.`, 'success');
     }
 
     const updatedDb: DatabaseSchema = {
@@ -177,12 +175,14 @@ export const TeachersManagerView: React.FC<TeachersManagerViewProps> = ({
       teachers: updatedTeachers,
     };
 
-    StorageService.saveDatabase(updatedDb);
-    onUpdateDb(updatedDb);
+    const savedDb = await StorageService.saveDatabaseOrNotify(updatedDb, db, onShowToast);
+    if (!savedDb) return;
+    onUpdateDb(savedDb);
+    onShowToast(`Enseignant ${formData.lastName} ${editingTeacher ? 'modifié' : 'ajouté'}.`, 'success');
     setIsModalOpen(false);
   };
 
-  const handleDeleteTeacher = (id: string, name: string) => {
+  const handleDeleteTeacher = async (id: string, name: string) => {
     const isAssignedToClass = db.classes.some(
       (cls) => cls.mainTeacherId === id || cls.subjects.some((subject) => subject.teacherId === id)
     );
@@ -200,8 +200,9 @@ export const TeachersManagerView: React.FC<TeachersManagerViewProps> = ({
     if (window.confirm(`Supprimer l'enseignant ${name} ?`)) {
       const updated = db.teachers.filter((t) => t.id !== id);
       const updatedDb: DatabaseSchema = { ...db, teachers: updated };
-      StorageService.saveDatabase(updatedDb);
-      onUpdateDb(updatedDb);
+      const savedDb = await StorageService.saveDatabaseOrNotify(updatedDb, db, onShowToast);
+      if (!savedDb) return;
+      onUpdateDb(savedDb);
       onShowToast('Enseignant supprimé.', 'info');
     }
   };

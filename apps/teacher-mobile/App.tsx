@@ -1021,6 +1021,8 @@ function AppContent() {
   const [syncing, setSyncing] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [needsPassword, setNeedsPassword] = useState(false);
+  const accountGeneration = useRef(0);
+  const activeUserId = useRef<string | null>(null);
   const screenProgress = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
@@ -1036,11 +1038,13 @@ function AppContent() {
   const refreshQueue = () => setQueueCount(teacherApi.queueCount());
 
   const loadWorkspace = useCallback(async (recordOpen = false) => {
+    const generation = accountGeneration.current;
     const nextContext = await teacherApi.loadContext();
     const [nextAssignments, nextTimetable] = await Promise.all([
       teacherApi.loadAssignments(nextContext),
       teacherApi.loadTimetable(nextContext),
     ]);
+    if (generation !== accountGeneration.current || !offlineStore.isOwner(nextContext.userId, nextContext.schoolId)) return;
     setContext(nextContext);
     setAssignments(nextAssignments);
     setTimetable(nextTimetable);
@@ -1057,6 +1061,11 @@ function AppContent() {
   const boot = useCallback(async () => {
     try {
       const session = await teacherApi.getSession();
+      const bootUserId = session?.user.id ?? null;
+      if (activeUserId.current !== bootUserId) {
+        activeUserId.current = bootUserId;
+        accountGeneration.current += 1;
+      }
       if (session) {
         const mustChange = await teacherApi.requiresPasswordChange();
         if (mustChange) {
@@ -1101,10 +1110,16 @@ function AppContent() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session) {
+      const nextUserId = session?.user.id ?? null;
+      if (activeUserId.current !== nextUserId) {
+        activeUserId.current = nextUserId;
+        accountGeneration.current += 1;
         setContext(null);
         setAssignments([]);
         setTimetable([]);
+        setSelectedAssignment(null);
+        setQueueCount(0);
+        setNeedsPassword(false);
         setTab('HOME');
       }
     });
@@ -1141,7 +1156,7 @@ function AppContent() {
   const sync = async () => {
     setSyncing(true);
     try {
-      const result = await teacherApi.flushQueue();
+      const result = await teacherApi.flushQueue(true);
       refreshQueue();
       if (result.synced > 0) {
         Alert.alert(
@@ -1149,6 +1164,7 @@ function AppContent() {
           `${result.synced} opération(s) envoyée(s). ${result.remaining} restante(s).`
         );
       }
+      if (result.lastError) Alert.alert('Synchronisation incomplète', `${result.remaining} opération(s) conservée(s) sur ce compte. ${result.lastError}`);
       await loadWorkspace();
     } catch (error) {
       Alert.alert(
@@ -1167,6 +1183,8 @@ function AppContent() {
     try {
       await teacherApi.flushQueue();
       await loadWorkspace();
+    } catch (error) {
+      Alert.alert('Actualisation impossible', error instanceof Error ? error.message : 'Réessayez lorsque le réseau est disponible.');
     } finally {
       setRefreshing(false);
     }
@@ -1232,6 +1250,10 @@ function AppContent() {
         onSync={sync}
         onLogout={() => void teacherApi.signOut()}
       />
+
+      {offlineStore.legacyQueueCount() > 0 && <Text style={styles.helper} accessibilityRole="alert">
+        Des opérations d’une ancienne version sont conservées sur ce téléphone. Elles doivent être récupérées avec l’administrateur avant leur envoi.
+      </Text>}
 
       <Animated.View
         style={[
