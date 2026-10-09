@@ -3,7 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="referrer" content="no-referrer" />
   <meta name="theme-color" content="#173f49" />
+  <meta name="sekoly-build" content="2026-10-04-secure-submission-v2" />
   <title>Préinscription Sekoly</title>
   <style>
     :root{color-scheme:light;--bg:#eef5f5;--card:#fff;--card2:#f8fbfb;--ink:#17242b;--muted:#687780;--line:#d8e4e7;--brand:#173f49;--brand2:#245d68;--accent:#2f7a54;--accentSoft:#eaf6ef;--danger:#b94141;--warning:#9a651f;--shadow:0 18px 55px rgba(21,56,66,.10)}
@@ -14,6 +16,9 @@
     .card{margin-top:14px;padding:20px;border:1px solid var(--line);border-radius:20px;background:var(--card);box-shadow:0 8px 26px rgba(20,49,58,.045)}.card h2{margin:0 0 5px;font-size:16px}.sub{margin:0 0 16px;color:var(--muted);font-size:11px;line-height:1.55}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.span2{grid-column:span 2}.field label{display:block;margin-bottom:5px;color:var(--muted);font-size:10px;font-weight:850;text-transform:uppercase;letter-spacing:.045em}.field input,.field select,.field textarea{width:100%;min-height:46px;border:1px solid var(--line);border-radius:12px;background:var(--card2);color:var(--ink);padding:10px 12px;outline:none;transition:.15s}.field textarea{min-height:84px;resize:vertical}.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(47,122,84,.10)}.divider{height:1px;background:var(--line);margin:17px 0}.section-title{font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:10px}
     .child{margin-top:12px;padding:16px;border:1px solid var(--line);border-radius:16px;background:var(--card2)}.child-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:13px}.child-head strong{font-size:13px}.doc-box{padding:13px;border:1px dashed var(--line);border-radius:14px;background:var(--card2)}.doc-box label{display:block;font-size:10px;font-weight:850;color:var(--muted);margin-bottom:6px}.doc-box input{width:100%;font-size:11px}.docs-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
     .actions{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:16px}.btn{min-height:44px;border:0;border-radius:12px;padding:10px 15px;font-weight:850;cursor:pointer}.btn:disabled{opacity:.55;cursor:not-allowed}.primary{background:var(--brand);color:white}.secondary{background:var(--card2);color:var(--ink);border:1px solid var(--line)}.success{background:var(--accent);color:white}.danger{background:rgba(185,65,65,.1);color:var(--danger)}.add{background:var(--accentSoft);color:var(--accent)}.fine{color:var(--muted);font-size:10px;line-height:1.55}.review{display:grid;gap:8px}.review-row{display:flex;justify-content:space-between;gap:18px;padding:11px 12px;border:1px solid var(--line);border-radius:12px;background:var(--card2);font-size:11px}.review-row span{color:var(--muted)}.consent{display:flex;gap:9px;align-items:flex-start;margin-top:15px;font-size:11px;color:var(--muted)}.consent input{margin-top:2px}.saving{min-height:16px;margin-top:8px;color:var(--muted);font-size:10px}.hidden{display:none!important}.loading{padding:42px;text-align:center;color:var(--muted)}.error-card{margin-top:16px;padding:18px;border-radius:16px;background:rgba(185,65,65,.09);color:var(--danger);font-size:12px}.success-card{text-align:center;padding:30px}.checkmark{width:54px;height:54px;margin:0 auto 12px;border-radius:50%;display:grid;place-items:center;background:var(--accent);color:white;font-size:27px;font-weight:900}.reference{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:22px;font-weight:900;margin:12px 0}.portal-link{display:inline-flex;margin-top:12px;text-decoration:none}
+    .custom-fields-title{grid-column:1/-1;margin:6px 0 0;padding-top:12px;border-top:1px solid var(--line);font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}.field-note{display:block;margin-top:4px;color:var(--muted);font-size:9px;line-height:1.4}
+    .form-sections{display:grid;gap:14px;margin-top:12px}.form-section{min-width:0;margin:0;padding:14px;border:1px solid var(--line);border-radius:16px;background:var(--card2)}.form-section legend{padding:0 7px;font-size:12px;font-weight:900;color:var(--ink)}.form-section-desc{margin:-2px 0 11px;color:var(--muted);font-size:10px;line-height:1.5}
+    .portal-wrap{display:grid;gap:14px}.portal-card{padding:18px;border:1px solid var(--line);border-radius:18px;background:var(--card);box-shadow:0 8px 26px rgba(20,49,58,.045)}.portal-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px}.portal-title{margin:0;font-size:15px}.portal-code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:var(--muted);margin-top:4px}.portal-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--line)}.portal-row:last-child{border-bottom:0}.portal-row small{display:block;color:var(--muted);margin-top:3px}.pill{display:inline-flex;padding:5px 8px;border-radius:999px;background:var(--card2);font-size:9px;font-weight:850}.checklist{display:grid;gap:7px;margin-top:10px}.check-item{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 9px;border:1px solid var(--line);border-radius:10px;background:var(--card2);font-size:10px}.check-item>span{flex:1;min-width:150px}.state-good{color:var(--accent)}.state-warn{color:var(--warning)}.mini-upload{display:inline-flex;align-items:center;padding:6px 8px;border-radius:8px;background:var(--accentSoft);color:var(--accent);font-size:9px;font-weight:850;cursor:pointer}.mini-upload input{display:none}.portal-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
     @media(max-width:700px){.shell{padding:8px 10px 60px}.hero{padding:58px 20px 22px;border-radius:20px}.hero-tools{right:12px;top:12px}.hero h1{font-size:22px}.progress{gap:5px}.step-chip{padding:8px 4px;font-size:8px}.card{padding:16px}.grid,.docs-grid{grid-template-columns:1fr}.span2{grid-column:auto}.actions{position:sticky;bottom:8px;z-index:5;padding:8px;border:1px solid var(--line);border-radius:14px;background:color-mix(in srgb,var(--card) 94%,transparent);backdrop-filter:blur(8px)}.actions .btn{flex:1}.review-row{align-items:flex-start}}
   </style>
 </head>
@@ -75,6 +80,8 @@
           <div class="field"><label>Lieu CIN</label><input name="secondaryCinIssuePlace" maxlength="160"></div>
           <div class="field span2"><label>Profession</label><input name="secondaryOccupation" maxlength="160"></div>
         </div>
+        <div id="customFamilyFields" class="grid" style="margin-top:12px"></div>
+        <div id="familySections" class="form-sections"></div>
         <div class="actions"><span></span><button type="button" class="btn primary" data-next>Continuer</button></div>
       </section>
 
@@ -91,11 +98,7 @@
         <h2>Pièces justificatives</h2>
         <p class="sub">Vous pouvez les joindre maintenant ou les remettre plus tard à l’établissement. PDF, JPG, PNG ou WEBP, 10 Mo maximum.</p>
         <div class="section-title">Documents de la famille</div>
-        <div class="docs-grid">
-          <div class="doc-box"><label>CIN du responsable principal</label><input type="file" data-family-doc="CIN_PRIMARY" accept=".pdf,image/jpeg,image/png,image/webp"></div>
-          <div class="doc-box"><label>CIN du deuxième responsable</label><input type="file" data-family-doc="CIN_SECONDARY" accept=".pdf,image/jpeg,image/png,image/webp"></div>
-          <div class="doc-box"><label>Justificatif / certificat de résidence</label><input type="file" data-family-doc="RESIDENCE_CERTIFICATE" accept=".pdf,image/jpeg,image/png,image/webp"></div>
-        </div>
+        <div id="familyDocs" class="docs-grid"></div>
         <div class="divider"></div>
         <div class="section-title">Documents par enfant</div>
         <div id="childDocs"></div>
@@ -112,6 +115,32 @@
       </section>
     </form>
 
+    <section id="portalApp" class="portal-wrap hidden">
+      <article class="portal-card">
+        <div class="portal-head">
+          <div>
+            <h2 class="portal-title" id="portalFamilyName">Portail famille</h2>
+            <div class="portal-code" id="portalFamilyCode"></div>
+          </div>
+          <span class="pill">Accès sécurisé</span>
+        </div>
+        <p class="sub" id="portalSchoolName"></p>
+        <div class="portal-actions">
+          <button id="portalNewRequest" type="button" class="btn primary hidden">Inscrire ou réinscrire un enfant</button>
+          <button id="portalRefresh" type="button" class="btn secondary">Actualiser</button>
+        </div>
+      </article>
+      <article class="portal-card">
+        <h2 class="portal-title">Mes enfants</h2>
+        <div id="portalStudents" style="margin-top:8px"></div>
+      </article>
+      <article class="portal-card">
+        <h2 class="portal-title">Mes demandes</h2>
+        <p class="sub">Suivez l’avancement et ajoutez les pièces encore manquantes.</p>
+        <div id="portalApplications"></div>
+      </article>
+    </section>
+
     <section id="success" class="card success-card hidden">
       <div class="checkmark">✓</div>
       <h2>Demande transmise</h2>
@@ -127,7 +156,8 @@
   const qs=new URLSearchParams(location.search);
   const CODE=qs.get('code')||'';
   const FAMILY=qs.get('family')||'';
-  const ENDPOINT=location.origin+'/functions/v1/sekoly-public-enrollment';
+  const PORTAL=qs.get('portal')||'';
+  const ENDPOINT='https://cmpbrouwcfoauwyeiyfj.supabase.co/functions/v1/sekoly-public-enrollment';
   const DRAFT_KEY='sekoly-enrollment-draft:'+CODE;
   const form=document.getElementById('form');
   const children=document.getElementById('children');
@@ -138,6 +168,225 @@
   const q=(s,r=document)=>r.querySelector(s);
   const qa=(s,r=document)=>Array.from(r.querySelectorAll(s));
   const esc=(v)=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+
+  const defaultSections=[
+    {id:'family_primary',scope:'FAMILY',title:'Responsable principal',description:'Identité et coordonnées du parent ou responsable à contacter en priorité.',order:10,visible:true},
+    {id:'family_secondary',scope:'FAMILY',title:'Deuxième responsable',description:'Informations facultatives sur un autre parent ou responsable légal.',order:20,visible:true},
+    {id:'child_identity',scope:'CHILD',title:'Identité de l’élève',description:'Informations essentielles permettant d’identifier l’enfant et le type de demande.',order:10,visible:true},
+    {id:'child_schooling',scope:'CHILD',title:'Scolarité',description:'Classe souhaitée et établissement fréquenté auparavant.',order:20,visible:true},
+    {id:'child_civil',scope:'CHILD',title:'État civil et adresse',description:'Acte de naissance, adresse et localisation de l’enfant.',order:30,visible:true},
+    {id:'child_health',scope:'CHILD',title:'Santé et informations utiles',description:'Informations utiles à l’accueil et au suivi de l’élève.',order:40,visible:true}
+  ];
+  const schoolingKeys=new Set(['desiredClassId','previousSchool']);
+  const civilKeys=new Set(['birthCertificateNumber','birthCertificateDate','birthCertificatePlace','address','neighborhood','city']);
+  const healthKeys=new Set(['bloodType','medicalNotes']);
+  function legacySectionId(field){
+    if(field.scope==='FAMILY')return field.group==='SECONDARY'?'family_secondary':'family_primary';
+    if(schoolingKeys.has(field.key))return 'child_schooling';
+    if(civilKeys.has(field.key))return 'child_civil';
+    if(healthKeys.has(field.key))return 'child_health';
+    return 'child_identity';
+  }
+  function schemaSections(scope){
+    const sections=bootstrap?.campaign?.form_schema?.sections;
+    const source=Array.isArray(sections)&&sections.length?sections:defaultSections;
+    return source.filter(s=>s&&s.scope===scope&&s.visible!==false).sort((a,b)=>(Number(a.order)||100)-(Number(b.order)||100));
+  }
+  function schemaFields(scope){
+    const fields=bootstrap?.campaign?.form_schema?.fields;
+    const visibleSections=new Set(schemaSections(scope).map(s=>s.id));
+    return Array.isArray(fields)
+      ? fields.filter(f=>f&&f.scope===scope&&f.visible!==false&&visibleSections.has(f.sectionId||legacySectionId(f))).sort((a,b)=>(Number(a.order)||100)-(Number(b.order)||100))
+      : [];
+  }
+  function schemaDocuments(scope){
+    const docs=bootstrap?.campaign?.form_schema?.documents;
+    return Array.isArray(docs)
+      ? docs.filter(d=>d&&d.scope===scope&&d.visible!==false).sort((a,b)=>(Number(a.order)||100)-(Number(b.order)||100))
+      : [];
+  }
+  function fieldInputHtml(field,scope){
+    const customAttr=scope==='FAMILY'?'data-custom-family-key':'data-custom-child-key';
+    const name=scope==='FAMILY'?' name="customFamily__'+esc(field.key)+'"':'';
+    const req=field.required?' required':'';
+    const placeholder=field.placeholder?' placeholder="'+esc(field.placeholder)+'"':'';
+    const id='custom-'+scope.toLowerCase()+'-'+String(field.key).replace(/[^a-zA-Z0-9_-]/g,'-');
+    const helpId=field.helpText?id+'-help':'';
+    const described=helpId?' aria-describedby="'+esc(helpId)+'"':'';
+    const common=' id="'+esc(id)+'" '+customAttr+'="'+esc(field.key)+'"'+name+req+placeholder+described;
+    if(field.type==='TEXTAREA')return '<textarea '+common+' maxlength="4000"></textarea>';
+    if(field.type==='DATE')return '<input type="date" '+common+'>';
+    if(field.type==='EMAIL')return '<input type="email" '+common+' maxlength="500">';
+    if(field.type==='PHONE')return '<input type="tel" inputmode="tel" '+common+' maxlength="500">';
+    if(field.type==='NUMBER')return '<input type="number" '+common+'>';
+    if(field.type==='YES_NO')return '<select '+common+'><option value=""></option><option value="true">Oui</option><option value="false">Non</option></select>';
+    if(field.type==='SELECT'){
+      const opts=(Array.isArray(field.options)?field.options:[]).map(v=>'<option value="'+esc(v)+'">'+esc(v)+'</option>').join('');
+      return '<select '+common+'><option value=""></option>'+opts+'</select>';
+    }
+    return '<input type="text" '+common+' maxlength="500">';
+  }
+  function customFieldsHtml(scope){
+    const custom=schemaFields(scope).filter(f=>f.custom);
+    return custom.map(field=>{
+      const id='custom-'+scope.toLowerCase()+'-'+String(field.key).replace(/[^a-zA-Z0-9_-]/g,'-');
+      const status=field.required?' (obligatoire)':' (facultatif)';
+      const helpId=id+'-help';
+      return '<div class="field"><label for="'+esc(id)+'">'+esc(field.label)+status+'</label>'+fieldInputHtml(field,scope)+(field.helpText?'<small id="'+esc(helpId)+'" class="field-note">'+esc(field.helpText)+'</small>':'')+'</div>';
+    }).join('');
+  }
+  function customAnswerValue(el){
+    if(!el)return '';
+    if(el.tagName==='SELECT'&&el.dataset&&el.dataset.customFamilyKey&&el.options)return el.value;
+    if(el.type==='number')return el.value===''?'':Number(el.value);
+    if(el.type==='checkbox')return Boolean(el.checked);
+    if(el.value==='true')return true;
+    if(el.value==='false')return false;
+    return String(el.value||'').trim();
+  }
+  function readCustomAnswers(scope,root=document){
+    const attr=scope==='FAMILY'?'data-custom-family-key':'data-custom-child-key';
+    const out={};
+    qa('['+attr+']',root).forEach(el=>{
+      const key=el.getAttribute(attr);
+      if(!key)return;
+      const value=customAnswerValue(el);
+      if(value!==''&&value!=null)out[key]=value;
+    });
+    return out;
+  }
+  function applyFixedField(field,el){
+    if(!el)return;
+    const box=el.closest('.field');
+    if(box)box.classList.toggle('hidden',field.visible===false);
+    const required=field.visible!==false&&Boolean(field.required);
+    el.required=required;
+    el.setAttribute('aria-required',required?'true':'false');
+    const safeKey=String(field.key||el.name||'field').replace(/[^a-zA-Z0-9_-]/g,'-');
+    const id=el.id||'field-'+String(field.scope||'form').toLowerCase()+'-'+safeKey;
+    el.id=id;
+    const label=box&&q('label',box);
+    if(label){
+      label.htmlFor=id;
+      if(field.label)label.textContent=field.label+(required?' (obligatoire)':' (facultatif)');
+    }
+    if(box){
+      const existing=q('.field-note[data-schema-help="true"]',box);
+      if(field.helpText&&field.visible!==false){
+        const helpId=id+'-help';
+        const note=existing||document.createElement('small');
+        note.className='field-note';
+        note.dataset.schemaHelp='true';
+        note.id=helpId;
+        note.textContent=field.helpText;
+        if(!existing)box.appendChild(note);
+        el.setAttribute('aria-describedby',helpId);
+      }else{
+        existing?.remove();
+        if(el.getAttribute('aria-describedby')===id+'-help')el.removeAttribute('aria-describedby');
+      }
+    }
+  }
+  function renderScopeSections(scope,root){
+    const host=scope==='FAMILY'?q('#familySections'):q('[data-child-sections]',root);
+    if(!host)return;
+    host.innerHTML='';
+    const fields=schemaFields(scope);
+    schemaSections(scope).forEach(section=>{
+      const sectionFields=fields.filter(field=>(field.sectionId||legacySectionId(field))===section.id);
+      const nodes=[];
+      sectionFields.forEach(field=>{
+        const el=field.custom
+          ? q('['+(scope==='FAMILY'?'data-custom-family-key':'data-custom-child-key')+'="'+field.key+'"]',root)
+          : scope==='FAMILY'?form.elements[field.key]:q('[data-field="'+field.key+'"]',root);
+        const box=el?.closest('.field');
+        if(box)nodes.push(box);
+      });
+      if(!nodes.length)return;
+      const fieldset=document.createElement('fieldset');
+      fieldset.className='form-section';
+      const legend=document.createElement('legend');
+      legend.textContent=section.title||'Informations';
+      fieldset.appendChild(legend);
+      if(section.description){
+        const desc=document.createElement('div');
+        desc.className='form-section-desc';
+        desc.textContent=section.description;
+        fieldset.appendChild(desc);
+      }
+      const grid=document.createElement('div');
+      grid.className='grid';
+      nodes.forEach(node=>grid.appendChild(node));
+      fieldset.appendChild(grid);
+      host.appendChild(fieldset);
+    });
+  }
+
+  function applyFamilySchema(){
+    const activeSections=new Set(schemaSections('FAMILY').map(section=>section.id));
+    const fixed=(bootstrap?.campaign?.form_schema?.fields||[]).filter(f=>f&&f.scope==='FAMILY'&&!f.custom);
+    fixed.forEach(field=>applyFixedField({...field,visible:field.visible!==false&&activeSections.has(field.sectionId||legacySectionId(field))},form.elements[field.key]));
+    q('#customFamilyFields').innerHTML=customFieldsHtml('FAMILY');
+    const familyStep=q('[data-step="0"]');
+    q('.divider',familyStep)?.classList.add('hidden');
+    q('.section-title',familyStep)?.classList.add('hidden');
+    renderScopeSections('FAMILY',form);
+    applyFamilyDocumentSchema();
+  }
+  function applyChildSchema(block){
+    const activeSections=new Set(schemaSections('CHILD').map(section=>section.id));
+    const fixed=(bootstrap?.campaign?.form_schema?.fields||[]).filter(f=>f&&f.scope==='CHILD'&&!f.custom);
+    fixed.forEach(field=>applyFixedField({...field,visible:field.visible!==false&&activeSections.has(field.sectionId||legacySectionId(field))},q('[data-field="'+field.key+'"]',block)));
+    const custom=q('[data-custom-child-fields]',block);
+    if(custom)custom.innerHTML=customFieldsHtml('CHILD');
+    renderScopeSections('CHILD',block);
+    const type=q('[data-field="type"]',block);
+    if(type){
+      type.addEventListener('change',()=>refreshChildConditional(block));
+      refreshChildConditional(block);
+    }
+  }
+  function refreshChildConditional(block){
+    const type=q('[data-field="type"]',block)?.value||'NEW';
+    const matricule=q('[data-field="existingMatricule"]',block);
+    if(!matricule)return;
+    const field=(bootstrap?.campaign?.form_schema?.fields||[]).find(f=>f.scope==='CHILD'&&f.key==='existingMatricule');
+    const show=field?.visible!==false&&type==='RE_REGISTRATION';
+    const box=matricule.closest('.field');
+    if(box)box.classList.toggle('hidden',!show);
+    matricule.required=show;
+  }
+  function renderFamilyDocs(){
+    q('#familyDocs').innerHTML=schemaDocuments('FAMILY').map(doc=>
+      '<div class="doc-box"><label>'+esc(doc.label)+(doc.required?' (obligatoire)':' (facultatif)')+'</label>'+
+      '<input type="file" data-family-doc-code="'+esc(doc.code)+'" accept=".pdf,image/jpeg,image/png,image/webp">'+
+      (doc.helpText?'<small class="field-note">'+esc(doc.helpText)+'</small>':'')+
+      '</div>'
+    ).join('');
+  }
+  function applyFamilyDocumentSchema(){
+    renderFamilyDocs();
+  }
+  function validateSchemaFields(scope,root){
+    for(const field of schemaFields(scope)){
+      if(scope==='CHILD'&&field.key==='existingMatricule'&&q('[data-field="type"]',root)?.value!=='RE_REGISTRATION')continue;
+      const el=field.custom
+        ? q('['+(scope==='FAMILY'?'data-custom-family-key':'data-custom-child-key')+'="'+field.key+'"]',root)
+        : scope==='FAMILY'?form.elements[field.key]:q('[data-field="'+field.key+'"]',root);
+      if(!el)continue;
+      const value=customAnswerValue(el);
+      if(field.required&&(value===''||value==null)){
+        el.focus();
+        alert('Veuillez renseigner : '+field.label);
+        return false;
+      }
+      if(value!==''&&value!=null&&el.checkValidity&&!el.checkValidity()){
+        el.reportValidity?.();
+        return false;
+      }
+    }
+    return true;
+  }
 
   function applyTheme(theme){
     document.documentElement.dataset.theme=theme;
@@ -169,7 +418,7 @@
   function childTemplate(i,data={}){
     return '<div class="child" data-child data-index="'+i+'">'+
       '<div class="child-head"><strong>Enfant '+(qa('[data-child]').length+1)+'</strong><button type="button" class="btn danger" data-remove>Retirer</button></div>'+
-      '<div class="grid">'+
+      '<div class="grid" data-child-standard-fields>'+
       '<div class="field"><label>Type *</label><select data-field="type">'+typeOptions()+'</select></div>'+
       '<div class="field"><label>Matricule actuel (réinscription)</label><input data-field="existingMatricule" maxlength="80"></div>'+
       '<div class="field"><label>Nom *</label><input data-field="lastName" required maxlength="120"></div>'+
@@ -188,7 +437,7 @@
       '<div class="field"><label>Fokontany / quartier</label><input data-field="neighborhood" maxlength="120"></div>'+
       '<div class="field"><label>Ville / Commune</label><input data-field="city" maxlength="120"></div>'+
       '<div class="field span2"><label>Informations utiles / médicales</label><textarea data-field="medicalNotes" maxlength="1000"></textarea></div>'+
-      '</div></div>';
+      '</div><div class="grid" data-custom-child-fields style="margin-top:12px"></div><div class="form-sections" data-child-sections></div></div>';
   }
 
   function addChild(data={}){
@@ -196,7 +445,10 @@
     const id=childCounter++;
     children.insertAdjacentHTML('beforeend',childTemplate(id,data));
     const block=children.lastElementChild;
-    Object.entries(data||{}).forEach(([k,v])=>{const el=q('[data-field="'+k+'"]',block);if(el&&v!=null)el.value=v});
+    applyChildSchema(block);
+    Object.entries(data||{}).forEach(([k,v])=>{const el=q('[data-field="'+k+'"]',block);if(el&&v!=null&&k!=='customAnswers')el.value=v});
+    Object.entries(data?.customAnswers||{}).forEach(([k,v])=>{const el=q('[data-custom-child-key="'+k+'"]',block);if(el&&v!=null)el.value=String(v)});
+    refreshChildConditional(block);
     renumber();renderChildDocs();saveDraft();
   }
   function renumber(){qa('[data-child]').forEach((b,i)=>q('.child-head strong',b).textContent='Enfant '+(i+1))}
@@ -211,18 +463,23 @@
         gender:get('gender'),birthDate:get('birthDate'),birthPlace:get('birthPlace'),nationality:get('nationality'),
         desiredClassId:get('desiredClassId'),previousSchool:get('previousSchool'),birthCertificateNumber:get('birthCertificateNumber'),
         birthCertificateDate:get('birthCertificateDate'),birthCertificatePlace:get('birthCertificatePlace'),bloodType:get('bloodType'),
-        address:get('address'),neighborhood:get('neighborhood'),city:get('city'),medicalNotes:get('medicalNotes')
+        address:get('address'),neighborhood:get('neighborhood'),city:get('city'),medicalNotes:get('medicalNotes'),
+        customAnswers:readCustomAnswers('CHILD',block)
       };
     });
   }
 
   function renderChildDocs(){
-    q('#childDocs').innerHTML=readChildren().map((c,i)=>'<div class="child" style="margin-bottom:10px"><strong>'+esc(c.lastName||'Enfant '+(i+1))+' '+esc(c.firstName||'')+'</strong><div class="docs-grid" style="margin-top:10px">'+
-      '<div class="doc-box"><label>Acte de naissance</label><input type="file" data-child-index="'+i+'" data-doc-type="BIRTH_CERTIFICATE" accept=".pdf,image/jpeg,image/png,image/webp"></div>'+
-      '<div class="doc-box"><label>Photo d’identité</label><input type="file" data-child-index="'+i+'" data-doc-type="STUDENT_PHOTO" accept="image/jpeg,image/png,image/webp"></div>'+
-      '<div class="doc-box"><label>Dernier bulletin</label><input type="file" data-child-index="'+i+'" data-doc-type="REPORT_CARD" accept=".pdf,image/jpeg,image/png,image/webp"></div>'+
-      '<div class="doc-box"><label>Certificat de transfert (si nécessaire)</label><input type="file" data-child-index="'+i+'" data-doc-type="TRANSFER_CERTIFICATE" accept=".pdf,image/jpeg,image/png,image/webp"></div>'+
-      '</div></div>').join('');
+    const docs=schemaDocuments('CHILD');
+    q('#childDocs').innerHTML=readChildren().map((child,i)=>{
+      const boxes=docs.map(doc=>
+        '<div class="doc-box"><label>'+esc(doc.label)+(doc.required?' (obligatoire)':' (facultatif)')+'</label>'+
+        '<input type="file" data-child-index="'+i+'" data-doc-code="'+esc(doc.code)+'" accept=".pdf,image/jpeg,image/png,image/webp">'+
+        (doc.helpText?'<small class="field-note">'+esc(doc.helpText)+'</small>':'')+
+        '</div>'
+      ).join('');
+      return '<div class="child" style="margin-bottom:10px"><strong>'+esc(child.lastName||'Enfant '+(i+1))+' '+esc(child.firstName||'')+'</strong><div class="docs-grid" style="margin-top:10px">'+boxes+'</div></div>';
+    }).join('');
   }
 
   function showStep(n){
@@ -235,15 +492,18 @@
   }
   function validateStep(){
     if(currentStep===0){
-      const required=['guardianLastName','phonePrimary'];
-      for(const n of required){const el=form.elements[n];if(!String(el.value||'').trim()){el.focus();alert('Veuillez renseigner les champs obligatoires.');return false}}
+      if(!validateSchemaFields('FAMILY',form))return false;
     }
     if(currentStep===1){
-      const list=readChildren();
-      if(!list.length){alert('Ajoutez au moins un enfant.');return false}
-      for(let i=0;i<list.length;i++){
-        if(!list[i].lastName||!list[i].firstName){alert('Nom et prénoms sont obligatoires pour chaque enfant.');return false}
-        if(list[i].type==='RE_REGISTRATION'&&!list[i].existingMatricule){alert('Le matricule est obligatoire pour une réinscription.');return false}
+      const blocks=qa('[data-child]');
+      if(!blocks.length){alert('Ajoutez au moins un enfant.');return false}
+      for(const block of blocks){
+        if(!validateSchemaFields('CHILD',block))return false;
+        const type=q('[data-field="type"]',block)?.value||'NEW';
+        if(type==='RE_REGISTRATION'&&!String(q('[data-field="existingMatricule"]',block)?.value||'').trim()){
+          alert('Le matricule est obligatoire pour une réinscription.');
+          return false;
+        }
       }
     }
     return true;
@@ -291,32 +551,27 @@
     Object.entries(map).forEach(([k,v])=>{if(form.elements[k]&&v)form.elements[k].value=v});
   }
 
-  function primaryCinType(){
-    const r=String(form.elements.relationship.value||'GUARDIAN');
-    return r==='FATHER'?'CIN_FATHER':r==='MOTHER'?'CIN_MOTHER':'CIN_GUARDIAN';
-  }
-  function secondaryCinType(){
-    const r=String(form.elements.secondaryRelationship.value||'OTHER');
-    return r==='FATHER'?'CIN_FATHER':r==='MOTHER'?'CIN_MOTHER':'CIN_GUARDIAN';
-  }
-  async function uploadOne(file,applicationId,documentType,familyToken){
-    const fd=new FormData();fd.append('file',file);fd.append('applicationId',applicationId||'');fd.append('documentType',documentType);
-    const res=await fetch(ENDPOINT+'?action=upload&family='+encodeURIComponent(familyToken),{method:'POST',body:fd});
+  async function uploadOne(file,applicationId,documentCode,access){
+    const fd=new FormData();
+    fd.append('file',file);
+    fd.append('applicationId',applicationId||'');
+    fd.append('documentCode',documentCode||'');
+    const capability=access.familyToken?'family='+encodeURIComponent(access.familyToken):'submission='+encodeURIComponent(access.submissionToken);
+    const res=await fetch(ENDPOINT+'?action=upload&'+capability,{method:'POST',body:fd});
     const out=await res.json();if(!res.ok)throw new Error(out.error||'Envoi du document impossible.');return out;
   }
   async function uploadDocuments(result){
     const jobs=[];
-    qa('[data-family-doc]').forEach(input=>{
+    qa('[data-family-doc-code]').forEach(input=>{
       const file=input.files&&input.files[0];if(!file)return;
-      let type=input.dataset.familyDoc;
-      if(type==='CIN_PRIMARY')type=primaryCinType();
-      if(type==='CIN_SECONDARY'){if(!String(form.elements.secondaryLastName.value||'').trim())return;type=secondaryCinType()}
-      jobs.push(uploadOne(file,'',type,result.familyToken));
+      const code=input.dataset.familyDocCode||'';
+      if(code==='CIN_SECONDARY'&&!String(form.elements.secondaryLastName.value||'').trim())return;
+      jobs.push(uploadOne(file,'',code,result));
     });
-    qa('[data-doc-type]').forEach(input=>{
+    qa('[data-doc-code]').forEach(input=>{
       const file=input.files&&input.files[0];if(!file)return;
       const app=result.applications&&result.applications[Number(input.dataset.childIndex)];
-      if(app)jobs.push(uploadOne(file,app.id,input.dataset.docType,result.familyToken));
+      if(app)jobs.push(uploadOne(file,app.id,input.dataset.docCode||'',result));
     });
     const settled=await Promise.allSettled(jobs);
     return {uploaded:settled.filter(x=>x.status==='fulfilled').length,failed:settled.filter(x=>x.status==='rejected').length};
@@ -333,6 +588,7 @@
         method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({
           code:CODE,familyToken:FAMILY,clientRequestId:crypto.randomUUID(),
+          customAnswers:readCustomAnswers('FAMILY',form),
           guardian:{
             lastName:String(fd.get('guardianLastName')||''),firstName:String(fd.get('guardianFirstName')||''),relationship:String(fd.get('relationship')||'GUARDIAN'),
             phonePrimary:String(fd.get('phonePrimary')||''),phoneSecondary:String(fd.get('phoneSecondary')||''),email:String(fd.get('email')||''),
@@ -351,10 +607,71 @@
       const up=await uploadDocuments(result);
       try{localStorage.removeItem(DRAFT_KEY)}catch{}
       form.classList.add('hidden');q('#progress').classList.add('hidden');q('#reference').textContent=result.referenceCode;
-      q('#uploadStatus').textContent=up.uploaded?up.uploaded+' document(s) transmis'+(up.failed?' · '+up.failed+' échec(s)':''):'Les pièces manquantes pourront être ajoutées ensuite.';
-      q('#portalLink').href=result.portalUrl||'#';q('#success').classList.remove('hidden');scrollTo({top:0,behavior:'smooth'});
+      q('#uploadStatus').textContent=up.uploaded?up.uploaded+' document(s) transmis'+(up.failed?' · '+up.failed+' échec(s)':''):'Contactez l’établissement pour les pièces manquantes.';
+      q('#portalLink').classList.toggle('hidden',!result.portalUrl);if(result.portalUrl)q('#portalLink').href=result.portalUrl;q('#success').classList.remove('hidden');scrollTo({top:0,behavior:'smooth'});
     }catch(err){alert(err?.message||'Envoi impossible.');button.disabled=false;button.textContent='Envoyer la demande';saving.textContent=''}
   });
+
+  const portalStatusLabels={
+    SUBMITTED:'Demande reçue',TO_CONTACT:'À contacter',CONTACTED:'Famille contactée',
+    APPOINTMENT_SCHEDULED:'Rendez-vous prévu',INCOMPLETE:'Dossier incomplet',
+    COMPLETE:'Dossier complet',ACCEPTED:'Accepté',PAYMENT_PENDING:'Paiement à effectuer',
+    APPROVED:'Inscription confirmée',REJECTED:'Non retenu',WITHDRAWN:'Retiré'
+  };
+  async function bootPortal(){
+    q('#progress').classList.add('hidden');
+    form.classList.add('hidden');
+    q('#success').classList.add('hidden');
+    q('#loading').classList.remove('hidden');
+    q('#loading').textContent='Chargement du portail famille…';
+    try{
+      const res=await fetch(ENDPOINT+'?action=portal-bootstrap&portal='+encodeURIComponent(PORTAL),{headers:{'Accept':'application/json'}});
+      const data=await res.json();if(!res.ok)throw new Error(data.error||'Portail indisponible.');
+      q('#schoolName').textContent=data.family.displayName||'Votre famille';
+      q('#schoolMeta').textContent=data.school.name;
+      q('#campaignName').textContent='Portail famille';
+      q('#portalFamilyName').textContent=data.family.displayName||'Votre famille';
+      q('#portalFamilyCode').textContent='Référence famille · '+(data.family.code||'—');
+      q('#portalSchoolName').textContent=data.school.name;
+      q('#portalStudents').innerHTML=(data.students||[]).length
+        ? data.students.map(s=>'<div class="portal-row"><div><strong>'+esc((s.last_name||'')+' '+(s.first_name||''))+'</strong><small>'+esc(s.matricule||'')+'</small></div><span class="pill">'+esc(s.status||'')+'</span></div>').join('')
+        : '<div class="fine">Aucun enfant déjà inscrit n’est encore lié à cette famille.</div>';
+      const checklist=data.checklist||[];
+      q('#portalApplications').innerHTML=(data.applications||[]).length
+        ? data.applications.map(app=>{
+            const items=checklist.filter(i=>i.application_id===app.id);
+            const checks=items.length?'<div class="checklist">'+items.map(item=>{
+              const state=item.status==='VERIFIED'?'Vérifié':item.status==='PROVIDED'?'Reçu':item.status==='NOT_REQUIRED'?'Non requis':'Manquant';
+              const good=['VERIFIED','PROVIDED','NOT_REQUIRED'].includes(item.status);
+              const upload=item.status==='MISSING'
+                ? '<label class="mini-upload">Ajouter<input type="file" data-portal-upload="'+esc(item.scope==='FAMILY'?'':app.id)+'" data-portal-code="'+esc(item.code)+'" accept=".pdf,image/jpeg,image/png,image/webp"></label>'
+                :'';
+              return '<div class="check-item"><span>'+esc(item.label)+'</span><b class="'+(good?'state-good':'state-warn')+'">'+esc(state)+'</b>'+upload+'</div>';
+            }).join('')+'</div>':'';
+            return '<div class="child"><div class="portal-row"><div><strong>'+esc((app.child_last_name||'')+' '+(app.child_first_name||''))+'</strong><small>'+(app.application_type==='RE_REGISTRATION'?'Réinscription':'Nouvelle inscription')+'</small></div><span class="pill">'+esc(portalStatusLabels[app.status]||app.status)+'</span></div>'+checks+'</div>';
+          }).join('')
+        : '<div class="fine">Aucune demande récente.</div>';
+      q('#loading').classList.add('hidden');
+      q('#portalApp').classList.remove('hidden');
+      if(data.campaign?.publicCode){
+        const b=q('#portalNewRequest');b.classList.remove('hidden');
+        b.onclick=()=>{location.href='./?code='+encodeURIComponent(data.campaign.publicCode)+'&family='+encodeURIComponent(PORTAL)};
+      }
+      qa('[data-portal-upload]').forEach(input=>input.addEventListener('change',async()=>{
+        const file=input.files&&input.files[0];if(!file)return;
+        input.disabled=true;
+        try{
+          await uploadOne(file,input.dataset.portalUpload,input.dataset.portalCode,{familyToken:PORTAL});
+          await bootPortal();
+        }catch(err){alert(err?.message||'Envoi impossible.');input.disabled=false}
+      }));
+    }catch(err){
+      q('#loading').classList.add('hidden');
+      q('#fatal').textContent=err?.message||'Portail famille indisponible.';
+      q('#fatal').classList.remove('hidden');
+    }
+  }
+  q('#portalRefresh').addEventListener('click',()=>{if(PORTAL)bootPortal()});
 
   async function boot(){
     if(!CODE){q('#loading').classList.add('hidden');q('#fatal').textContent='Lien d’inscription incomplet. Demandez un nouveau QR code à l’établissement.';q('#fatal').classList.remove('hidden');return}
@@ -365,11 +682,12 @@
       bootstrap=data;
       q('#schoolName').textContent=data.school.name;q('#schoolMeta').textContent='Préinscription en ligne · '+data.year.label;q('#campaignName').textContent=data.campaign.name;
       if(data.campaign.instructions){q('#notice').textContent=data.campaign.instructions;q('#notice').classList.remove('hidden')}
+      applyFamilySchema();
       q('#loading').classList.add('hidden');form.classList.remove('hidden');
       const restored=restoreDraft();if(!restored){applyFamilyPrefill(data.family);addChild()}else if(!qa('[data-child]').length)addChild();
     }catch(err){q('#loading').classList.add('hidden');q('#fatal').textContent=err?.message||'Le formulaire est momentanément indisponible.';q('#fatal').classList.remove('hidden')}
   }
-  boot();
+  if(PORTAL && !CODE){bootPortal()}else{boot()}
 })();
 </script>
 </body>

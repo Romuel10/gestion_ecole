@@ -1,5 +1,5 @@
 import { localDateIso } from '../../services/dateFormat';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   UserPlus,
   Edit2,
@@ -7,11 +7,16 @@ import {
   Award,
   Clock,
   Search,
+  FileSpreadsheet,
+  Download,
 } from 'lucide-react';
 import { DatabaseSchema, Teacher, TeacherContract } from '../../types/school';
 import { CalculationService } from '../../services/calculations';
 import { StorageService } from '../../services/storage';
 import { Modal } from '../common/Modal';
+import { ExcelImportModal } from '../common/ExcelImportModal';
+import { downloadTeacherPackage, downloadTeachersTemplate, parseTeachers, TeacherImportPreview } from '../../services/teacherExcel';
+import { makeTeacherPackage } from '../../shared/teacherExchange';
 
 interface TeachersManagerViewProps {
   db: DatabaseSchema;
@@ -28,6 +33,39 @@ export const TeachersManagerView: React.FC<TeachersManagerViewProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [contractFilter, setContractFilter] = useState<string>('ALL');
+  const importInput = useRef<HTMLInputElement>(null);
+  const [importPreview, setImportPreview] = useState<TeacherImportPreview | null>(null);
+  const [importFileName, setImportFileName] = useState('');
+  const [excelBusy, setExcelBusy] = useState(false);
+  const importFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]; event.target.value = '';
+    if (!file) return;
+    try { setImportPreview(await parseTeachers(file, db)); setImportFileName(file.name); }
+    catch (error) { onShowToast(error instanceof Error ? error.message : 'Lecture Excel impossible.', 'error'); }
+  };
+  const confirmImport = async () => {
+    if (!importPreview || importPreview.issues.length || excelBusy) return;
+    setExcelBusy(true);
+    try {
+      const saved = await StorageService.saveDatabaseOrNotify({ ...db, teachers: [...db.teachers, ...importPreview.teachers] }, db, onShowToast, false, importPreview.validateCurrent);
+      if (!saved) return;
+      onUpdateDb(saved); onShowToast(`${importPreview.teachers.length} enseignant(s) importé(s).`, 'success'); setImportPreview(null);
+    } finally { setExcelBusy(false); }
+  };
+  const exportForTeacher = async (teacher: Teacher) => {
+    if (excelBusy) return;
+    setExcelBusy(true);
+    try {
+      const proposed = db.schoolConfig.offlineExchangeId ? db : { ...db, schoolConfig: { ...db.schoolConfig, offlineExchangeId: crypto.randomUUID() } };
+      makeTeacherPackage(proposed, teacher);
+      const saved = proposed === db ? db : await StorageService.saveDatabaseOrNotify(proposed, db, onShowToast);
+      if (!saved) return;
+      if (saved !== db) onUpdateDb(saved);
+      downloadTeacherPackage(saved, teacher);
+      onShowToast('Fichier prêt : transmettez-le à l’enseignant pour l’ouvrir dans Sekoly Enseignant, même sans Internet.', 'success');
+    } catch (error) { onShowToast(error instanceof Error ? error.message : 'Export impossible.', 'error'); }
+    finally { setExcelBusy(false); }
+  };
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -108,7 +146,7 @@ export const TeachersManagerView: React.FC<TeachersManagerViewProps> = ({
     setIsModalOpen(true);
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.lastName || !formData.firstName) {
       onShowToast('Nom et prénom obligatoires', 'error');
@@ -147,7 +185,6 @@ export const TeachersManagerView: React.FC<TeachersManagerViewProps> = ({
           ? ({ ...t, ...formData, matricule: normalizedMatricule, email: normalizedEmail } as Teacher)
           : t
       );
-      onShowToast(`Enseignant ${formData.lastName} modifié avec succès.`, 'success');
     } else {
       const newTeacher: Teacher = {
         id: `tea-${Date.now()}`,
@@ -169,7 +206,6 @@ export const TeachersManagerView: React.FC<TeachersManagerViewProps> = ({
         cinNumber: formData.cinNumber || '',
       };
       updatedTeachers.push(newTeacher);
-      onShowToast(`Enseignant ${newTeacher.lastName} ajouté au corps professoral.`, 'success');
     }
 
     const updatedDb: DatabaseSchema = {
@@ -177,12 +213,14 @@ export const TeachersManagerView: React.FC<TeachersManagerViewProps> = ({
       teachers: updatedTeachers,
     };
 
-    StorageService.saveDatabase(updatedDb);
-    onUpdateDb(updatedDb);
+    const savedDb = await StorageService.saveDatabaseOrNotify(updatedDb, db, onShowToast);
+    if (!savedDb) return;
+    onUpdateDb(savedDb);
+    onShowToast(`Enseignant ${formData.lastName} ${editingTeacher ? 'modifié' : 'ajouté'}.`, 'success');
     setIsModalOpen(false);
   };
 
-  const handleDeleteTeacher = (id: string, name: string) => {
+  const handleDeleteTeacher = async (id: string, name: string) => {
     const isAssignedToClass = db.classes.some(
       (cls) => cls.mainTeacherId === id || cls.subjects.some((subject) => subject.teacherId === id)
     );
@@ -200,19 +238,29 @@ export const TeachersManagerView: React.FC<TeachersManagerViewProps> = ({
     if (window.confirm(`Supprimer l'enseignant ${name} ?`)) {
       const updated = db.teachers.filter((t) => t.id !== id);
       const updatedDb: DatabaseSchema = { ...db, teachers: updated };
-      StorageService.saveDatabase(updatedDb);
-      onUpdateDb(updatedDb);
+      const savedDb = await StorageService.saveDatabaseOrNotify(updatedDb, db, onShowToast);
+      if (!savedDb) return;
+      onUpdateDb(savedDb);
       onShowToast('Enseignant supprimé.', 'info');
     }
   };
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-end">
+      <div className="flex flex-wrap gap-2 justify-end">
+        <input ref={importInput} type="file" accept=".xlsx,.xls" className="hidden" aria-label="Fichier Excel des enseignants" onChange={event => void importFile(event)} />
+        <button type="button" className="button button--secondary" onClick={() => downloadTeachersTemplate(db)}><Download size={14} /> Modèle enseignants</button>
+        <button type="button" className="button button--secondary" disabled={excelBusy} onClick={() => importInput.current?.click()}><FileSpreadsheet size={14} /> Importer les enseignants</button>
         <button type="button" onClick={handleOpenAdd} className="button button--primary">
           <UserPlus className="w-3.5 h-3.5" />
           Ajouter un enseignant
         </button>
+      </div>
+
+      <div className="page-panel p-4 text-sm space-y-2">
+        <h2 className="font-semibold">Enseignants sans connexion Internet</h2>
+        <p className="text-slate-500">Affectez les classes et matières, puis cliquez sur « Fichier de l’école » pour un professeur. Il ouvrira ce fichier dans Sekoly Enseignant, enregistrera ses notes et ses appels sur son téléphone, puis vous remettra ses exports Excel.</p>
+        <p className="text-slate-500">Importez les notes dans Notes et bulletins et les appels dans Présences. Préparez ensuite un nouveau fichier de l’école pour actualiser son téléphone.</p>
       </div>
 
       {/* Filter and Search Bar */}
@@ -280,6 +328,7 @@ export const TeachersManagerView: React.FC<TeachersManagerViewProps> = ({
                     )}
                   </td>
                   <td className="text-right whitespace-nowrap">
+                    <button type="button" disabled={excelBusy} onClick={() => void exportForTeacher(teacher)} className="button button--secondary mr-2" title={`Préparer le fichier hors connexion de ${teacher.lastName}`}><FileSpreadsheet size={14} /> Fichier de l’école</button>
                     <button type="button" onClick={() => handleOpenEdit(teacher)} className="p-1.5 text-slate-400 hover:text-slate-900 dark:hover:text-white" title="Modifier">
                       <Edit2 className="w-3.5 h-3.5" />
                     </button>
@@ -293,6 +342,8 @@ export const TeachersManagerView: React.FC<TeachersManagerViewProps> = ({
           </table>
         </div>
       </div>
+
+      <ExcelImportModal isOpen={!!importPreview} onClose={() => { if (!excelBusy) setImportPreview(null); }} title="Importer les enseignants depuis Excel" fileName={importFileName} validCount={importPreview?.teachers.length || 0} validLabel="enseignant(s)" issues={importPreview?.issues || []} warnings={importPreview?.warnings || []} onConfirm={() => void confirmImport()} />
 
       {/* Add / Edit Teacher Modal */}
       <Modal

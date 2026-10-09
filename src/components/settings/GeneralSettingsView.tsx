@@ -187,10 +187,12 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
   const activeSchoolYearStart = activeSchoolYear?.startDate.slice(0, 4);
   const matriculePreview = MatriculeService.previewPattern(matriculeConfig, activeSchoolYearStart);
 
-  const updateDatabase = (updated: DatabaseSchema, message: string) => {
-    StorageService.saveDatabase(updated);
-    onUpdateDb(updated);
+  const updateDatabase = async (updated: DatabaseSchema, message: string) => {
+    const savedDb = await StorageService.saveDatabaseOrNotify(updated, db, onShowToast);
+    if (!savedDb) return false;
+    onUpdateDb(savedDb);
     onShowToast(message, 'success');
+    return true;
   };
 
   const closurePreview = (() => {
@@ -201,7 +203,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
     }
   })();
 
-  const handleCloseSchoolYear = () => {
+  const handleCloseSchoolYear = async () => {
     if (!closurePreview) {
       onShowToast('Impossible de préparer la clôture de cette année.', 'error');
       return;
@@ -230,8 +232,9 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
         allowReview: allowClosureWithReview,
         closureNote,
       });
-      StorageService.saveDatabase(result.db);
-      onUpdateDb(result.db);
+      const savedDb = await StorageService.saveDatabaseOrNotify(result.db, db, onShowToast);
+      if (!savedDb) return;
+      onUpdateDb(savedDb);
       setClosureNote('');
       onShowToast(
         `Année clôturée. ${result.report.preparedNextYear} dossier(s) préparé(s) pour la rentrée suivante.`,
@@ -341,8 +344,10 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
         pulled.gradesChanged > 0 ||
         pulled.gradeConflicts > 0
       ) {
-        StorageService.saveDatabase(pulled.db);
-        onUpdateDb(pulled.db);
+        const savedDb = await StorageService.saveDatabaseOrNotify(pulled.db, db, onShowToast, true);
+        if (!savedDb) return;
+        onUpdateDb(savedDb);
+        pulled.commitCursor?.();
       }
 
       setCloudStats({
@@ -600,7 +605,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
   const handleLogoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith('image/')) {
+    if (!['image/png', 'image/jpeg'].includes(file.type)) {
       onShowToast('Sélectionnez une image PNG ou JPG.', 'error');
       event.target.value = '';
       return;
@@ -763,7 +768,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
     });
   };
 
-  const saveClass = () => {
+  const saveClass = async () => {
     if (!classDraft) return;
     if (!classDraft.name.trim() || !classDraft.code.trim()) {
       onShowToast('Le nom et le code de la classe sont obligatoires.', 'error');
@@ -796,7 +801,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
       ? db.classes.map((item) => (item.id === editingClassId ? normalized : item))
       : [...db.classes, normalized];
 
-    updateDatabase({ ...db, classes }, editingClassId ? 'Classe modifiée.' : 'Classe ajoutée.');
+    if (!await updateDatabase({ ...db, classes }, editingClassId ? 'Classe modifiée.' : 'Classe ajoutée.')) return;
     setClassDraft(null);
     setEditingClassId(null);
   };
@@ -863,7 +868,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
     });
   };
 
-  const saveSubject = () => {
+  const saveSubject = async () => {
     if (!subjectDraft) return;
     if (!subjectDraft.name.trim() || !subjectDraft.code.trim()) {
       onShowToast('Le nom et le code de la matière sont obligatoires.', 'error');
@@ -890,7 +895,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
       ? db.subjects.map((subject) => (subject.id === editingSubjectId ? normalized : subject))
       : [...db.subjects, normalized];
 
-    updateDatabase({ ...db, subjects }, editingSubjectId ? 'Matière modifiée.' : 'Matière ajoutée.');
+    if (!await updateDatabase({ ...db, subjects }, editingSubjectId ? 'Matière modifiée.' : 'Matière ajoutée.')) return;
     setSubjectDraft(null);
     setEditingSubjectId(null);
   };
@@ -930,7 +935,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
     });
   };
 
-  const saveYear = () => {
+  const saveYear = async () => {
     if (reportInvalidDates()) return;
     if (!yearDraft) return;
     if (!yearDraft.label.trim() || !yearDraft.startDate || !yearDraft.endDate) {
@@ -948,10 +953,10 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
         )
       : [...db.schoolYears, yearDraft];
 
-    updateDatabase(
+    if (!await updateDatabase(
       { ...db, schoolYears },
       editingYearId ? 'Année scolaire modifiée.' : 'Année scolaire ajoutée.'
-    );
+    )) return;
     setYearDraft(null);
     setEditingYearId(null);
   };
@@ -1015,7 +1020,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
     });
   };
 
-  const saveTerm = () => {
+  const saveTerm = async () => {
     if (reportInvalidDates()) return;
     if (!termDraft) return;
     const year = db.schoolYears.find((item) => item.id === termDraft.schoolYearId);
@@ -1060,7 +1065,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
       db.currentSchoolYearId === year.id && year.terms.length === 0 ? code : db.currentTermCode;
 
     const previousCode = year.terms.find((term) => term.id === editingTermId)?.code;
-    updateDatabase(
+    if (!await updateDatabase(
       {
         ...db,
         schoolYears,
@@ -1072,7 +1077,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
             : currentTermCode,
       },
       editingTermId ? 'Période académique modifiée.' : 'Période académique ajoutée.'
-    );
+    )) return;
     setTermDraft(null);
     setEditingTermId(null);
   };
@@ -1131,8 +1136,10 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
     if (!file) return;
     try {
       const imported = await StorageService.importBackupJSON(file);
-      StorageService.saveDatabase(imported);
-      onUpdateDb(imported);
+      if (!window.confirm(`Remplacer toutes les données par « ${file.name} » ?\n${imported.students.length} élève(s), ${imported.tuitionPayments.length} paiement(s), ${imported.schoolYears.length} année(s).\nUne copie de secours des données actuelles sera créée avant le remplacement.`)) return;
+      await StorageService.createRecoveryBackup();
+      const savedDb = await StorageService.saveDatabase(imported);
+      onUpdateDb(savedDb);
       setSchoolConfig(imported.schoolConfig);
       setMatriculeConfig(imported.matriculeConfig);
       onShowToast('Sauvegarde restaurée.', 'success');
@@ -1143,9 +1150,11 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
     }
   };
 
-  const resetDefaults = () => {
+  const resetDefaults = async () => {
     if (!window.confirm('Supprimer toutes les données locales et revenir à une installation vide ? Exportez une sauvegarde avant de continuer.')) return;
-    const reset = StorageService.resetToDefault();
+    let reset: DatabaseSchema;
+    try { await StorageService.createRecoveryBackup(); reset = await StorageService.resetToDefault(); }
+    catch (error) { onShowToast(error instanceof Error ? error.message : 'Réinitialisation impossible.', 'error'); return; }
     onUpdateDb(reset);
     setSchoolConfig(reset.schoolConfig);
     setMatriculeConfig(reset.matriculeConfig);
@@ -2353,7 +2362,7 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
                           <div>
                             <div className="text-[0.6875rem] font-semibold">Capacité & sauvegardes Cloud</div>
                             <p className="mt-1 text-[0.65625rem] text-slate-500">
-                              Contrôle les quotas de cet établissement et conserve automatiquement une sauvegarde Cloud quotidienne quand Sekoly Admin est utilisé.
+                              Copie des données scolaires synchronisées, tentée quand Sekoly Admin est ouvert et connecté. Les paiements, salaires et écritures de caisse sont conservés dans la sauvegarde JSON complète locale.
                             </p>
                           </div>
                           <div className="flex flex-wrap gap-2">
@@ -2740,26 +2749,26 @@ export const GeneralSettingsView: React.FC<GeneralSettingsViewProps> = ({
             <div className="page-panel__header">
               <div>
                 <h2 className="page-panel__title">Sauvegarde et restauration</h2>
-                <p className="page-panel__subtitle">Les données sont actuellement stockées localement dans ce navigateur.</p>
+                <p className="page-panel__subtitle">Une copie complète est créée chaque jour d’utilisation. Sur Windows : dossier « backups » à côté de SQLite, 7 copies quotidiennes conservées. Exportez aussi une copie sur un autre support.</p>
               </div>
             </div>
             <div className="p-5 grid grid-cols-1 md:grid-cols-3 gap-3">
               <ActionCard
                 icon={<Download className="w-5 h-5" />}
                 title="Exporter une sauvegarde"
-                description="Télécharge toutes les données dans un fichier JSON."
+                description="Inclut les élèves, notes, paiements, salaires et opérations de caisse dans un fichier JSON."
                 action={<button type="button" onClick={() => StorageService.exportBackupJSON(db)} className="button button--secondary">Exporter</button>}
               />
               <ActionCard
                 icon={<Upload className="w-5 h-5" />}
                 title="Restaurer une sauvegarde"
-                description="Remplace les données actuelles par un fichier précédemment exporté."
+                description="Vérifie le fichier, affiche un aperçu et crée une copie de secours avant remplacement."
                 action={<label className="button button--secondary cursor-pointer">Importer<input type="file" accept=".json" onChange={handleBackupUpload} className="hidden" /></label>}
               />
               <ActionCard
                 icon={<RotateCcw className="w-5 h-5" />}
                 title="Réinitialiser"
-                description="Restaure le jeu de données de démonstration fourni avec l’application."
+                description="Crée une copie de secours puis remet l’installation à vide."
                 action={<button type="button" onClick={resetDefaults} className="button button--secondary text-rose-700 dark:text-rose-300">Réinitialiser</button>}
               />
             </div>

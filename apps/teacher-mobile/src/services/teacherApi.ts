@@ -2,6 +2,12 @@ import { Platform } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { offlineStore, QueuedMutation } from '../lib/offlineStore';
 
+const isNetworkError = (error: unknown) => {
+  const item = error as { name?: string; message?: string };
+  return item?.name === 'AuthRetryableFetchError' || /failed to fetch|network request failed|networkerror|offline|ECONN/i.test(item?.message ?? '');
+};
+let onlineMembershipValidated = false;
+
 export type Membership = {
   school_id: string;
   role: string;
@@ -14,6 +20,7 @@ export type Membership = {
 };
 
 export type TeacherContext = {
+  userId: string;
   schoolId: string;
   schoolName: string;
   teacherId: string;
@@ -163,15 +170,21 @@ export const teacherApi = {
       password,
     });
     if (error) throw error;
+    offlineStore.unlockSession();
+    offlineStore.setOwner(data.session?.user.id ?? null);
     return data.session;
   },
 
   async requiresPasswordChange() {
+    const session = await this.getSession();
     const {
       data: { user },
       error,
     } = await supabase.auth.getUser();
-    if (error) throw error;
+    if (error) {
+      if (isNetworkError(error) && session) return Boolean(session.user.user_metadata?.password_change_required);
+      throw error;
+    }
     return Boolean(user?.user_metadata?.password_change_required);
   },
 
@@ -186,6 +199,8 @@ export const teacherApi = {
   },
 
   async signOut() {
+    offlineStore.lockSession();
+    onlineMembershipValidated = false;
     await supabase.auth.signOut();
   },
 
@@ -199,15 +214,25 @@ export const teacherApi = {
   },
 
   async getSession() {
+    if (offlineStore.isSessionLocked()) { offlineStore.setOwner(null); return null; }
     const { data } = await supabase.auth.getSession();
+    offlineStore.setOwner(data.session?.user.id ?? null);
     return data.session;
   },
 
   async loadContext(): Promise<TeacherContext> {
+    const session = await this.getSession();
+    const userId = session?.user.id;
+    if (!userId || (session.expires_at && session.expires_at * 1000 <= Date.now())) {
+      offlineStore.setOwner(null);
+      throw new Error('Connectez-vous à nouveau pour ouvrir les données hors ligne.');
+    }
+    onlineMembershipValidated = false;
     try {
-      const { data: authData } = await supabase.auth.getUser();
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      if (authError) throw authError;
       const user = authData.user;
-      if (!user) throw new Error('Utilisateur non connecté.');
+      if (!user || user.id !== userId) throw new Error('Utilisateur non connecté.');
 
       const { data: memberships, error: memberError } = await supabase
         .from('sekoly_memberships')
@@ -248,6 +273,7 @@ export const teacherApi = {
 
       const schoolRelation = teacherMembership.sekoly_schools as any;
       const context: TeacherContext = {
+        userId,
         schoolId,
         schoolName: schoolRelation?.name ?? 'Établissement',
         teacherId: teacher.id,
@@ -255,16 +281,24 @@ export const teacherApi = {
         schoolYearId: year.id,
         schoolYearLabel: year.label,
       };
-      offlineStore.setCache('teacher-context', context);
+      if (!offlineStore.isOwner(userId)) throw new Error('Le compte a changé pendant le chargement.');
+      offlineStore.setOwner(userId, schoolId);
+      offlineStore.setCache('teacher-context', context, userId);
+      onlineMembershipValidated = true;
       return context;
     } catch (error) {
-      const cached = offlineStore.getCache<TeacherContext>('teacher-context');
-      if (cached) return cached;
+      const cached = offlineStore.getCache<TeacherContext>('teacher-context', userId);
+      if (isNetworkError(error) && cached?.userId === userId) {
+        offlineStore.setOwner(userId, cached.schoolId);
+        return cached;
+      }
+      offlineStore.revokeAccess(userId);
       throw error;
     }
   },
 
   async loadAssignments(context: TeacherContext): Promise<Assignment[]> {
+    const ownerAtStart = offlineStore.currentOwner();
     try {
       const { data, error } = await supabase
         .from('sekoly_teacher_assignments')
@@ -278,18 +312,17 @@ export const teacherApi = {
         .order('class_id');
       if (error) throw error;
       const rows = (data ?? []) as unknown as Assignment[];
-      offlineStore.setCache(`assignments:${context.teacherId}`, rows);
+      offlineStore.setCache(`assignments:${context.teacherId}`, rows, ownerAtStart);
       return rows;
     } catch (error) {
-      const cached = offlineStore.getCache<Assignment[]>(
-        `assignments:${context.teacherId}`
-      );
-      if (cached) return cached;
+      const cached = offlineStore.getCache<Assignment[]>(`assignments:${context.teacherId}`, ownerAtStart);
+      if (isNetworkError(error) && cached) return cached;
       throw error;
     }
   },
 
   async loadTimetable(context: TeacherContext) {
+    const ownerAtStart = offlineStore.currentOwner();
     try {
       const { data, error } = await supabase
         .from('sekoly_timetable_slots')
@@ -302,13 +335,11 @@ export const teacherApi = {
         .order('day_of_week')
         .order('start_time');
       if (error) throw error;
-      offlineStore.setCache(`timetable:${context.teacherId}`, data ?? []);
+      offlineStore.setCache(`timetable:${context.teacherId}`, data ?? [], ownerAtStart);
       return data ?? [];
     } catch (error) {
-      const cached = offlineStore.getCache<any[]>(
-        `timetable:${context.teacherId}`
-      );
-      if (cached) return cached;
+      const cached = offlineStore.getCache<any[]>(`timetable:${context.teacherId}`, ownerAtStart);
+      if (isNetworkError(error) && cached) return cached;
       throw error;
     }
   },
@@ -317,6 +348,7 @@ export const teacherApi = {
     context: TeacherContext,
     classId: string
   ): Promise<StudentRow[]> {
+    const ownerAtStart = offlineStore.currentOwner();
     try {
       const { data, error } = await supabase
         .from('sekoly_enrollments')
@@ -336,16 +368,11 @@ export const teacherApi = {
           )
         );
 
-      offlineStore.setCache(
-        `students:${context.schoolYearId}:${classId}`,
-        students
-      );
+      offlineStore.setCache(`students:${context.schoolYearId}:${classId}`, students, ownerAtStart);
       return students;
     } catch (error) {
-      const cached = offlineStore.getCache<StudentRow[]>(
-        `students:${context.schoolYearId}:${classId}`
-      );
-      if (cached) return cached;
+      const cached = offlineStore.getCache<StudentRow[]>(`students:${context.schoolYearId}:${classId}`, ownerAtStart);
+      if (isNetworkError(error) && cached) return cached;
       throw error;
     }
   },
@@ -363,6 +390,7 @@ export const teacherApi = {
       reason?: string;
     }>;
   }) {
+    const ownerAtStart = offlineStore.currentOwner();
     const sessionId = stableUuid(
       `attendance:${args.context.schoolId}:${args.context.schoolYearId}:${args.assignment.class_id}:${args.assignment.subject_id}:${args.sessionDate}:${args.startTime ?? 'daily'}`
     );
@@ -413,18 +441,9 @@ export const teacherApi = {
       });
       return { queued: false };
     } catch (error) {
-      offlineStore.enqueue(
-        'sekoly_attendance_sessions',
-        'upsert',
-        session,
-        'id'
-      );
-      offlineStore.enqueue(
-        'sekoly_attendance_entries',
-        'upsert',
-        entries,
-        'session_id,student_id'
-      );
+      if (!isNetworkError(error)) throw error;
+      offlineStore.enqueue('sekoly_attendance_sessions', 'upsert', session, 'id', ownerAtStart);
+      offlineStore.enqueue('sekoly_attendance_entries', 'upsert', entries, 'session_id,student_id', ownerAtStart);
       void recordSyncEvent(
         args.context,
         'QUEUE_UPDATED',
@@ -442,6 +461,7 @@ export const teacherApi = {
   },
 
   async loadTerms(context: TeacherContext) {
+    const ownerAtStart = offlineStore.currentOwner();
     try {
       const { data, error } = await supabase
         .from('sekoly_terms')
@@ -450,13 +470,11 @@ export const teacherApi = {
         .eq('school_year_id', context.schoolYearId)
         .order('start_date');
       if (error) throw error;
-      offlineStore.setCache(`terms:${context.schoolYearId}`, data ?? []);
+      offlineStore.setCache(`terms:${context.schoolYearId}`, data ?? [], ownerAtStart);
       return data ?? [];
     } catch (error) {
-      const cached = offlineStore.getCache<any[]>(
-        `terms:${context.schoolYearId}`
-      );
-      if (cached) return cached;
+      const cached = offlineStore.getCache<any[]>(`terms:${context.schoolYearId}`, ownerAtStart);
+      if (isNetworkError(error) && cached) return cached;
       throw error;
     }
   },
@@ -465,6 +483,7 @@ export const teacherApi = {
     context: TeacherContext,
     assignment: Assignment
   ): Promise<Assessment[]> {
+    const ownerAtStart = offlineStore.currentOwner();
     try {
       const { data, error } = await supabase
         .from('sekoly_assessments')
@@ -477,16 +496,11 @@ export const teacherApi = {
         .order('assessment_date', { ascending: false });
       if (error) throw error;
       const rows = (data ?? []) as Assessment[];
-      offlineStore.setCache(
-        `assessments:${assignment.class_id}:${assignment.subject_id}`,
-        rows
-      );
+      offlineStore.setCache(`assessments:${assignment.class_id}:${assignment.subject_id}`, rows, ownerAtStart);
       return rows;
     } catch (error) {
-      const cached = offlineStore.getCache<Assessment[]>(
-        `assessments:${assignment.class_id}:${assignment.subject_id}`
-      );
-      if (cached) return cached;
+      const cached = offlineStore.getCache<Assessment[]>(`assessments:${assignment.class_id}:${assignment.subject_id}`, ownerAtStart);
+      if (isNetworkError(error) && cached) return cached;
       throw error;
     }
   },
@@ -501,6 +515,7 @@ export const teacherApi = {
     coefficient: number;
     maxScore: number;
   }): Promise<Assessment> {
+    const ownerAtStart = offlineStore.currentOwner();
     const assessment: Assessment & Record<string, any> = {
       id: uuid(),
       school_id: args.context.schoolId,
@@ -521,24 +536,26 @@ export const teacherApi = {
     try {
       await executeMutation('sekoly_assessments', 'upsert', assessment, 'id');
       return assessment;
-    } catch {
-      offlineStore.enqueue('sekoly_assessments', 'upsert', assessment, 'id');
+    } catch (error) {
+      if (!isNetworkError(error)) throw error;
+      offlineStore.enqueue('sekoly_assessments', 'upsert', assessment, 'id', ownerAtStart);
       return assessment;
     }
   },
 
   async loadScores(assessmentId: string) {
+    const ownerAtStart = offlineStore.currentOwner();
     try {
       const { data, error } = await supabase
         .from('sekoly_assessment_scores')
         .select('student_id,score,status,comment')
         .eq('assessment_id', assessmentId);
       if (error) throw error;
-      offlineStore.setCache(`scores:${assessmentId}`, data ?? []);
+      offlineStore.setCache(`scores:${assessmentId}`, data ?? [], ownerAtStart);
       return data ?? [];
     } catch (error) {
-      const cached = offlineStore.getCache<any[]>(`scores:${assessmentId}`);
-      if (cached) return cached;
+      const cached = offlineStore.getCache<any[]>(`scores:${assessmentId}`, ownerAtStart);
+      if (isNetworkError(error) && cached) return cached;
       throw error;
     }
   },
@@ -553,6 +570,7 @@ export const teacherApi = {
       comment?: string;
     }>
   ) {
+    const ownerAtStart = offlineStore.currentOwner();
     const rows = scores.map((item) => ({
       id: uuid(),
       school_id: context.schoolId,
@@ -578,12 +596,8 @@ export const teacherApi = {
       });
       return { queued: false };
     } catch (error) {
-      offlineStore.enqueue(
-        'sekoly_assessment_scores',
-        'upsert',
-        rows,
-        'assessment_id,student_id'
-      );
+      if (!isNetworkError(error)) throw error;
+      offlineStore.enqueue('sekoly_assessment_scores', 'upsert', rows, 'assessment_id,student_id', ownerAtStart);
       void recordSyncEvent(
         context,
         'QUEUE_UPDATED',
@@ -599,9 +613,11 @@ export const teacherApi = {
     }
   },
 
-  async flushQueue() {
+  async flushQueue(retryFailed = false) {
+    const context = await this.loadContext();
+    if (!onlineMembershipValidated) return { synced: 0, remaining: offlineStore.queueCount(), failed: 0, blocked: 0, lastError: 'Connexion requise pour vérifier vos droits.' };
+    if (retryFailed) offlineStore.retryFailures();
     const queue = offlineStore.listQueue();
-    const context = offlineStore.getCache<TeacherContext>('teacher-context');
     let synced = 0;
     let lastError: string | null = null;
 
@@ -612,6 +628,7 @@ export const teacherApi = {
     }
 
     for (const mutation of queue) {
+      if (!offlineStore.isOwner(context.userId, context.schoolId)) throw new Error('Compte modifié : synchronisation interrompue.');
       if (mutation.attempts >= 5) {
         lastError = mutation.last_error || 'Operation retry limit reached.';
         continue;
@@ -653,6 +670,9 @@ export const teacherApi = {
     return {
       synced,
       remaining: health.total,
+      failed: health.failed,
+      blocked: health.blocked,
+      lastError: lastError || health.lastError,
     };
   },
 

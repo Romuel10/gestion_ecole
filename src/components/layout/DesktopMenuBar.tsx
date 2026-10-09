@@ -54,8 +54,11 @@ export const DesktopMenuBar: React.FC<DesktopMenuBarProps> = ({
     const file = e.target.files?.[0];
     if (!file) return;
     StorageService.importBackupJSON(file)
-      .then((imported) => {
-        onUpdateDb(imported);
+      .then(async (imported) => {
+        if (!window.confirm(`Remplacer la base par ${imported.students.length} élève(s) et ${imported.tuitionPayments.length} paiement(s) ? Une copie de secours sera créée.`)) return;
+        await StorageService.createRecoveryBackup();
+        const saved = await StorageService.saveDatabase(imported);
+        onUpdateDb(saved);
         onShowToast('Base de données locale restaurée.', 'success');
       })
       .catch((err) => {
@@ -64,9 +67,11 @@ export const DesktopMenuBar: React.FC<DesktopMenuBarProps> = ({
     setOpenMenu(null);
   };
 
-  const handleResetData = () => {
+  const handleResetData = async () => {
     if (window.confirm("Réinitialiser toutes les données aux valeurs par défaut de l'établissement ?")) {
-      const reset = StorageService.resetToDefault();
+      let reset: DatabaseSchema;
+      try { await StorageService.createRecoveryBackup(); reset = await StorageService.resetToDefault(); }
+      catch (error) { onShowToast(error instanceof Error ? error.message : 'Réinitialisation impossible.', 'error'); return; }
       onUpdateDb(reset);
       onShowToast('Données réinitialisées.', 'info');
     }

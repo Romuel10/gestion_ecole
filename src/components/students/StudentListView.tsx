@@ -128,7 +128,7 @@ export const StudentListView: React.FC<StudentListViewProps> = ({
     }
   };
 
-  const confirmStudentImport = () => {
+  const confirmStudentImport = async () => {
     if (!studentImportPreview || studentImportPreview.issues.length > 0) return;
 
     const updatedDb: DatabaseSchema = {
@@ -140,8 +140,9 @@ export const StudentListView: React.FC<StudentListViewProps> = ({
       },
     };
 
-    StorageService.saveDatabase(updatedDb);
-    onUpdateDb(updatedDb);
+    const savedDb = await StorageService.saveDatabaseOrNotify(updatedDb, db, onShowToast);
+    if (!savedDb) return;
+    onUpdateDb(savedDb);
     onShowToast(
       `${studentImportPreview.students.length} élève(s) importé(s) depuis Excel.`,
       'success'
@@ -150,7 +151,7 @@ export const StudentListView: React.FC<StudentListViewProps> = ({
     setStudentImportFileName('');
   };
 
-  const handleDeleteStudent = (student: Student) => {
+  const handleDeleteStudent = async (student: Student) => {
     const hasAcademicHistory = db.grades.some((g) => g.studentId === student.id);
     const hasAttendanceHistory = db.attendanceRecords.some((a) => a.studentId === student.id);
     const hasFinancialHistory = db.tuitionPayments.some((p) => p.studentId === student.id);
@@ -169,8 +170,9 @@ export const StudentListView: React.FC<StudentListViewProps> = ({
       students: db.students.filter((s) => s.id !== student.id),
     };
 
-    StorageService.saveDatabase(updatedDb);
-    onUpdateDb(updatedDb);
+    const savedDb = await StorageService.saveDatabaseOrNotify(updatedDb, db, onShowToast);
+    if (!savedDb) return;
+    onUpdateDb(savedDb);
     setStudentToDelete(null);
     onShowToast(`L'élève ${student.lastName} a été retiré.`, 'info');
   };

@@ -5,11 +5,13 @@ on:
     branches: [main]
     paths:
       - "apps/teacher-mobile/**"
+      - "src/types/school.ts"
       - ".github/workflows/teacher-mobile-ci.yml"
   push:
     branches: [main]
     paths:
       - "apps/teacher-mobile/**"
+      - "src/types/school.ts"
       - ".github/workflows/teacher-mobile-ci.yml"
   workflow_dispatch:
 
@@ -31,14 +33,16 @@ jobs:
           node-version: "22.13.1"
 
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-fund
 
       - name: TypeScript
         run: npm run typecheck
 
+      - name: Verify patched dependencies and audit
+        run: npm run security:check
+
       - name: Generate Sekoly Android icons
         run: |
-          npm install --no-save --no-audit --no-fund sharp
           node scripts/generate-icons.mjs
 
       - name: Expo doctor

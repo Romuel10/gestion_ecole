@@ -16,6 +16,10 @@ Application mobile Expo / React Native destinée aux enseignants.
 - file d'attente hors ligne pour appels et notes ;
 - synchronisation manuelle ;
 - abonnement Realtime privé par établissement.
+- ouverture d’un fichier de l’école sans compte cloud ni connexion initiale ;
+- saisie de notes et d’appels conservée dans SQLite après fermeture ;
+- exports Excel distincts des notes et des appels ;
+- actualisation des listes par fichier, sans effacer le travail non confirmé.
 
 ## Configuration
 
@@ -61,6 +65,27 @@ Ce schéma doit être ajouté à la liste des URLs de redirection autorisées da
 Supabase Auth avant un pilote réel.
 
 ## Hors ligne
+
+### Échanges de fichiers sans Internet
+
+La direction prépare un **Fichier de l’école** dans le module **Enseignants**
+du logiciel desktop. Le professeur le copie sur son téléphone, choisit
+**Utiliser un fichier de l’école** puis l’ouvre. Ce mode ne demande pas de compte
+Supabase ni de première connexion.
+
+Enregistrer les notes ou les appels avant de changer d’écran. Les données sont
+stockées dans `sekoly-teacher-excel.sqlite`, séparément du cache et de la file
+cloud. L’application reprend ce mode et le dernier fichier après fermeture.
+Les exports partagent un fichier `.xlsx` via le téléphone et ne suppriment jamais
+le travail. La direction importe les deux types de fichier dans leurs modules
+respectifs, puis renvoie un nouveau fichier scolaire. Les valeurs reçues à
+l’identique confirment le travail ; les autres saisies restent conservées.
+
+Le fichier scolaire identifie le professeur et contient ses listes d’élèves :
+ne le confier qu’à son destinataire et protéger le téléphone. Le bouton
+**Revenir au mode connecté** conserve toutes les données Excel.
+
+### Mode cloud avec coupures de réseau
 
 Les sessions Auth utilisent le stockage local Expo SQLite. Les affectations,
 élèves, périodes, évaluations et notes consultées sont également mis en cache.

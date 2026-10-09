@@ -23,6 +23,8 @@ export type TermType = string;
 
 export interface SchoolConfig {
   id: string;
+  setupState?: { step: number; completedAt?: string };
+  offlineExchangeId?: string;
   name: string;
   acronym: string;
   motto: string;
@@ -237,13 +239,17 @@ export interface GradeEntry {
   termCode: TermType;
   schoolYearId: string;
   evaluations: number[];
+  evaluationWeights?: number[];
   examGrade?: number;
   subjectAverage: number;
   teacherComment?: string;
   updatedAt: string;
+  cloudIgnoredEvaluationIds?: string[];
   cloudEvaluationIds?: Array<string | null>;
   cloudExamAssessmentId?: string;
+  cloudExamCoefficient?: number;
   cloudIgnoredExamAssessmentIds?: string[];
+  cloudCommentOverride?: boolean;
   cloudSyncConflict?: string;
 }
 
@@ -396,6 +402,8 @@ export interface AttendanceRecord {
   type: 'PRESENT' | 'ABSENT_JUSTIFIE' | 'ABSENT_NON_JUSTIFIE' | 'RETARD';
   minutesLate?: number;
   reason?: string;
+  cloudIgnoredFingerprint?: string;
+  cloudSyncConflict?: string;
 }
 
 export interface DatabaseSchema {

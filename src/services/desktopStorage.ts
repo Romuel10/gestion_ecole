@@ -37,6 +37,14 @@ export class DesktopStorageService {
     await window.__TAURI__!.core!.invoke('reset_database');
   }
 
+  static async createRecoveryBackup(db: DatabaseSchema): Promise<string> {
+    return window.__TAURI__!.core!.invoke<string>('create_recovery_backup', { json: JSON.stringify(db) });
+  }
+
+  static async createDailyBackup(db: DatabaseSchema): Promise<string> {
+    return window.__TAURI__!.core!.invoke<string>('create_daily_backup', { json: JSON.stringify(db) });
+  }
+
   static async getDatabasePath(): Promise<string | null> {
     if (!this.isDesktop()) return null;
     return window.__TAURI__!.core!.invoke<string>('database_path');

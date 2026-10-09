@@ -17,7 +17,8 @@ export class CalculationService {
     evaluations: number[],
     examGrade?: number,
     continuousWeight = 1,
-    examWeight = 2
+    examWeight = 2,
+    evaluationWeights?: number[]
   ): number {
     if ((!evaluations || evaluations.length === 0) && examGrade === undefined) {
       return 0;
@@ -25,8 +26,10 @@ export class CalculationService {
 
     let devAvg = 0;
     if (evaluations && evaluations.length > 0) {
-      const sum = evaluations.reduce((acc, val) => acc + val, 0);
-      devAvg = sum / evaluations.length;
+      const weights = evaluations.map((_, index) => Math.max(0, evaluationWeights?.[index] ?? 1));
+      const weightSum = weights.reduce((sum, weight) => sum + weight, 0);
+      const sum = evaluations.reduce((acc, val, index) => acc + val * weights[index], 0);
+      devAvg = weightSum > 0 ? sum / weightSum : 0;
     }
 
     if (examGrade !== undefined && evaluations && evaluations.length > 0) {
@@ -132,7 +135,8 @@ export class CalculationService {
                 grade.evaluations || [],
                 grade.examGrade,
                 db.schoolConfig.continuousAssessmentWeight ?? 1,
-                db.schoolConfig.examWeight ?? 2
+                (db.schoolConfig.examWeight ?? 2) * (grade.cloudExamCoefficient ?? 1),
+                grade.evaluationWeights
               )
             : 0;
         const pts = hasRecordedGrade ? avg * cs.coefficient : 0;

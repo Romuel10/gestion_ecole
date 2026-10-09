@@ -55,6 +55,12 @@ export class TimetableGeneratorService {
       );
 
       configuredSubjects.forEach((subjectConfig, subjectIndex) => {
+        const weeklyHours = subjectConfig.weeklyHours ?? 2;
+        if (weeklyHours === 0) return;
+        if (!Number.isFinite(weeklyHours) || weeklyHours < 0) {
+          unassigned.push({classId: schoolClass.id,subjectId: subjectConfig.subjectId,sessionsMissing: 0,reason: 'Volume horaire invalide.'});
+          return;
+        }
         if (!subjectConfig.teacherId) {
           unassigned.push({
             classId: schoolClass.id,
@@ -65,7 +71,6 @@ export class TimetableGeneratorService {
           return;
         }
 
-        const weeklyHours = Math.max(1, subjectConfig.weeklyHours || 2);
         const requiredSessions = Math.max(1, Math.ceil(weeklyHours / 2));
         let assigned = 0;
         const usedDays = new Set<number>();
@@ -104,7 +109,11 @@ export class TimetableGeneratorService {
               id: `tt-auto-${schoolClass.id}-${subjectConfig.subjectId}-${assigned + 1}`,
               dayOfWeek: cell.day,
               startTime: cell.start,
-              endTime: cell.end,
+              endTime: (() => {
+                const [hour, minute] = cell.start.split(':').map(Number);
+                const end = hour * 60 + minute + Math.min(120, Math.round(weeklyHours * 60) - assigned * 120);
+                return `${String(Math.floor(end / 60)).padStart(2, '0')}:${String(end % 60).padStart(2, '0')}`;
+              })(),
               classId: schoolClass.id,
               subjectId: subjectConfig.subjectId,
               teacherId: subjectConfig.teacherId,

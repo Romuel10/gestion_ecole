@@ -21,6 +21,7 @@ type CloudSession = {
 };
 
 type PullResult = {
+  commitCursor?: () => void;
   db: DatabaseSchema;
   attendanceAdded: number;
   gradesChanged: number;
@@ -326,7 +327,8 @@ export type EnrollmentChecklistItem = {
 
 export type EnrollmentDocument = {
   id: string;
-  family_id: string;
+  family_id: string | null;
+  enrollment_family_id?: string | null;
   application_id: string | null;
   document_type: string;
   original_name: string;
@@ -1475,7 +1477,7 @@ export class CloudSyncService {
         ),
         restSelect<any>(
           'sekoly_enrollment_documents',
-          `select=id,family_id,application_id,document_type,original_name,mime_type,file_size,status,verification_note,created_at&school_id=eq.${schoolId}&order=created_at.desc&limit=5000`
+          `select=id,family_id,enrollment_family_id,application_id,document_type,original_name,mime_type,file_size,status,verification_note,created_at&school_id=eq.${schoolId}&order=created_at.desc&limit=5000`
         ),
       ]);
 
@@ -1498,9 +1500,10 @@ export class CloudSyncService {
         documentMap.set(item.application_id, rows);
         return;
       }
-      const rows = familyDocumentMap.get(item.family_id) ?? [];
+      const scopeId = item.enrollment_family_id ?? item.family_id;
+      const rows = familyDocumentMap.get(scopeId) ?? [];
       rows.push(item as EnrollmentDocument);
-      familyDocumentMap.set(item.family_id, rows);
+      familyDocumentMap.set(scopeId, rows);
     });
 
     return applications.map((item) => {
@@ -1518,6 +1521,7 @@ export class CloudSyncService {
           : null,
         checklist: checklistMap.get(item.id) ?? [],
         documents: [
+          ...(familyDocumentMap.get(item.family_id) ?? []),
           ...(profile?.id ? familyDocumentMap.get(profile.id) ?? [] : []),
           ...(documentMap.get(item.id) ?? []),
         ],
@@ -1699,6 +1703,15 @@ export class CloudSyncService {
     }
   }
 
+  static async authorizeFamilyPortal(enrollmentFamilyId: string) {
+    const schoolId = this.getSchoolId();
+    if (!schoolId) throw new Error('Établissement Cloud non lié.');
+    const response = await authRequest('/functions/v1/sekoly-public-enrollment?action=authorize-family', {
+      method: 'POST', body: JSON.stringify({ schoolId, enrollmentFamilyId, identityVerified: true }),
+    });
+    return parseResponse<{ portalUrl: string; familyCode: string }>(response);
+  }
+
   static async provisionTeacherPilot(db: DatabaseSchema, teacherId: string) {
     const schoolId = this.getSchoolId();
     if (!schoolId) throw new Error('Établissement Cloud non lié.');
@@ -1815,17 +1828,23 @@ export class CloudSyncService {
   static async ensureDailyBackup() {
     const throttleKey = `SEKOLY_DAILY_BACKUP_CHECK:${this.getSchoolId() || 'none'}`;
     const lastCheck = Number(localStorage.getItem(throttleKey) || '0');
-    if (Date.now() - lastCheck < 6 * 60 * 60 * 1000) return null;
+    const lastAttempt = Number(localStorage.getItem(`${throttleKey}:attempt`) || '0');
+    if (Date.now() - lastCheck < 6 * 60 * 60 * 1000 || Date.now() - lastAttempt < 5 * 60 * 1000) return null;
+    localStorage.setItem(`${throttleKey}:attempt`, String(Date.now()));
 
     try {
       const result = await this.createSchoolBackup('AUTOMATIC');
       localStorage.setItem(throttleKey, String(Date.now()));
+      localStorage.removeItem(`${throttleKey}:error`);
       return result;
     } catch (error) {
-      localStorage.setItem(throttleKey, String(Date.now()));
-      console.warn('Sekoly automatic backup:', error);
-      return null;
+      localStorage.setItem(`${throttleKey}:error`, error instanceof Error ? error.message : String(error));
+      throw error;
     }
+  }
+
+  static dailyBackupError(): string | null {
+    return localStorage.getItem(`SEKOLY_DAILY_BACKUP_CHECK:${this.getSchoolId() || 'none'}:error`);
   }
 
   static async pilotStatus(): Promise<PilotStatus> {
@@ -1947,7 +1966,7 @@ export class CloudSyncService {
     const cloudYearId = cloudEntityUuid('year', yearId);
 
     const cursorKey = `${PULL_CURSOR_PREFIX}:${schoolId}:${cloudYearId}`;
-    const previousCursor = localStorage.getItem(cursorKey);
+
     const nextCursor = new Date(Date.now() - 5000).toISOString();
 
     let sessions: any[] = [];
@@ -1955,61 +1974,16 @@ export class CloudSyncService {
     let assessments: any[] = [];
     let scores: any[] = [];
 
-    if (!previousCursor) {
-      [sessions, entries, assessments, scores] = await Promise.all([
-        restSelectPaged<any>(
-          'sekoly_attendance_sessions',
-          `select=*&school_id=eq.${schoolId}&school_year_id=eq.${cloudYearId}`
-        ),
-        restSelectPaged<any>(
-          'sekoly_attendance_entries',
-          `select=*&school_id=eq.${schoolId}`
-        ),
-        restSelectPaged<any>(
-          'sekoly_assessments',
-          `select=*&school_id=eq.${schoolId}&school_year_id=eq.${cloudYearId}`
-        ),
-        restSelectPaged<any>(
-          'sekoly_assessment_scores',
-          `select=*&school_id=eq.${schoolId}`
-        ),
-      ]);
-    } else {
-      const cursor = encodeURIComponent(previousCursor);
-      [entries, scores] = await Promise.all([
-        restSelectPaged<any>(
-          'sekoly_attendance_entries',
-          `select=*&school_id=eq.${schoolId}&recorded_at=gte.${cursor}`
-        ),
-        restSelectPaged<any>(
-          'sekoly_assessment_scores',
-          `select=*&school_id=eq.${schoolId}&updated_at=gte.${cursor}`
-        ),
-      ]);
+    // A complete, paginated snapshot also reconciles null scores and deletions.
+    // A timestamp cursor alone cannot observe a row that has been deleted.
+    [sessions, entries, assessments, scores] = await Promise.all([
+      restSelectPaged<any>('sekoly_attendance_sessions', `select=*&school_id=eq.${schoolId}&school_year_id=eq.${cloudYearId}`),
+      restSelectPaged<any>('sekoly_attendance_entries', `select=*&school_id=eq.${schoolId}`),
+      restSelectPaged<any>('sekoly_assessments', `select=*&school_id=eq.${schoolId}&school_year_id=eq.${cloudYearId}`),
+      restSelectPaged<any>('sekoly_assessment_scores', `select=*&school_id=eq.${schoolId}`),
+    ]);
 
-      const sessionIds = Array.from(
-        new Set(entries.map((item) => String(item.session_id)).filter(Boolean))
-      );
-      const assessmentIds = Array.from(
-        new Set(scores.map((item) => String(item.assessment_id)).filter(Boolean))
-      );
-
-      [sessions, assessments] = await Promise.all([
-        sessionIds.length > 0
-          ? restSelectPaged<any>(
-              'sekoly_attendance_sessions',
-              `select=*&school_id=eq.${schoolId}&id=in.(${sessionIds.join(',')})`
-            )
-          : Promise.resolve([]),
-        assessmentIds.length > 0
-          ? restSelectPaged<any>(
-              'sekoly_assessments',
-              `select=*&school_id=eq.${schoolId}&school_year_id=eq.${cloudYearId}&id=in.(${assessmentIds.join(',')})`
-            )
-          : Promise.resolve([]),
-      ]);
-    }
-
+    if (schoolId !== this.getSchoolId()) throw new Error('Établissement Cloud modifié pendant la synchronisation.');
     const studentByCloudId = new Map(
       db.students
         .filter((student) => student.schoolYearId === yearId)
@@ -2043,7 +2017,13 @@ export class CloudSyncService {
     const existingAttendance = new Map(
       db.attendanceRecords.map((record) => [record.id, record])
     );
-    let attendanceAdded = 0;
+    let attendanceAdded = 0; // Includes corrections/removals for existing clients.
+    const remoteAttendanceIds = new Set<string>();
+    const attendanceValue = (record: AttendanceRecord) => JSON.stringify([record.type, record.type === 'RETARD' ? record.minutesLate ?? null : null, record.type === 'PRESENT' ? '' : record.reason?.trim() || '']);
+    const protectAttendance = (record: AttendanceRecord, message: string) => {
+      if (record.cloudSyncConflict !== message) attendanceAdded += 1;
+      existingAttendance.set(record.id, { ...record, cloudSyncConflict: message });
+    };
 
     entries.forEach((entry) => {
       const session = sessionById.get(entry.session_id);
@@ -2054,8 +2034,8 @@ export class CloudSyncService {
       if (!session || !student || !schoolClass) return;
 
       const id = `cloud-att-${entry.id}`;
-      if (!existingAttendance.has(id)) attendanceAdded += 1;
-      existingAttendance.set(id, {
+      remoteAttendanceIds.add(id);
+      const next = {
         id,
         studentId: student.id,
         classId: schoolClass.id,
@@ -2065,20 +2045,48 @@ export class CloudSyncService {
         minutesLate:
           entry.status === 'LATE' ? entry.minutes_late || undefined : undefined,
         reason: entry.reason || undefined,
-      });
+      };
+      const local = db.attendanceRecords.find(record => record.id !== id && !record.id.startsWith('cloud-att-') && record.studentId === next.studentId && record.classId === next.classId && record.date === next.date && (record.schoolYearId ?? yearId) === yearId);
+      if (local) {
+        if (existingAttendance.delete(id)) attendanceAdded += 1;
+        if (attendanceValue(local) !== attendanceValue(next)) protectAttendance(local, 'Un appel Cloud différent a été reçu. Votre appel local est conservé ; vérifiez avec l’enseignant avant de le corriger.');
+        return;
+      }
+      const previous = existingAttendance.get(id);
+      if (previous?.cloudIgnoredFingerprint && attendanceValue(previous) !== attendanceValue(next)) {
+        if (previous.cloudIgnoredFingerprint !== attendanceValue(next)) protectAttendance(previous, 'L’appel Cloud a changé après votre import Excel. Votre correction locale est conservée ; vérifiez avec l’enseignant.');
+        return;
+      }
+      if (JSON.stringify(existingAttendance.get(id)) !== JSON.stringify(next)) attendanceAdded += 1;
+      existingAttendance.set(id, next);
     });
+    for (const record of db.attendanceRecords) {
+      if (record.id.startsWith('cloud-att-') && (record.schoolYearId ?? yearId) === yearId && !remoteAttendanceIds.has(record.id)) {
+        if (record.cloudIgnoredFingerprint) { protectAttendance(record, 'L’appel a été supprimé dans le Cloud après votre import Excel. Votre correction locale est conservée.'); continue; }
+        existingAttendance.delete(record.id);
+        attendanceAdded += 1;
+      }
+    }
 
     type GradeBucket = {
       studentId: string;
       classId: string;
       subjectId: string;
       termCode: string;
-      evaluations: Array<{ assessmentId: string; date: string; score: number }>;
-      exam?: { assessmentId: string; date: string; score: number };
+      evaluations: Array<{ assessmentId: string; date: string; score: number; coefficient: number }>;
+      exam?: { assessmentId: string; date: string; score: number; coefficient: number };
       comments: string[];
     };
 
     const buckets = new Map<string, GradeBucket>();
+    for (const grade of db.grades) {
+      if (grade.schoolYearId === yearId && (grade.cloudEvaluationIds?.some(Boolean) || grade.cloudExamAssessmentId)) {
+        buckets.set(`${grade.studentId}|${grade.subjectId}|${grade.termCode}`, {
+          studentId: grade.studentId, classId: grade.classId, subjectId: grade.subjectId,
+          termCode: grade.termCode, evaluations: [], comments: [],
+        });
+      }
+    }
 
     scores.forEach((score) => {
       if (score.score === null || score.score === undefined) return;
@@ -2090,6 +2098,13 @@ export class CloudSyncService {
       const subject = subjectByCloudId.get(assessment.subject_id);
       const term = termByCloudId.get(assessment.term_id);
       if (!schoolClass || !subject || !term) return;
+      const maxScore = Number(assessment.max_score);
+      const coefficient = Number(assessment.coefficient ?? 1);
+      if (!Number.isFinite(maxScore) || maxScore <= 0 || !Number.isFinite(coefficient) || coefficient <= 0) {
+        throw new Error('Barème ou coefficient d’évaluation Cloud invalide.');
+      }
+      if (!Number.isFinite(Number(score.score)) || Number(score.score) < 0 || Number(score.score) > maxScore) throw new Error('Note Cloud hors barème.');
+      const normalizedScore = Math.round(Number(score.score) * 20 / maxScore * 10000) / 10000;
 
       const key = `${student.id}|${subject.id}|${term.code}`;
       const bucket =
@@ -2107,7 +2122,8 @@ export class CloudSyncService {
         const candidateExam = {
           assessmentId: assessment.id,
           date: assessment.assessment_date,
-          score: Number(score.score),
+          score: normalizedScore,
+          coefficient,
         };
         if (!bucket.exam || candidateExam.date >= bucket.exam.date) {
           bucket.exam = candidateExam;
@@ -2116,7 +2132,8 @@ export class CloudSyncService {
         bucket.evaluations.push({
           assessmentId: assessment.id,
           date: assessment.assessment_date,
-          score: Number(score.score),
+          score: normalizedScore,
+          coefficient,
         });
       }
 
@@ -2138,40 +2155,39 @@ export class CloudSyncService {
       );
 
       const existing = existingIndex >= 0 ? nextGrades[existingIndex] : undefined;
-      const evaluations = [...(existing?.evaluations ?? [])];
-      const cloudEvaluationIds = [
-        ...(existing?.cloudEvaluationIds ??
-          Array.from({ length: evaluations.length }, () => null)),
-      ];
-
-      while (cloudEvaluationIds.length < evaluations.length) {
-        cloudEvaluationIds.push(null);
-      }
-
-      for (const item of bucket.evaluations.sort((a, b) =>
-        a.date.localeCompare(b.date)
-      )) {
-        const cloudIndex = cloudEvaluationIds.indexOf(item.assessmentId);
-        if (cloudIndex >= 0) {
-          evaluations[cloudIndex] = item.score;
-        } else {
-          evaluations.push(item.score);
-          cloudEvaluationIds.push(item.assessmentId);
+      const evaluations: number[] = [];
+      const evaluationWeights: number[] = [];
+      const cloudEvaluationIds: Array<string | null> = [];
+      (existing?.evaluations ?? []).forEach((value, index) => {
+        if (!existing?.cloudEvaluationIds?.[index]) {
+          evaluations.push(value);
+          evaluationWeights.push(existing?.evaluationWeights?.[index] ?? 1);
+          cloudEvaluationIds.push(null);
         }
+      });
+      for (const item of bucket.evaluations.sort((a, b) => a.date.localeCompare(b.date) || a.assessmentId.localeCompare(b.assessmentId))) {
+        if (existing?.cloudIgnoredEvaluationIds?.includes(item.assessmentId)) continue;
+        evaluations.push(item.score);
+        evaluationWeights.push(item.coefficient);
+        cloudEvaluationIds.push(item.assessmentId);
       }
 
-      let examGrade = existing?.examGrade;
-      let cloudExamAssessmentId = existing?.cloudExamAssessmentId;
+      let examGrade = existing?.cloudExamAssessmentId ? undefined : existing?.examGrade;
+      let cloudExamAssessmentId: string | undefined;
+      let cloudExamCoefficient: number | undefined = existing?.cloudExamAssessmentId ? undefined : existing?.cloudExamCoefficient;
       const ignoredExamIds = [...(existing?.cloudIgnoredExamAssessmentIds ?? [])];
       let cloudSyncConflict = existing?.cloudSyncConflict;
 
-      if (bucket.exam) {
-        if (cloudExamAssessmentId === bucket.exam.assessmentId) {
+      if (bucket.exam && !ignoredExamIds.includes(bucket.exam.assessmentId)) {
+        if (existing?.cloudExamAssessmentId === bucket.exam.assessmentId) {
           examGrade = bucket.exam.score;
+          cloudExamAssessmentId = bucket.exam.assessmentId;
+          cloudExamCoefficient = bucket.exam.coefficient;
           cloudSyncConflict = undefined;
         } else if (examGrade === undefined) {
           examGrade = bucket.exam.score;
           cloudExamAssessmentId = bucket.exam.assessmentId;
+          cloudExamCoefficient = bucket.exam.coefficient;
           cloudSyncConflict = undefined;
         } else if (!ignoredExamIds.includes(bucket.exam.assessmentId)) {
           ignoredExamIds.push(bucket.exam.assessmentId);
@@ -2194,17 +2210,22 @@ export class CloudSyncService {
         termCode: bucket.termCode,
         schoolYearId: yearId,
         evaluations,
+        evaluationWeights,
         examGrade,
         subjectAverage: CalculationService.computeSubjectAverage(
           evaluations,
           examGrade,
           db.schoolConfig.continuousAssessmentWeight ?? 1,
-          db.schoolConfig.examWeight ?? 2
+          (db.schoolConfig.examWeight ?? 2) * (cloudExamCoefficient ?? 1),
+          evaluationWeights
         ),
-        teacherComment: bucket.comments.at(-1) || existing?.teacherComment,
-        updatedAt: new Date().toISOString().slice(0, 10),
+        teacherComment: existing?.cloudCommentOverride ? existing.teacherComment : bucket.comments.at(-1) || existing?.teacherComment,
+        cloudCommentOverride: existing?.cloudCommentOverride && (bucket.comments.at(-1)?.trim() || '') !== (existing.teacherComment?.trim() || '') || undefined,
+        updatedAt: existing?.updatedAt ?? new Date().toISOString().slice(0, 10),
         cloudEvaluationIds,
+        cloudIgnoredEvaluationIds: existing?.cloudIgnoredEvaluationIds,
         cloudExamAssessmentId,
+        cloudExamCoefficient,
         cloudIgnoredExamAssessmentIds:
           ignoredExamIds.length > 0 ? ignoredExamIds : undefined,
         cloudSyncConflict,
@@ -2219,12 +2240,11 @@ export class CloudSyncService {
     }
 
     if (attendanceAdded === 0 && gradesChanged === 0 && gradeConflicts === 0) {
-      localStorage.setItem(cursorKey, nextCursor);
-      return { db, attendanceAdded, gradesChanged, gradeConflicts };
+      return { db, attendanceAdded, gradesChanged, gradeConflicts, commitCursor: () => localStorage.setItem(cursorKey, nextCursor) };
     }
 
-    localStorage.setItem(cursorKey, nextCursor);
     return {
+      commitCursor: () => localStorage.setItem(cursorKey, nextCursor),
       db: {
         ...db,
         attendanceRecords: Array.from(existingAttendance.values()),

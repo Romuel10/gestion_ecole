@@ -1,6 +1,7 @@
 import 'react-native-url-polyfill/auto';
 import 'expo-sqlite/localStorage/install';
 import { createClient } from '@supabase/supabase-js';
+import { offlineStore } from './offlineStore';
 
 const url = process.env.EXPO_PUBLIC_SUPABASE_URL ?? 'https://cmpbrouwcfoauwyeiyfj.supabase.co';
 const publishableKey =
@@ -27,6 +28,10 @@ export const supabase = createClient(url, publishableKey, {
   },
 });
 
+supabase.auth.onAuthStateChange((_event, session) => {
+  offlineStore.setOwner(session?.user.id ?? null);
+});
+
 
 export async function acceptAuthDeepLink(url: string) {
   const [basePart, fragment = ''] = url.split('#');
@@ -37,6 +42,8 @@ export async function acceptAuthDeepLink(url: string) {
   if (code) {
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
     if (error) throw error;
+    if (data.session) offlineStore.unlockSession();
+    offlineStore.setOwner(data.session?.user.id ?? null);
     return { session: data.session, type: parsed.searchParams.get('type') };
   }
 
@@ -53,6 +60,8 @@ export async function acceptAuthDeepLink(url: string) {
       refresh_token: refreshToken,
     });
     if (error) throw error;
+    if (data.session) offlineStore.unlockSession();
+    offlineStore.setOwner(data.session?.user.id ?? null);
     return { session: data.session, type };
   }
 

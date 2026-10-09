@@ -2,7 +2,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 import { resolve, extname } from 'node:path';
 import * as XLSX from 'xlsx';
-import { BASE_INITIAL_DATA } from '../../src/data/initialData';
+import { BASE_INITIAL_DATA, INITIAL_DATA } from '../../src/data/initialData';
 import { buildSimulationDatabase } from '../../src/data/simulationData';
 
 const fixture = buildSimulationDatabase(structuredClone(BASE_INITIAL_DATA));
@@ -23,9 +23,9 @@ test.beforeEach(async ({ page }) => {
 });
 
 async function boot(page: Page, populated = false) {
-  if (populated) await page.addInitScript((db) => {
+  await page.addInitScript((db) => {
     if (!localStorage.getItem('SEKOLY_BROWSER_CACHE_V1')) localStorage.setItem('SEKOLY_BROWSER_CACHE_V1', JSON.stringify(db));
-  }, fixture);
+  }, populated ? fixture : { ...structuredClone(INITIAL_DATA), schoolConfig: { ...INITIAL_DATA.schoolConfig, setupState: { step: 4, completedAt: '2026-10-09T00:00:00Z' } } });
   await page.goto('https://sekoly.test');
   await expect(page.getByRole('heading', { name: 'Tableau de bord', exact: true })).toBeVisible();
 }
@@ -66,7 +66,7 @@ test('animation 3D courte, ignorable, sans fenêtre supplémentaire', async ({ p
   expect(await page.locator('.startup-emblem').evaluate((el) => getComputedStyle(el).transformStyle)).toBe('preserve-3d');
   await page.screenshot({ path: 'test-results/startup.png' });
   await page.getByRole('button', { name: 'Accéder à mon espace' }).click();
-  await expect(page.getByRole('heading', { name: 'Tableau de bord', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Configurons votre école', exact: true })).toBeVisible();
   expect(context.pages()).toHaveLength(1);
 });
 
@@ -98,6 +98,83 @@ test('SQLite inaccessible : erreur explicite sans écraser les données', async 
   await expect(page.getByRole('button', { name: 'Réessayer' })).toBeVisible();
   expect(await page.evaluate(() => (window as any).writes)).toBe(0);
   await expect(page.locator('.app-shell')).toHaveCount(0);
+});
+
+test('échec d’écriture SQLite : le formulaire reste ouvert et peut être enregistré ensuite', async ({ page }) => {
+  await page.addInitScript((db) => {
+    (window as any).storedDb = db;
+    (window as any).diskFull = true;
+    (window as any).__TAURI__ = { core: { invoke: async (command: string, args: any) => {
+      if (command === 'load_database') return JSON.stringify((window as any).storedDb);
+      if (command === 'save_database') {
+        if ((window as any).diskFull) throw new Error('DISK_FULL');
+        (window as any).storedDb = JSON.parse(args.json);
+      }
+      if (command.includes('backup')) return 'fixture-backup.json';
+    } } };
+  }, fixture);
+  await boot(page);
+  await navigate(page, 'Paramètres');
+  await page.getByRole('button', { name: 'Classes', exact: true }).click();
+  await page.getByRole('button', { name: 'Ajouter une classe', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Ajouter une classe' });
+  await dialog.getByLabel('Nom', { exact: true }).fill('Classe test disque');
+  await dialog.getByRole('button', { name: 'Enregistrer', exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText('DISK_FULL');
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByLabel('Nom', { exact: true })).toHaveValue('Classe test disque');
+  expect(await page.evaluate(() => (window as any).storedDb.classes.length)).toBe(fixture.classes.length);
+  await expect(page.getByRole('status').filter({ hasText: 'Classe ajoutée.' })).toHaveCount(0);
+  await page.evaluate(() => { (window as any).diskFull = false; });
+  await dialog.getByRole('button', { name: 'Enregistrer', exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  expect(await page.evaluate(() => (window as any).storedDb.classes.length)).toBe(fixture.classes.length + 1);
+});
+
+test('restauration : un fichier incomplet et une copie de secours impossible ne remplacent rien', async ({ page }) => {
+  await page.addInitScript((db) => {
+    (window as any).writes = 0;
+    (window as any).__TAURI__ = { core: { invoke: async (command: string) => {
+      if (command === 'load_database') return JSON.stringify(db);
+      if (command === 'save_database') (window as any).writes++;
+      if (command === 'create_recovery_backup') throw new Error('BACKUP_FULL');
+      if (command === 'create_daily_backup') return 'daily-fixture.json';
+    } } };
+  }, fixture);
+  await boot(page);
+  await navigate(page, 'Paramètres');
+  await page.getByRole('button', { name: 'Données', exact: true }).click();
+  const input = page.locator('input[type="file"][accept=".json"]');
+  await input.setInputFiles({ name: 'incomplet.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify({ schoolConfig: { name: 'Vide' } })) });
+  await expect(page.getByRole('alert')).toContainText('Sauvegarde invalide');
+  expect(await page.evaluate(() => (window as any).writes)).toBe(0);
+  page.on('dialog', dialog => dialog.accept());
+  await input.setInputFiles({ name: 'complet.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(fixture)) });
+  await expect(page.getByRole('alert').filter({ hasText: 'BACKUP_FULL' })).toBeVisible();
+  expect(await page.evaluate(() => (window as any).writes)).toBe(0);
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('SEKOLY_BROWSER_CACHE_V1')!).students.length)).toBe(fixture.students.length);
+});
+
+test('CSP desktop : le bundle reste utilisable et un script injecté est bloqué', async ({ page }) => {
+  const config = JSON.parse(await readFile('src-tauri/tauri.conf.json', 'utf8'));
+  const policy = Object.entries(config.app.security.csp).map(([name, value]) => `${name} ${value}`).join('; ');
+  await page.route('https://sekoly.test/', async route => route.fulfill({
+    body: await readFile('dist/index.html'), contentType: 'text/html', headers: { 'Content-Security-Policy': policy },
+  }));
+  await boot(page, true);
+  await navigate(page, 'Élèves');
+  const blocked = await page.evaluate(async () => {
+    return new Promise<boolean>(resolve => {
+      document.addEventListener('securitypolicyviolation', event => resolve(event.effectiveDirective === 'script-src-elem' && event.blockedURI === 'inline'), { once: true });
+      const script = document.createElement('script');
+      script.textContent = 'window.unexpectedScriptRan = true';
+      document.head.appendChild(script);
+    });
+  });
+  expect(blocked).toBe(true);
+  expect(await page.evaluate(() => (window as any).unexpectedScriptRan)).toBeUndefined();
+  await page.getByTitle('Consulter le dossier complet').first().click();
+  await expect(page.getByRole('dialog')).toBeVisible();
 });
 
 test('clavier : recherche, focus contenu, retour au déclencheur, raccourcis protégés', async ({ page }) => {
@@ -282,6 +359,9 @@ for (const width of [390, 800, 1366]) {
 test('dates JJ-MM-AAAA dans les dossiers, certificats, Excel et paramètres', async ({ page }) => {
   const db = structuredClone(fixture);
   db.students.forEach((student) => { student.birthDate = '2015-10-23'; });
+  db.schoolConfig.logoUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAFAAAAAoCAIAAADmAupWAAAA2ElEQVR4nO2auw7EMAgEj1P+/5edgiYnnfIys5aAaVIkBavFxhDbGONTie/qANRs/jCztXEI8Fyu6rCTdT0f87ecwy04O9v1J6H8LQfKvUMn+KTy+SuNbIXgm0VeIxtfw0+PNPQRiBX8LnpUMyh4Jm5Oc7myRAmetwgyuR2OIMocwuR2ODstODstODuI4KiOh+ic2uEg5s2BGuN2OI4Zi7i5B+vwu7jRKQ+e0k+jp2daiiGea7hsffJMLZ0T2Tnn0s7y/3VdlrLzk9IV7gGUc9iW7yJiyjm8A/R0QlvEIJLIAAAAAElFTkSuQmCC';
+  db.schoolConfig.documentLogoPosition = 'CENTER';
+  db.schoolConfig.documentLogoWidthMm = 18;
   await page.addInitScript((data) => localStorage.setItem('SEKOLY_BROWSER_CACHE_V1', JSON.stringify(data)), db);
   await boot(page);
   await navigate(page, 'Élèves');
@@ -296,6 +376,7 @@ test('dates JJ-MM-AAAA dans les dossiers, certificats, Excel et paramètres', as
   const raw = (await readFile((await pdf.path())!)).toString('latin1');
   expect(raw).toContain('23-10-2015');
   expect(raw).not.toContain('2015-10-23');
+  expect(raw).toContain('/Subtype /Image');
   const excelDownload = page.waitForEvent('download');
   await page.getByRole('button', { name: /Exporter Excel/ }).click();
   const book = XLSX.read(await readFile((await (await excelDownload).path())!));

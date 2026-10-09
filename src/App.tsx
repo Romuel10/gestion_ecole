@@ -9,6 +9,8 @@ import { DashboardHome } from './components/dashboard/DashboardHome';
 import { CloudSyncService } from './services/cloudSync';
 import { StartupScreen } from './components/startup/StartupScreen';
 import { ViewErrorBoundary } from './components/common/ViewErrorBoundary';
+import { needsFirstSetup } from './services/firstSetup';
+const SchoolSetupWizard = lazy(() => import('./components/startup/SchoolSetupWizard').then(module => ({ default: module.SchoolSetupWizard })));
 
 const RegistrationView = lazy(() => import('./components/admissions/RegistrationView').then((module) => ({ default: module.RegistrationView })));
 const StudentListView = lazy(() => import('./components/students/StudentListView').then((module) => ({ default: module.StudentListView })));
@@ -77,8 +79,26 @@ export function App() {
 
   useEffect(() => {
     if (!databaseReady) return;
+    let backupError = '';
+    const backup = async () => {
+      try { await StorageService.ensureDailyLocalBackup(); backupError = ''; }
+      catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (message !== backupError) showToast(`Copie locale quotidienne impossible : ${message}. Exportez une sauvegarde complète.`, 'error');
+        backupError = message;
+      }
+    };
+    void backup();
+    const timer = window.setInterval(backup, 5 * 60 * 1000);
+    return () => window.clearInterval(timer);
+  }, [databaseReady, showToast]);
+
+  useEffect(() => {
+    if (!databaseReady) return;
     let cancelled = false;
     let running = false;
+    let lastSyncError = '';
+    let lastBackupError = '';
 
     const pull = async () => {
       if (
@@ -93,16 +113,18 @@ export function App() {
 
       running = true;
       try {
-        const result = await CloudSyncService.pullTeacherChanges(dbRef.current);
+        const base = StorageService.getCurrentDatabase();
+        const result = await CloudSyncService.pullTeacherChanges(base);
         if (
           !cancelled &&
           (result.attendanceAdded > 0 ||
             result.gradesChanged > 0 ||
             result.gradeConflicts > 0)
         ) {
-          StorageService.saveDatabase(result.db);
-          dbRef.current = result.db;
-          setDb(result.db);
+          const saved = await StorageService.saveDatabase(result.db, base, true);
+          dbRef.current = saved;
+          setDb(saved);
+          result.commitCursor?.();
           showToast(
             result.gradeConflicts > 0
               ? `Cloud : ${result.attendanceAdded} présence(s), ${result.gradesChanged} fiche(s) de notes mise(s) à jour, ${result.gradeConflicts} conflit(s) protégé(s).`
@@ -110,9 +132,18 @@ export function App() {
             result.gradeConflicts > 0 ? 'info' : 'success'
           );
         }
-        void CloudSyncService.ensureDailyBackup();
+        lastSyncError = '';
+        try { await CloudSyncService.ensureDailyBackup(); lastBackupError = ''; }
+        catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          if (message !== lastBackupError) showToast(`Sauvegarde Cloud scolaire impossible : ${message}. La copie JSON complète reste nécessaire pour la comptabilité.`, 'error');
+          lastBackupError = message;
+        }
       } catch (error) {
         console.warn('Sekoly Cloud sync:', error);
+        const message = error instanceof Error ? error.message : String(error);
+        if (!cancelled && message !== lastSyncError) showToast(`Synchronisation interrompue : ${message}`, 'error');
+        lastSyncError = message;
       } finally {
         running = false;
       }
@@ -174,7 +205,7 @@ export function App() {
 
   useEffect(() => {
     const handleShortcut = (event: KeyboardEvent) => {
-      if (!databaseReady || showStartup || event.defaultPrevented || !(event.ctrlKey || event.metaKey)) return;
+      if (!databaseReady || showStartup || needsFirstSetup(dbRef.current) || event.defaultPrevented || !(event.ctrlKey || event.metaKey)) return;
       // Never navigate away from a form or a dialog through a global shortcut.
       const inDialog = document.querySelector('[role="dialog"][aria-modal="true"]');
       const editing = event.target instanceof HTMLElement && Boolean(event.target.closest('input, textarea, select, [contenteditable="true"]'));
@@ -203,6 +234,13 @@ export function App() {
     return <StartupScreen ready={databaseReady} error={startupError} onFinish={() => setShowStartup(false)} />;
   }
 
+  if (needsFirstSetup(db)) return <>
+    <ViewErrorBoundary><Suspense fallback={<div role="status" className="p-8">Ouverture de l’assistant…</div>}>
+      <SchoolSetupWizard db={db} onUpdateDb={setDb} onComplete={saved => { setDb(saved); setCurrentTab('dashboard'); }} onShowToast={showToast} isDark={isDark} onToggleTheme={() => setIsDark(value => !value)} />
+    </Suspense></ViewErrorBoundary>
+    <ToastContainer toasts={toasts} onRemove={removeToast} />
+  </>;
+
   return (
     <div className="app-shell">
       {!isSidebarCollapsed && <button className="sidebar-backdrop" aria-label="Fermer la navigation" onClick={() => setIsSidebarCollapsed(true)} />}
@@ -219,6 +257,7 @@ export function App() {
           db={db}
           onUpdateDb={setDb}
           currentTab={currentTab}
+          onShowToast={showToast}
           isDark={isDark}
           onToggleTheme={() => setIsDark((value) => !value)}
           sidebarExpanded={!isSidebarCollapsed}

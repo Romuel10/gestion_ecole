@@ -21,6 +21,8 @@ import {
 } from 'react-native';
 import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
 import { offlineStore } from './src/lib/offlineStore';
+import { excelStore } from './src/lib/excelStore';
+import { ExcelWorkspace } from './src/components/ExcelWorkspace';
 import { acceptAuthDeepLink, supabase } from './src/lib/supabase';
 import {
   Assignment,
@@ -283,8 +285,10 @@ function ActivateAccountScreen({
 
 function LoginScreen({
   onLoggedIn,
+  onOpenExcel,
 }: {
   onLoggedIn: () => Promise<void>;
+  onOpenExcel: () => void;
 }) {
   const { styles } = useMobileTheme();
   const [email, setEmail] = useState('');
@@ -316,7 +320,7 @@ function LoginScreen({
       style={styles.full}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <SafeAreaView style={styles.loginPage}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: styles.loginPage.backgroundColor }}><ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: 24 }}>
         <View style={styles.brandSeal}>
           <Text style={styles.brandSealText}>S</Text>
         </View>
@@ -357,8 +361,10 @@ function LoginScreen({
             Votre compte est créé ou invité par la direction de votre établissement.
           </Text>
           <TextSizeControl />
+          <PrimaryButton label="Utiliser un fichier de l’école" kind="secondary" onPress={onOpenExcel} />
+          <Text style={styles.helper}>Sans Internet : ouvrez le fichier fourni par la direction, saisissez vos notes et vos appels, puis remettez vos exports Excel à l’école.</Text>
         </View>
-      </SafeAreaView>
+      </ScrollView></SafeAreaView>
     </KeyboardAvoidingView>
   );
 }
@@ -369,12 +375,14 @@ function Header({
   syncing,
   onSync,
   onLogout,
+  onOpenExcel,
 }: {
   context: TeacherContext;
   queueCount: number;
   syncing: boolean;
   onSync: () => void;
   onLogout: () => void;
+  onOpenExcel: () => void;
 }) {
   const { mode, styles, toggleTheme } = useMobileTheme();
   return (
@@ -407,6 +415,7 @@ function Header({
         <Pressable onPress={onLogout} hitSlop={8}>
           <Text style={styles.logoutText}>Quitter</Text>
         </Pressable>
+        <Pressable onPress={onOpenExcel} hitSlop={8}><Text style={styles.logoutText}>Échanges Excel</Text></Pressable>
       </View>
     </View>
   );
@@ -1008,7 +1017,7 @@ function GradesScreen({
   );
 }
 
-function AppContent() {
+function AppContent({ onOpenExcel }: { onOpenExcel: () => void }) {
   const { colors: COLORS, mode, styles } = useMobileTheme();
   const [booting, setBooting] = useState(true);
   const [context, setContext] = useState<TeacherContext | null>(null);
@@ -1021,6 +1030,8 @@ function AppContent() {
   const [syncing, setSyncing] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [needsPassword, setNeedsPassword] = useState(false);
+  const accountGeneration = useRef(0);
+  const activeUserId = useRef<string | null>(null);
   const screenProgress = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
@@ -1036,11 +1047,13 @@ function AppContent() {
   const refreshQueue = () => setQueueCount(teacherApi.queueCount());
 
   const loadWorkspace = useCallback(async (recordOpen = false) => {
+    const generation = accountGeneration.current;
     const nextContext = await teacherApi.loadContext();
     const [nextAssignments, nextTimetable] = await Promise.all([
       teacherApi.loadAssignments(nextContext),
       teacherApi.loadTimetable(nextContext),
     ]);
+    if (generation !== accountGeneration.current || !offlineStore.isOwner(nextContext.userId, nextContext.schoolId)) return;
     setContext(nextContext);
     setAssignments(nextAssignments);
     setTimetable(nextTimetable);
@@ -1057,6 +1070,11 @@ function AppContent() {
   const boot = useCallback(async () => {
     try {
       const session = await teacherApi.getSession();
+      const bootUserId = session?.user.id ?? null;
+      if (activeUserId.current !== bootUserId) {
+        activeUserId.current = bootUserId;
+        accountGeneration.current += 1;
+      }
       if (session) {
         const mustChange = await teacherApi.requiresPasswordChange();
         if (mustChange) {
@@ -1101,10 +1119,16 @@ function AppContent() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session) {
+      const nextUserId = session?.user.id ?? null;
+      if (activeUserId.current !== nextUserId) {
+        activeUserId.current = nextUserId;
+        accountGeneration.current += 1;
         setContext(null);
         setAssignments([]);
         setTimetable([]);
+        setSelectedAssignment(null);
+        setQueueCount(0);
+        setNeedsPassword(false);
         setTab('HOME');
       }
     });
@@ -1141,7 +1165,7 @@ function AppContent() {
   const sync = async () => {
     setSyncing(true);
     try {
-      const result = await teacherApi.flushQueue();
+      const result = await teacherApi.flushQueue(true);
       refreshQueue();
       if (result.synced > 0) {
         Alert.alert(
@@ -1149,6 +1173,7 @@ function AppContent() {
           `${result.synced} opération(s) envoyée(s). ${result.remaining} restante(s).`
         );
       }
+      if (result.lastError) Alert.alert('Synchronisation incomplète', `${result.remaining} opération(s) conservée(s) sur ce compte. ${result.lastError}`);
       await loadWorkspace();
     } catch (error) {
       Alert.alert(
@@ -1167,6 +1192,8 @@ function AppContent() {
     try {
       await teacherApi.flushQueue();
       await loadWorkspace();
+    } catch (error) {
+      Alert.alert('Actualisation impossible', error instanceof Error ? error.message : 'Réessayez lorsque le réseau est disponible.');
     } finally {
       setRefreshing(false);
     }
@@ -1178,6 +1205,7 @@ function AppContent() {
         <ExpoStatusBar style={mode === 'dark' ? 'light' : 'dark'} />
         <ActivityIndicator size="large" color={COLORS.navy} />
         <Text style={styles.bootText}>Ouverture de Sekoly Enseignant…</Text>
+        <PrimaryButton label="Utiliser un fichier de l’école" kind="secondary" onPress={onOpenExcel} />
       </View>
     );
   }
@@ -1199,6 +1227,7 @@ function AppContent() {
         <StatusBar barStyle={mode === 'dark' ? 'light-content' : 'dark-content'} />
         <ExpoStatusBar style={mode === 'dark' ? 'light' : 'dark'} />
         <LoginScreen
+          onOpenExcel={onOpenExcel}
           onLoggedIn={async () => {
             const mustChange = await teacherApi.requiresPasswordChange();
             if (mustChange) {
@@ -1226,12 +1255,22 @@ function AppContent() {
     <SafeAreaView style={[styles.full, styles.safeRoot]}>
       <ExpoStatusBar style="light" />
       <Header
+        onOpenExcel={onOpenExcel}
         context={context}
         queueCount={queueCount}
         syncing={syncing}
         onSync={sync}
-        onLogout={() => void teacherApi.signOut()}
+        onLogout={() => {
+          accountGeneration.current += 1; activeUserId.current = null;
+          setContext(null); setAssignments([]); setTimetable([]); setSelectedAssignment(null);
+          setQueueCount(0); setNeedsPassword(false); setTab('HOME');
+          void teacherApi.signOut().catch(error => console.warn('Déconnexion Cloud :', error));
+        }}
       />
+
+      {offlineStore.legacyQueueCount() > 0 && <Text style={styles.helper} accessibilityRole="alert">
+        Des opérations d’une ancienne version sont conservées sur ce téléphone. Elles doivent être récupérées avec l’administrateur avant leur envoi.
+      </Text>}
 
       <Animated.View
         style={[
@@ -1294,6 +1333,7 @@ function AppContent() {
 }
 
 export default function App() {
+  const [fileMode, setFileMode] = useState(() => { try { return excelStore.fileMode(); } catch { return false; } });
   const systemScheme = useColorScheme();
   const [mode, setMode] = useState<ThemeMode>(
     systemScheme === 'dark' ? 'dark' : 'light'
@@ -1320,7 +1360,7 @@ export default function App() {
 
   return (
     <MobileThemeContext.Provider value={themeValue}>
-      <AppContent />
+      {fileMode ? <ExcelWorkspace colors={colors} textScale={textScale} onExit={() => { try { excelStore.setFileMode(false); setFileMode(false); } catch (error) { Alert.alert('Changement de mode impossible', error instanceof Error ? error.message : 'Réessayez.'); } }} /> : <AppContent onOpenExcel={() => { try { excelStore.setFileMode(true); setFileMode(true); } catch (error) { Alert.alert('Ouverture impossible', error instanceof Error ? error.message : 'Vérifiez le stockage du téléphone.'); } }} />}
     </MobileThemeContext.Provider>
   );
 }

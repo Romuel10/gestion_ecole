@@ -114,7 +114,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
     }
   }, [student, db.classes]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (reportInvalidDates()) return;
     if (!formData.lastName || !formData.firstName) {
@@ -311,8 +311,9 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
         guardians: updatedGuardians,
         studentGuardianLinks: updatedLinks,
       };
-      StorageService.saveDatabase(updatedDb);
-      onUpdateDb(updatedDb);
+      const savedDb = await StorageService.saveDatabaseOrNotify(updatedDb, db, onShowToast);
+      if (!savedDb) return;
+      onUpdateDb(savedDb);
       onShowToast(`Fiche de ${formData.lastName} mise à jour.`, 'success');
     }
 

@@ -23,7 +23,19 @@ db.execSync(`
   );
 `);
 
+const queueColumns = db.getAllSync<{ name: string }>('PRAGMA table_info(mutation_queue)');
+if (!queueColumns.some(column => column.name === 'owner_id')) db.execSync('ALTER TABLE mutation_queue ADD COLUMN owner_id TEXT;');
+if (!queueColumns.some(column => column.name === 'school_id')) db.execSync('ALTER TABLE mutation_queue ADD COLUMN school_id TEXT;');
+// Legacy mutations cannot be attributed safely. Keep them for recovery, never
+// replay them under the account that happens to sign in next.
+let ownerId: string | null = null;
+let schoolId: string | null = null;
+const globalKeys = new Set(['device-id-v1', 'text-scale', 'theme-mode', 'session-lock-v1']);
+const cacheKey = (key: string) => globalKeys.has(key) ? key : ownerId ? `user:${ownerId}:${key}` : null;
+
 export type QueuedMutation = {
+  owner_id: string | null;
+  school_id: string | null;
   id: string;
   table_name: string;
   operation: 'upsert' | 'insert' | 'update' | 'delete';
@@ -42,19 +54,44 @@ const uuid = () =>
   });
 
 export const offlineStore = {
-  setCache(key: string, value: unknown) {
+  setOwner(userId: string | null, activeSchoolId: string | null = null) {
+    if (userId && this.isSessionLocked()) { ownerId = null; schoolId = null; return; }
+    if (ownerId !== userId) schoolId = null;
+    ownerId = userId;
+    if (activeSchoolId) schoolId = activeSchoolId;
+  },
+  currentOwner() { return ownerId; },
+  isSessionLocked() { return this.getCache<boolean>('session-lock-v1') === true; },
+  lockSession() { this.setCache('session-lock-v1', true); ownerId = null; schoolId = null; },
+  unlockSession() { this.setCache('session-lock-v1', false); },
+  isOwner(userId: string, activeSchoolId?: string) { return ownerId === userId && (!activeSchoolId || schoolId === activeSchoolId); },
+  revokeAccess(expectedOwner?: string) {
+    if (expectedOwner && ownerId !== expectedOwner) return;
+    if (ownerId) db.runSync('DELETE FROM cache WHERE key LIKE ?', [`user:${ownerId}:%`]);
+    ownerId = null; schoolId = null;
+  },
+  legacyQueueCount() {
+    return db.getFirstSync<{total:number}>('SELECT COUNT(*) AS total FROM mutation_queue WHERE owner_id IS NULL')?.total ?? 0;
+  },
+  setCache(key: string, value: unknown, expectedOwner = ownerId) {
+    if (!globalKeys.has(key) && expectedOwner !== ownerId) throw new Error('Le compte a changé pendant le chargement.');
+    const scopedKey = cacheKey(key);
+    if (!scopedKey) throw new Error('Session hors ligne verrouillée.');
     db.runSync(
       `INSERT INTO cache(key, value, updated_at)
        VALUES (?, ?, ?)
        ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at`,
-      [key, JSON.stringify(value), new Date().toISOString()]
+      [scopedKey, JSON.stringify(value), new Date().toISOString()]
     );
   },
 
-  getCache<T>(key: string): T | null {
+  getCache<T>(key: string, expectedOwner = ownerId): T | null {
+    if (!globalKeys.has(key) && expectedOwner !== ownerId) return null;
+    const scopedKey = cacheKey(key);
+    if (!scopedKey) return null;
     const row = db.getFirstSync<{ value: string }>(
       'SELECT value FROM cache WHERE key = ?',
-      [key]
+      [scopedKey]
     );
     if (!row) return null;
     try {
@@ -68,13 +105,18 @@ export const offlineStore = {
     tableName: string,
     operation: QueuedMutation['operation'],
     payload: unknown,
-    conflictTarget?: string
+    conflictTarget?: string,
+    expectedOwner = ownerId
   ) {
+    if (expectedOwner !== ownerId) throw new Error('Le compte a changé pendant l’enregistrement.');
+    if (!ownerId || !schoolId) throw new Error('Compte et établissement vérifiés requis.');
+    const rows = Array.isArray(payload) ? payload : [payload];
+    if (rows.some(row => row?.school_id !== schoolId)) throw new Error('Opération hors ligne d’un autre établissement.');
     const id = uuid();
     db.runSync(
       `INSERT INTO mutation_queue
-       (id, table_name, operation, payload, conflict_target, created_at)
-       VALUES (?, ?, ?, ?, ?, ?)`,
+       (id, table_name, operation, payload, conflict_target, created_at, owner_id, school_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         tableName,
@@ -82,6 +124,8 @@ export const offlineStore = {
         JSON.stringify(payload),
         conflictTarget ?? null,
         new Date().toISOString(),
+        ownerId,
+        schoolId,
       ]
     );
     return id;
@@ -89,7 +133,8 @@ export const offlineStore = {
 
   listQueue(): QueuedMutation[] {
     return db.getAllSync<QueuedMutation>(
-      'SELECT * FROM mutation_queue ORDER BY created_at ASC'
+      'SELECT * FROM mutation_queue WHERE owner_id = ? AND school_id = ? ORDER BY created_at ASC',
+      [ownerId, schoolId]
     );
   },
 
@@ -97,20 +142,25 @@ export const offlineStore = {
     db.runSync(
       `UPDATE mutation_queue
        SET attempts = attempts + 1, last_error = ?
-       WHERE id = ?`,
-      [error.slice(0, 1000), id]
+       WHERE id = ? AND owner_id = ? AND school_id = ?`,
+      [error.slice(0, 1000), id, ownerId, schoolId]
     );
   },
 
   remove(id: string) {
-    db.runSync('DELETE FROM mutation_queue WHERE id = ?', [id]);
+    db.runSync('DELETE FROM mutation_queue WHERE id = ? AND owner_id = ? AND school_id = ?', [id, ownerId, schoolId]);
   },
 
   queueCount() {
     const row = db.getFirstSync<{ total: number }>(
-      'SELECT COUNT(*) AS total FROM mutation_queue'
+      'SELECT COUNT(*) AS total FROM mutation_queue WHERE owner_id = ? AND school_id = ?',
+      [ownerId, schoolId]
     );
     return row?.total ?? 0;
+  },
+
+  retryFailures() {
+    db.runSync('UPDATE mutation_queue SET attempts = 0, last_error = NULL WHERE owner_id = ? AND school_id = ?', [ownerId, schoolId]);
   },
 
   queueHealth() {
@@ -127,11 +177,12 @@ export const offlineStore = {
          (
            SELECT last_error
            FROM mutation_queue
-           WHERE last_error IS NOT NULL
+           WHERE last_error IS NOT NULL AND owner_id = ? AND school_id = ?
            ORDER BY created_at DESC
            LIMIT 1
          ) AS last_error
-       FROM mutation_queue`
+       FROM mutation_queue WHERE owner_id = ? AND school_id = ?`,
+      [ownerId, schoolId, ownerId, schoolId]
     );
 
     return {

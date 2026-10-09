@@ -2,6 +2,9 @@ import * as XLSX from 'xlsx';
 import { DatabaseSchema, GradeEntry, Student } from '../types/school';
 import { MatriculeService } from './matricule';
 import { CalculationService } from './calculations';
+import { parseDisplayDate } from './dateFormat';
+import { civilDate, parseTeacherResults, readExchangeWorkbook } from '../shared/teacherExchange';
+import { protectImportedGrade } from './gradeDraft';
 
 export interface ExcelImportIssue {
   row: number;
@@ -19,6 +22,7 @@ export interface GradeImportPreview {
   grades: GradeEntry[];
   issues: ExcelImportIssue[];
   warnings: ExcelImportIssue[];
+  validateCurrent?: (db: DatabaseSchema) => void;
 }
 
 const normalize = (value: unknown) =>
@@ -53,7 +57,7 @@ const text = (value: unknown) => String(value ?? '').trim();
 const excelDate = (value: unknown): string => {
   if (!value) return '';
   if (value instanceof Date && !Number.isNaN(value.getTime())) {
-    return value.toISOString().slice(0, 10);
+    return civilDate(value);
   }
   if (typeof value === 'number') {
     const decoded = XLSX.SSF.parse_date_code(value);
@@ -269,6 +273,17 @@ export class ExcelImportService {
       }
 
       const birthDate = excelDate(pick(row, ['Date naissance', 'Date de naissance']));
+      if (birthDate && !/^\d{4}-\d{2}-\d{2}$/.test(birthDate)) {
+        issues.push({ row: rowNumber, message: 'Date de naissance invalide : utilisez JJ-MM-AAAA ou une date Excel.' });
+        return;
+      }
+      if (birthDate) {
+        const [year, month, day] = birthDate.split('-');
+        if (!parseDisplayDate(`${day}-${month}-${year}`)) {
+          issues.push({ row: rowNumber, message: 'Date de naissance impossible dans le calendrier.' });
+          return;
+        }
+      }
       if (!birthDate) {
         warnings.push({ row: rowNumber, message: 'Date de naissance absente.' });
       }
@@ -391,7 +406,17 @@ export class ExcelImportService {
 
   static async parseGrades(file: File, db: DatabaseSchema): Promise<GradeImportPreview> {
     const buffer = await file.arrayBuffer();
-    const workbook = XLSX.read(buffer, { type: 'array', cellDates: true });
+    const workbook = readExchangeWorkbook(buffer);
+    if (workbook.Sheets.Configuration) {
+      const preview = parseTeacherResults(workbook, db, 'grades');
+      preview.grades = preview.grades.map(grade => { grade.subjectAverage = CalculationService.computeSubjectAverage(grade.evaluations, grade.examGrade, db.schoolConfig.continuousAssessmentWeight ?? 1, (db.schoolConfig.examWeight ?? 2) * (grade.cloudExamCoefficient ?? 1), grade.evaluationWeights); return protectImportedGrade(db.grades.find(existing => existing.id === grade.id), grade); });
+      return { grades: preview.grades, issues: preview.issues, warnings: preview.warnings, validateCurrent: current => {
+        const checked = parseTeacherResults(workbook, current, 'grades');
+        if (checked.issues.length) throw new Error(checked.issues[0].message);
+        if (checked.grades.some(entry => !preview.grades.some(proposed => proposed.id === entry.id))) throw new Error('Des notes ont été ajoutées depuis la prévisualisation. Rechargez le fichier avant de confirmer.');
+        if (current.currentSchoolYearId !== db.currentSchoolYearId) throw new Error('L’année scolaire a changé pendant l’import.');
+      } };
+    }
     const sheet =
       workbook.Sheets.Notes ||
       workbook.Sheets[workbook.SheetNames[0]];

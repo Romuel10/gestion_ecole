@@ -38,12 +38,13 @@ jobs:
         run: npm ci
 
       - name: Audit production dependencies
-        run: npm audit --omit=dev --audit-level=high
+        run: npm audit --audit-level=high
 
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: "./src-tauri -> target"
+          cache-on-failure: true
 
       - name: Install Tauri CLI
         uses: taiki-e/install-action@v2
@@ -53,8 +54,34 @@ jobs:
       - name: Generate Windows icons from Sekoly identity
         run: cargo tauri icon public/sekoly-app.svg
 
+      - name: Verify Rust lockfile
+        working-directory: src-tauri
+        run: cargo fetch --locked
+
+      - name: Upload Rust lockfile
+        uses: actions/upload-artifact@v4
+        with:
+          name: sekoly-rust-lockfile
+          path: src-tauri/Cargo.lock
+
+      - name: Install Rust security audit
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit@0.22.2
+
+      - name: Audit Rust dependencies
+        working-directory: src-tauri
+        run: cargo audit
+
+      - name: Build frontend for native tests
+        run: npm run build
+
+      - name: Test native backups
+        working-directory: src-tauri
+        run: cargo test --locked
+
       - name: Build Windows installers
-        run: cargo tauri build --bundles nsis,msi
+        run: cargo tauri build --bundles nsis,msi -- --locked
 
       - name: Test Windows startup and single instance
         shell: pwsh
