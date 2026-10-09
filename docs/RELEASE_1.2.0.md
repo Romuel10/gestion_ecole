@@ -19,6 +19,8 @@
   réponses cloud ; les appels divergents sont signalés dans Vie scolaire.
 - Les corrections de sécurité, persistance, PDF, dates et calculs de la
   [version 1.1.2](RELEASE_1.1.2.md) sont incluses.
+- Dépendances actualisées : source-map-js 1.2.2 corrige GHSA-68fv-2mgg-jv7q ;
+  Expo 57.0.27 et SQLite 57.0.4 correspondent aux versions validées par le SDK.
 
 Voir [le guide des échanges](TEACHER_EXCEL_EXCHANGE.md). Les installateurs Windows
 et l’APK professeur sont générés par GitHub Actions pour validation avant publication.
