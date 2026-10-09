@@ -116,3 +116,14 @@ test('réponse Cloud retardée : correction et suppression d’appel concurrente
     const merged=mergeTeacherChanges(current,db,{...db,attendanceRecords:records}); assert.equal(merged.attendanceRecords.length,1); assert.equal(merged.attendanceRecords[0].type,'PRESENT');
   }
 });
+
+
+test('correction Excel : appréciation et coefficient de l’examen conservés pendant la synchronisation', async () => {
+  const f = cloudFixture(); const { protectImportedGrade } = f.load('src/services/gradeDraft.ts');
+  f.setRemote({sekoly_assessments:[f.assessment('a',20,1),f.assessment('exam',20,3,'EXAM')],sekoly_assessment_scores:[{...f.score('a',10),comment:'Ancienne appréciation'},f.score('exam',12)]});
+  const first = await f.cloud.pullTeacherChanges(schoolFixture());
+  const corrected = protectImportedGrade(first.db.grades[0], { ...first.db.grades[0], evaluations: [18], evaluationWeights: [1], examGrade: 16, cloudExamCoefficient: 3, teacherComment: 'Nouvelle appréciation Excel' });
+  const result = await f.cloud.pullTeacherChanges({ ...first.db, grades: [corrected] });
+  assert.equal(result.db.grades[0].teacherComment, 'Nouvelle appréciation Excel'); assert.equal(result.db.grades[0].cloudExamCoefficient, 3);
+  assert.equal(result.db.grades[0].subjectAverage, 16.29);
+});

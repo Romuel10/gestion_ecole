@@ -25,7 +25,7 @@
 Voir [le guide des échanges](TEACHER_EXCEL_EXCHANGE.md). Les installateurs Windows
 et l’APK professeur sont générés par GitHub Actions pour validation avant publication.
 
-Vérification locale du 9 octobre 2026 : build desktop, 70 tests métier/données,
+Vérification locale du 9 octobre 2026 : build desktop, 71 tests métier/données,
 31 scénarios d’interface contre le bundle de production (390, 800 et 1366 px),
 TypeScript mobile, trois tests de sécurité des dépendances et bundle Android
 Hermes compilé. Le lint passe avec des avertissements existants. Les actions

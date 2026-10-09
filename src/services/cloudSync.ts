@@ -2174,7 +2174,7 @@ export class CloudSyncService {
 
       let examGrade = existing?.cloudExamAssessmentId ? undefined : existing?.examGrade;
       let cloudExamAssessmentId: string | undefined;
-      let cloudExamCoefficient: number | undefined;
+      let cloudExamCoefficient: number | undefined = existing?.cloudExamAssessmentId ? undefined : existing?.cloudExamCoefficient;
       const ignoredExamIds = [...(existing?.cloudIgnoredExamAssessmentIds ?? [])];
       let cloudSyncConflict = existing?.cloudSyncConflict;
 
@@ -2219,7 +2219,8 @@ export class CloudSyncService {
           (db.schoolConfig.examWeight ?? 2) * (cloudExamCoefficient ?? 1),
           evaluationWeights
         ),
-        teacherComment: bucket.comments.at(-1) || existing?.teacherComment,
+        teacherComment: existing?.cloudCommentOverride ? existing.teacherComment : bucket.comments.at(-1) || existing?.teacherComment,
+        cloudCommentOverride: existing?.cloudCommentOverride && (bucket.comments.at(-1)?.trim() || '') !== (existing.teacherComment?.trim() || '') || undefined,
         updatedAt: existing?.updatedAt ?? new Date().toISOString().slice(0, 10),
         cloudEvaluationIds,
         cloudIgnoredEvaluationIds: existing?.cloudIgnoredEvaluationIds,

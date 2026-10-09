@@ -14,7 +14,7 @@ export function protectImportedGrade(existing: GradeEntry | undefined, imported:
   const examChanged = imported.examGrade !== existing?.examGrade || (imported.cloudExamCoefficient ?? 1) !== (existing?.cloudExamCoefficient ?? 1);
   const ignoredExams = new Set(existing?.cloudIgnoredExamAssessmentIds ?? []);
   if (examChanged && existing?.cloudExamAssessmentId) ignoredExams.add(existing.cloudExamAssessmentId);
-  return { ...imported, cloudEvaluationIds, cloudIgnoredEvaluationIds: ignored.size ? [...ignored] : undefined, cloudExamAssessmentId: examChanged ? undefined : existing?.cloudExamAssessmentId, cloudIgnoredExamAssessmentIds: ignoredExams.size ? [...ignoredExams] : undefined };
+  return { ...imported, cloudEvaluationIds, cloudIgnoredEvaluationIds: ignored.size ? [...ignored] : undefined, cloudExamAssessmentId: examChanged ? undefined : existing?.cloudExamAssessmentId, cloudIgnoredExamAssessmentIds: ignoredExams.size ? [...ignoredExams] : undefined, cloudCommentOverride: existing?.cloudCommentOverride || (imported.teacherComment?.trim() || '') !== (existing?.teacherComment?.trim() || '') || undefined };
 }
 
 export function applyGradeDraft(existing: GradeEntry | undefined, draft: GradeDraft,

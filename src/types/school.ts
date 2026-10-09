@@ -249,6 +249,7 @@ export interface GradeEntry {
   cloudExamAssessmentId?: string;
   cloudExamCoefficient?: number;
   cloudIgnoredExamAssessmentIds?: string[];
+  cloudCommentOverride?: boolean;
   cloudSyncConflict?: string;
 }
 
