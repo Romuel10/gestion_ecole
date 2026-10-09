@@ -2019,6 +2019,11 @@ export class CloudSyncService {
     );
     let attendanceAdded = 0; // Includes corrections/removals for existing clients.
     const remoteAttendanceIds = new Set<string>();
+    const attendanceValue = (record: AttendanceRecord) => JSON.stringify([record.type, record.type === 'RETARD' ? record.minutesLate ?? null : null, record.type === 'PRESENT' ? '' : record.reason?.trim() || '']);
+    const protectAttendance = (record: AttendanceRecord, message: string) => {
+      if (record.cloudSyncConflict !== message) attendanceAdded += 1;
+      existingAttendance.set(record.id, { ...record, cloudSyncConflict: message });
+    };
 
     entries.forEach((entry) => {
       const session = sessionById.get(entry.session_id);
@@ -2041,11 +2046,23 @@ export class CloudSyncService {
           entry.status === 'LATE' ? entry.minutes_late || undefined : undefined,
         reason: entry.reason || undefined,
       };
+      const local = db.attendanceRecords.find(record => record.id !== id && !record.id.startsWith('cloud-att-') && record.studentId === next.studentId && record.classId === next.classId && record.date === next.date && (record.schoolYearId ?? yearId) === yearId);
+      if (local) {
+        if (existingAttendance.delete(id)) attendanceAdded += 1;
+        if (attendanceValue(local) !== attendanceValue(next)) protectAttendance(local, 'Un appel Cloud différent a été reçu. Votre appel local est conservé ; vérifiez avec l’enseignant avant de le corriger.');
+        return;
+      }
+      const previous = existingAttendance.get(id);
+      if (previous?.cloudIgnoredFingerprint && attendanceValue(previous) !== attendanceValue(next)) {
+        if (previous.cloudIgnoredFingerprint !== attendanceValue(next)) protectAttendance(previous, 'L’appel Cloud a changé après votre import Excel. Votre correction locale est conservée ; vérifiez avec l’enseignant.');
+        return;
+      }
       if (JSON.stringify(existingAttendance.get(id)) !== JSON.stringify(next)) attendanceAdded += 1;
       existingAttendance.set(id, next);
     });
     for (const record of db.attendanceRecords) {
       if (record.id.startsWith('cloud-att-') && (record.schoolYearId ?? yearId) === yearId && !remoteAttendanceIds.has(record.id)) {
+        if (record.cloudIgnoredFingerprint) { protectAttendance(record, 'L’appel a été supprimé dans le Cloud après votre import Excel. Votre correction locale est conservée.'); continue; }
         existingAttendance.delete(record.id);
         attendanceAdded += 1;
       }

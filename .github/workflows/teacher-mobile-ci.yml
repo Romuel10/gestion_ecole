@@ -5,11 +5,13 @@ on:
     branches: [main]
     paths:
       - "apps/teacher-mobile/**"
+      - "src/types/school.ts"
       - ".github/workflows/teacher-mobile-ci.yml"
   push:
     branches: [main]
     paths:
       - "apps/teacher-mobile/**"
+      - "src/types/school.ts"
       - ".github/workflows/teacher-mobile-ci.yml"
   workflow_dispatch:
 

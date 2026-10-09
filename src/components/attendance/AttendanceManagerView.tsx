@@ -2,10 +2,13 @@ import { localDateIso } from '../../services/dateFormat';
 import { DateInput } from '../common/DateInput';
 import { reportInvalidDates } from '../../services/dateInputValidation';
 import { formatDate } from '../../services/dateFormat';
-import React, { useMemo, useState } from 'react';
-import { CalendarDays, CheckCircle2, Save, UsersRound } from 'lucide-react';
+import React, { useMemo, useRef, useState } from 'react';
+import { CalendarDays, CheckCircle2, Save, UsersRound, FileSpreadsheet, Download } from 'lucide-react';
 import { AttendanceRecord, DatabaseSchema } from '../../types/school';
 import { StorageService } from '../../services/storage';
+import { AttendanceImportPreview, downloadAttendanceTemplate, parseAttendance } from '../../services/attendanceExcel';
+import { attendanceKey } from '../../shared/teacherExchange';
+import { ExcelImportModal } from '../common/ExcelImportModal';
 
 interface AttendanceManagerViewProps {
   db: DatabaseSchema;
@@ -33,6 +36,27 @@ export const AttendanceManagerView: React.FC<AttendanceManagerViewProps> = ({
 
   const [selectedDate, setSelectedDate] = useState(initialDate);
   const [selectedClassId, setSelectedClassId] = useState(db.classes[0]?.id || '');
+  const importInput = useRef<HTMLInputElement>(null);
+  const [importPreview, setImportPreview] = useState<AttendanceImportPreview | null>(null);
+  const [importFileName, setImportFileName] = useState('');
+  const [importBusy, setImportBusy] = useState(false);
+  const importFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]; event.target.value = '';
+    if (!file) return;
+    try { setImportPreview(await parseAttendance(file, db)); setImportFileName(file.name); }
+    catch (error) { onShowToast(error instanceof Error ? error.message : 'Lecture Excel impossible.', 'error'); }
+  };
+  const confirmImport = async () => {
+    if (!importPreview || importPreview.issues.length || importBusy) return;
+    setImportBusy(true);
+    try {
+      const imported = new Set(importPreview.records.map(record => `${record.schoolYearId}|${attendanceKey(record)}`));
+      const preserved = db.attendanceRecords.filter(record => !imported.has(`${record.schoolYearId || db.currentSchoolYearId}|${attendanceKey(record)}`));
+      const saved = await StorageService.saveDatabaseOrNotify({ ...db, attendanceRecords: [...preserved, ...importPreview.records] }, db, onShowToast, false, importPreview.validateCurrent);
+      if (!saved) return;
+      onUpdateDb(saved); setDrafts({}); setImportPreview(null); onShowToast(`${importPreview.records.length} appel(s) importé(s) ou mis à jour.`, 'success');
+    } finally { setImportBusy(false); }
+  };
 
   const students = useMemo(
     () =>
@@ -183,6 +207,14 @@ export const AttendanceManagerView: React.FC<AttendanceManagerViewProps> = ({
 
   return (
     <div className="space-y-4">
+      {db.attendanceRecords.some(record => record.cloudSyncConflict && (!record.schoolYearId || record.schoolYearId === db.currentSchoolYearId)) && <div role="alert" className="page-panel p-3 text-sm text-amber-800 dark:text-amber-200">Des appels diffèrent des valeurs du Cloud. Les corrections locales sont conservées. Vérifiez les élèves et les dates concernés avec les enseignants avant une nouvelle saisie.{db.attendanceRecords.filter(record => record.cloudSyncConflict && (!record.schoolYearId || record.schoolYearId === db.currentSchoolYearId)).slice(0, 20).map(record => <p key={record.id} className="mt-2">{db.students.find(student => student.id === record.studentId)?.matricule} · {formatDate(record.date)} — {record.cloudSyncConflict}</p>)}</div>}
+      <div className="page-panel p-3 flex flex-wrap items-center gap-2">
+        <input ref={importInput} type="file" accept=".xlsx,.xls" className="hidden" aria-label="Fichier Excel des appels" onChange={event => void importFile(event)} />
+        <button type="button" className="button button--secondary" onClick={() => downloadAttendanceTemplate(db)}><Download size={14} /> Modèle appels</button>
+        <button type="button" className="button button--secondary" disabled={importBusy} onClick={() => importInput.current?.click()}><FileSpreadsheet size={14} /> Importer les appels Excel</button>
+        <p className="text-xs text-slate-500">Accepte aussi les appels exportés depuis Sekoly Enseignant sans Internet.</p>
+      </div>
+      <ExcelImportModal isOpen={!!importPreview} onClose={() => { if (!importBusy) setImportPreview(null); }} title="Importer les appels depuis Excel" fileName={importFileName} validCount={importPreview?.records.length || 0} validLabel="appel(s)" issues={importPreview?.issues || []} warnings={importPreview?.warnings || []} onConfirm={() => void confirmImport()} />
       <div className="page-panel p-3 flex flex-col xl:flex-row xl:items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
           <label className="min-w-[190px]">

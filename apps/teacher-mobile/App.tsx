@@ -21,6 +21,8 @@ import {
 } from 'react-native';
 import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
 import { offlineStore } from './src/lib/offlineStore';
+import { excelStore } from './src/lib/excelStore';
+import { ExcelWorkspace } from './src/components/ExcelWorkspace';
 import { acceptAuthDeepLink, supabase } from './src/lib/supabase';
 import {
   Assignment,
@@ -283,8 +285,10 @@ function ActivateAccountScreen({
 
 function LoginScreen({
   onLoggedIn,
+  onOpenExcel,
 }: {
   onLoggedIn: () => Promise<void>;
+  onOpenExcel: () => void;
 }) {
   const { styles } = useMobileTheme();
   const [email, setEmail] = useState('');
@@ -316,7 +320,7 @@ function LoginScreen({
       style={styles.full}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <SafeAreaView style={styles.loginPage}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: styles.loginPage.backgroundColor }}><ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: 24 }}>
         <View style={styles.brandSeal}>
           <Text style={styles.brandSealText}>S</Text>
         </View>
@@ -357,8 +361,10 @@ function LoginScreen({
             Votre compte est créé ou invité par la direction de votre établissement.
           </Text>
           <TextSizeControl />
+          <PrimaryButton label="Utiliser un fichier de l’école" kind="secondary" onPress={onOpenExcel} />
+          <Text style={styles.helper}>Sans Internet : ouvrez le fichier fourni par la direction, saisissez vos notes et vos appels, puis remettez vos exports Excel à l’école.</Text>
         </View>
-      </SafeAreaView>
+      </ScrollView></SafeAreaView>
     </KeyboardAvoidingView>
   );
 }
@@ -369,12 +375,14 @@ function Header({
   syncing,
   onSync,
   onLogout,
+  onOpenExcel,
 }: {
   context: TeacherContext;
   queueCount: number;
   syncing: boolean;
   onSync: () => void;
   onLogout: () => void;
+  onOpenExcel: () => void;
 }) {
   const { mode, styles, toggleTheme } = useMobileTheme();
   return (
@@ -407,6 +415,7 @@ function Header({
         <Pressable onPress={onLogout} hitSlop={8}>
           <Text style={styles.logoutText}>Quitter</Text>
         </Pressable>
+        <Pressable onPress={onOpenExcel} hitSlop={8}><Text style={styles.logoutText}>Échanges Excel</Text></Pressable>
       </View>
     </View>
   );
@@ -1008,7 +1017,7 @@ function GradesScreen({
   );
 }
 
-function AppContent() {
+function AppContent({ onOpenExcel }: { onOpenExcel: () => void }) {
   const { colors: COLORS, mode, styles } = useMobileTheme();
   const [booting, setBooting] = useState(true);
   const [context, setContext] = useState<TeacherContext | null>(null);
@@ -1196,6 +1205,7 @@ function AppContent() {
         <ExpoStatusBar style={mode === 'dark' ? 'light' : 'dark'} />
         <ActivityIndicator size="large" color={COLORS.navy} />
         <Text style={styles.bootText}>Ouverture de Sekoly Enseignant…</Text>
+        <PrimaryButton label="Utiliser un fichier de l’école" kind="secondary" onPress={onOpenExcel} />
       </View>
     );
   }
@@ -1217,6 +1227,7 @@ function AppContent() {
         <StatusBar barStyle={mode === 'dark' ? 'light-content' : 'dark-content'} />
         <ExpoStatusBar style={mode === 'dark' ? 'light' : 'dark'} />
         <LoginScreen
+          onOpenExcel={onOpenExcel}
           onLoggedIn={async () => {
             const mustChange = await teacherApi.requiresPasswordChange();
             if (mustChange) {
@@ -1244,6 +1255,7 @@ function AppContent() {
     <SafeAreaView style={[styles.full, styles.safeRoot]}>
       <ExpoStatusBar style="light" />
       <Header
+        onOpenExcel={onOpenExcel}
         context={context}
         queueCount={queueCount}
         syncing={syncing}
@@ -1321,6 +1333,7 @@ function AppContent() {
 }
 
 export default function App() {
+  const [fileMode, setFileMode] = useState(() => { try { return excelStore.fileMode(); } catch { return false; } });
   const systemScheme = useColorScheme();
   const [mode, setMode] = useState<ThemeMode>(
     systemScheme === 'dark' ? 'dark' : 'light'
@@ -1347,7 +1360,7 @@ export default function App() {
 
   return (
     <MobileThemeContext.Provider value={themeValue}>
-      <AppContent />
+      {fileMode ? <ExcelWorkspace colors={colors} textScale={textScale} onExit={() => { try { excelStore.setFileMode(false); setFileMode(false); } catch (error) { Alert.alert('Changement de mode impossible', error instanceof Error ? error.message : 'Réessayez.'); } }} /> : <AppContent onOpenExcel={() => { try { excelStore.setFileMode(true); setFileMode(true); } catch (error) { Alert.alert('Ouverture impossible', error instanceof Error ? error.message : 'Vérifiez le stockage du téléphone.'); } }} />}
     </MobileThemeContext.Provider>
   );
 }

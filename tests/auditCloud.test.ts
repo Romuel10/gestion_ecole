@@ -74,3 +74,45 @@ test('une panne de sauvegarde Cloud est visible et relancée après cinq minutes
   await cloud.ensureDailyBackup();assert.equal(calls,1);
   now+=5*60*1000+1;fail=false;await cloud.ensureDailyBackup();assert.equal(calls,2);assert.equal(cloud.dailyBackupError(),null);
 });
+
+
+test('correction Excel : les anciennes évaluations Cloud ne rétablissent pas les valeurs remplacées', async () => {
+  const f = cloudFixture(); const { protectImportedGrade } = f.load('src/services/gradeDraft.ts');
+  f.setRemote({sekoly_assessments:[f.assessment('a',20,1)],sekoly_assessment_scores:[f.score('a',10)]});
+  const first = await f.cloud.pullTeacherChanges(schoolFixture());
+  const corrected = protectImportedGrade(first.db.grades[0], { ...first.db.grades[0], evaluations: [18], evaluationWeights: [1] });
+  const result = await f.cloud.pullTeacherChanges({ ...first.db, grades: [corrected] });
+  assert.deepEqual(Array.from(result.db.grades[0].evaluations), [18]);
+});
+
+test('appel importé : correction locale protégée des anciennes valeurs Cloud et divergences visibles', async () => {
+  const f = cloudFixture(); const base = schoolFixture();
+  const session={id:'session',class_id:f.uuid('class','year-test:class-test'),session_date:'2026-10-04'};
+  const entry={id:'entry',session_id:'session',student_id:f.uuid('student','TEST001'),status:'ABSENT_UNJUSTIFIED'};
+  f.setRemote({sekoly_attendance_sessions:[session],sekoly_attendance_entries:[entry]});
+  const first = await f.cloud.pullTeacherChanges(base);
+  const current = { ...first.db, attendanceRecords: [{ ...first.db.attendanceRecords[0], type: 'PRESENT', cloudIgnoredFingerprint: JSON.stringify(['ABSENT_NON_JUSTIFIE', null, '']) }] };
+  const stale = await f.cloud.pullTeacherChanges(current); assert.equal(stale.db.attendanceRecords[0].type, 'PRESENT');
+  f.setRemote({sekoly_attendance_sessions:[session],sekoly_attendance_entries:[{...entry,status:'LATE',minutes_late:5}]});
+  const conflict = await f.cloud.pullTeacherChanges(stale.db); assert.equal(conflict.db.attendanceRecords[0].type, 'PRESENT'); assert.ok(conflict.db.attendanceRecords[0].cloudSyncConflict);
+  f.setRemote({sekoly_attendance_sessions:[session],sekoly_attendance_entries:[]});
+  const deleted = await f.cloud.pullTeacherChanges(conflict.db); assert.equal(deleted.db.attendanceRecords[0].type, 'PRESENT'); assert.ok(deleted.db.attendanceRecords[0].cloudSyncConflict);
+});
+
+test('appel local et appel Cloud du même jour : pas de doublon', async () => {
+  const f = cloudFixture(), db = schoolFixture();
+  const session={id:'session',class_id:f.uuid('class','year-test:class-test'),session_date:'2026-10-04'};
+  const entry={id:'entry',session_id:'session',student_id:f.uuid('student','TEST001'),status:'PRESENT'};
+  db.attendanceRecords=[{id:'excel-local',studentId:'student-test',classId:'class-test',schoolYearId:'year-test',date:'2026-10-04',type:'PRESENT'}];
+  f.setRemote({sekoly_attendance_sessions:[session],sekoly_attendance_entries:[entry]});
+  const result = await f.cloud.pullTeacherChanges(db); assert.equal(result.db.attendanceRecords.length, 1); assert.equal(result.db.attendanceRecords[0].id, 'excel-local');
+});
+
+test('réponse Cloud retardée : correction et suppression d’appel concurrentes gardent la saisie locale', () => {
+  const { mergeTeacherChanges } = createHarness().load('src/services/databaseMerge.ts'); const db = schoolFixture();
+  db.attendanceRecords=[{id:'cloud-att-example',studentId:'student-test',classId:'class-test',schoolYearId:'year-test',date:'2026-10-04',type:'ABSENT_NON_JUSTIFIE'}];
+  const current={...db,attendanceRecords:[{...db.attendanceRecords[0],type:'PRESENT'}]};
+  for (const records of [[{...db.attendanceRecords[0],type:'RETARD',minutesLate:5}],[]]) {
+    const merged=mergeTeacherChanges(current,db,{...db,attendanceRecords:records}); assert.equal(merged.attendanceRecords.length,1); assert.equal(merged.attendanceRecords[0].type,'PRESENT');
+  }
+});

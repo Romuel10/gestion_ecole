@@ -2,7 +2,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 import { resolve, extname } from 'node:path';
 import * as XLSX from 'xlsx';
-import { BASE_INITIAL_DATA } from '../../src/data/initialData';
+import { BASE_INITIAL_DATA, INITIAL_DATA } from '../../src/data/initialData';
 import { buildSimulationDatabase } from '../../src/data/simulationData';
 
 const fixture = buildSimulationDatabase(structuredClone(BASE_INITIAL_DATA));
@@ -23,9 +23,9 @@ test.beforeEach(async ({ page }) => {
 });
 
 async function boot(page: Page, populated = false) {
-  if (populated) await page.addInitScript((db) => {
+  await page.addInitScript((db) => {
     if (!localStorage.getItem('SEKOLY_BROWSER_CACHE_V1')) localStorage.setItem('SEKOLY_BROWSER_CACHE_V1', JSON.stringify(db));
-  }, fixture);
+  }, populated ? fixture : { ...structuredClone(INITIAL_DATA), schoolConfig: { ...INITIAL_DATA.schoolConfig, setupState: { step: 4, completedAt: '2026-10-09T00:00:00Z' } } });
   await page.goto('https://sekoly.test');
   await expect(page.getByRole('heading', { name: 'Tableau de bord', exact: true })).toBeVisible();
 }
@@ -66,7 +66,7 @@ test('animation 3D courte, ignorable, sans fenêtre supplémentaire', async ({ p
   expect(await page.locator('.startup-emblem').evaluate((el) => getComputedStyle(el).transformStyle)).toBe('preserve-3d');
   await page.screenshot({ path: 'test-results/startup.png' });
   await page.getByRole('button', { name: 'Accéder à mon espace' }).click();
-  await expect(page.getByRole('heading', { name: 'Tableau de bord', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Configurons votre école', exact: true })).toBeVisible();
   expect(context.pages()).toHaveLength(1);
 });
 

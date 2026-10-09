@@ -119,10 +119,11 @@ export class StorageService {
   /**
    * Serializes writes and publishes state only after durable storage succeeds.
    */
-  static saveDatabase(db: DatabaseSchema, base?: DatabaseSchema, teacherSync = false): Promise<DatabaseSchema> {
+  static saveDatabase(db: DatabaseSchema, base?: DatabaseSchema, teacherSync = false, guard?: (current: DatabaseSchema) => void): Promise<DatabaseSchema> {
     const proposed = structuredClone(db);
     const original = base ? structuredClone(base) : null;
     const write = this.writes.catch(() => undefined).then(async () => {
+      guard?.(this.current || original || proposed);
       const next = original && this.current
         ? (teacherSync ? mergeTeacherChanges : mergeDatabaseChanges)(this.current, original, proposed)
         : proposed;
@@ -140,8 +141,8 @@ export class StorageService {
     return write;
   }
 
-  static async saveDatabaseOrNotify(db: DatabaseSchema, base: DatabaseSchema, notify: (message: string, type: 'error') => void, teacherSync = false): Promise<DatabaseSchema | null> {
-    try { return await this.saveDatabase(db, base, teacherSync); }
+  static async saveDatabaseOrNotify(db: DatabaseSchema, base: DatabaseSchema, notify: (message: string, type: 'error') => void, teacherSync = false, guard?: (current: DatabaseSchema) => void): Promise<DatabaseSchema | null> {
+    try { return await this.saveDatabase(db, base, teacherSync, guard); }
     catch (error) {
       notify(`Enregistrement impossible : ${error instanceof Error ? error.message : String(error)}. Réessayez avant de fermer.`, 'error');
       return null;

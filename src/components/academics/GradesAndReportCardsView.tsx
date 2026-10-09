@@ -247,7 +247,7 @@ export const GradesAndReportCardsView: React.FC<GradesAndReportCardsViewProps> =
       ...db,
       grades: [...preserved, ...importedGrades],
     };
-    const savedDb = await StorageService.saveDatabaseOrNotify(updatedDb, db, onShowToast);
+    const savedDb = await StorageService.saveDatabaseOrNotify(updatedDb, db, onShowToast, false, gradeImportPreview.validateCurrent);
     if (!savedDb) return;
     onUpdateDb(savedDb);
     onShowToast(

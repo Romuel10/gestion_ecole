@@ -9,6 +9,8 @@ import { DashboardHome } from './components/dashboard/DashboardHome';
 import { CloudSyncService } from './services/cloudSync';
 import { StartupScreen } from './components/startup/StartupScreen';
 import { ViewErrorBoundary } from './components/common/ViewErrorBoundary';
+import { needsFirstSetup } from './services/firstSetup';
+const SchoolSetupWizard = lazy(() => import('./components/startup/SchoolSetupWizard').then(module => ({ default: module.SchoolSetupWizard })));
 
 const RegistrationView = lazy(() => import('./components/admissions/RegistrationView').then((module) => ({ default: module.RegistrationView })));
 const StudentListView = lazy(() => import('./components/students/StudentListView').then((module) => ({ default: module.StudentListView })));
@@ -203,7 +205,7 @@ export function App() {
 
   useEffect(() => {
     const handleShortcut = (event: KeyboardEvent) => {
-      if (!databaseReady || showStartup || event.defaultPrevented || !(event.ctrlKey || event.metaKey)) return;
+      if (!databaseReady || showStartup || needsFirstSetup(dbRef.current) || event.defaultPrevented || !(event.ctrlKey || event.metaKey)) return;
       // Never navigate away from a form or a dialog through a global shortcut.
       const inDialog = document.querySelector('[role="dialog"][aria-modal="true"]');
       const editing = event.target instanceof HTMLElement && Boolean(event.target.closest('input, textarea, select, [contenteditable="true"]'));
@@ -231,6 +233,13 @@ export function App() {
   if (showStartup) {
     return <StartupScreen ready={databaseReady} error={startupError} onFinish={() => setShowStartup(false)} />;
   }
+
+  if (needsFirstSetup(db)) return <>
+    <ViewErrorBoundary><Suspense fallback={<div role="status" className="p-8">Ouverture de l’assistant…</div>}>
+      <SchoolSetupWizard db={db} onUpdateDb={setDb} onComplete={saved => { setDb(saved); setCurrentTab('dashboard'); }} onShowToast={showToast} isDark={isDark} onToggleTheme={() => setIsDark(value => !value)} />
+    </Suspense></ViewErrorBoundary>
+    <ToastContainer toasts={toasts} onRemove={removeToast} />
+  </>;
 
   return (
     <div className="app-shell">

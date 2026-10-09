@@ -6,6 +6,7 @@ on:
     branches: [main]
     paths:
       - "apps/teacher-mobile/**"
+      - "src/types/school.ts"
       - ".github/workflows/teacher-android-apk.yml"
       - "supabase/functions/sekoly-provision-teacher/**"
       - "src/services/cloudSync.ts"
@@ -14,6 +15,7 @@ on:
     branches: [main]
     paths:
       - "apps/teacher-mobile/**"
+      - "src/types/school.ts"
       - ".github/workflows/teacher-android-apk.yml"
       - "supabase/functions/sekoly-provision-teacher/**"
       - "src/services/cloudSync.ts"

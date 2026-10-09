@@ -52,5 +52,17 @@ export function mergeTeacherChanges(current: DatabaseSchema, base: DatabaseSchem
       return saved ? (originals.get(key(grade)) ?? saved) : grade;
     }),
   };
+  const attendanceKey = (record: DatabaseSchema['attendanceRecords'][number]) => `${record.studentId}|${record.classId}|${record.date}|${record.schoolYearId ?? base.currentSchoolYearId}`;
+  const originalAttendance = new Map(base.attendanceRecords.map(record => [attendanceKey(record), record]));
+  const concurrentAttendance = new Map(current.attendanceRecords.filter(record => !same(record, originalAttendance.get(attendanceKey(record)))).map(record => [attendanceKey(record), record]));
+  const presentAttendance = new Set(current.attendanceRecords.map(attendanceKey));
+  guarded.attendanceRecords = proposed.attendanceRecords.filter(record => !originalAttendance.has(attendanceKey(record)) || presentAttendance.has(attendanceKey(record))).map(record => {
+    const saved = concurrentAttendance.get(attendanceKey(record));
+    return saved ? originalAttendance.get(attendanceKey(record)) ?? saved : record;
+  });
+  // A remote deletion cannot discard a local correction made during the pull.
+  for (const [key, saved] of concurrentAttendance) {
+    if (!guarded.attendanceRecords.some(record => attendanceKey(record) === key)) guarded.attendanceRecords.push(originalAttendance.get(key) ?? saved);
+  }
   return mergeDatabaseChanges(current, base, guarded);
 }
